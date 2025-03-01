@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 # tSnap = Timer("tSnap", logger=None)
 tKey = "tWait9.9hz"
 tWait = Timer(tKey, logger=None)
-import time
+
 with DCAM.DCAMCamera() as cam:
     # print(cam.get_defect_correct_mode())
     # cam.set_frame_format("chunks")
