@@ -1,4 +1,4 @@
-#%%
+#%% NONTRIVIAL script: gives the enum value texts of all available options in our specific cam. It does NOT return preset generic enum results in pylablib or dcamsdk4. It queries the camera!
 from tqdm import tqdm
 import pylablib as pll
 from pylablib.devices import DCAM # gives error if dll is not found. The dll is by default in system32 folder and automatically found. if not, then use code `pll.par["devices/dlls/dcamapi"] = "path/to/dlls"`
