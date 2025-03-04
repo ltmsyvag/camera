@@ -1,3 +1,4 @@
+#%%
 """Sample script for showing the list of properties with dcam.py.
 
 This script recognizes the camera and shows the list of properties with dcam.py.
