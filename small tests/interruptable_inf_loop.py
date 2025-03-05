@@ -1,8 +1,6 @@
 #%%
-import time
 try:
     while True:
-        print(time.time())
-        time.sleep(1)
+        pass
 except KeyboardInterrupt: # click the Interrupt button of python interactive window
     print("end")
