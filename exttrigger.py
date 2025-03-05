@@ -2,6 +2,7 @@
 from pylablib.devices import DCAM
 import matplotlib.pyplot as plt
 import time
+
 def closeCamAndSay(str):
     cam.stop_acquisition()
     cam.close()

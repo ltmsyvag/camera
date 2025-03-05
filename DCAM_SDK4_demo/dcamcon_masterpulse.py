@@ -1,3 +1,4 @@
+#%%
 """Sample for masterpulse control with DCAM.
 
 Sample script for setting properties related masterpulse to a camera.
@@ -344,3 +345,4 @@ if __name__ == '__main__':
     dcamcon_uninit()
 
     print('End {}'.format(ownname))
+# %%
