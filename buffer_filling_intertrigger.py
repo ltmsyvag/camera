@@ -1,49 +1,27 @@
 #%%
-import pylablib as pll
+# import pylablib as pll
 from pylablib.devices import DCAM
-import matplotlib.pyplot as plt
-from codetiming import Timer
 import time
-def closeCamAndSay(str):
-    cam.stop_acquisition()
-    cam.close()
-    print(str)
+from codetiming import Timer
 
 
-cam = DCAM.DCAMCamera()
-if cam.is_opened(): cam.close()
-cam.open(); print("cam opened")
-cam.set_trigger_mode("ext")
-cam.cav["trigger_polarity"] = 2
-cam.cav["output_trigger_source[0]"] = 2 # 2 readout end; 3 vsync; 6 trigger
-# cam.cav["output_trigger_active[0]"] = 1 # 1 edge
-cam.cav["output_trigger_polarity[0]"] = 2 # 1 negative; 2 positive
-cam.cav["output_trigger_kind[0]"] = 3 # 1 low； 2 exposure; 3 programmable; 4 trigger ready; 5 high; 6 anyrow exposure
-
-cam.cav["output_trigger_period[0]"] = 0.01
-cam.set_exposure(0.006) # default 0.0082944
-cam.set_roi(1352,1352+240,948,948+240) # full region (2304, 4096)
-cam.start_acquisition(mode="sequence")
-print(cam.get_device_variable("acquired_frames"))
-cam.wait_for_frame(timeout=None)
-print(cam.get_device_variable("acquired_frames"))
-cam.wait_for_frame(timeout=None)
-print(cam.get_device_variable("acquired_frames"))
-cam.wait_for_frame(timeout=None)
-print(cam.get_device_variable("acquired_frames"))
-try:
-    id = 0
-    while True:
-        cam.wait_for_frame(timeout=None)
-        id+=1
-        assert cam.get_device_variable("acquired_frames") == id
-        # frame = cam.read_oldest_image() #; id+=1
-        frame = cam.read_oldest_image() #; id+=1
-        if frame is None:
-            # closeCamAndSay(f"frame {id} is None")
-            closeCamAndSay("frame is None")
-            break
-except KeyboardInterrupt:
-    closeCamAndSay("======THE END=======")
+with DCAM.DCAMCamera() as cam:
+    cam.set_trigger_mode("int")
+    cam.set_exposure(0.1) # default 0.0082944
+    cam.set_roi(1352,1352+240,948,948+240) # full region (2304, 4096)
+    cam.start_acquisition(mode="snap", nframes=1)
+    cam.wait_for_frame(timeout=None) # 有一张 frame 后马上 exit，进入下一行
+    with Timer(): cam.wait_for_frame(timeout=None)
+    frame1 = cam.read_oldest_image() # 读取唯一一张 unread frame， 并且将其标记为 read
+    with Timer(): cam.wait_for_frame(timeout=None)
+    frame2 = cam.read_oldest_image() # 由于 frame1 的读取已经将 buffer 中的唯一一张 frame 标记为 read，因此 frame2 无法读到 unread frame (除非使用 kwarg peek=True)， 其值为 None
+    try:
+        assert frame2 is None
+        print("frame2 is None")
+    except AssertionError:
+        print("frame2 is good")
+    print(cam.get_device_variable("acquired_frames")) # 这是一个总采集 frame 数的 counter, afaik, 在相机开启期间它只可能一直 +1
+    time.sleep(0.5)
+    print(cam.get_device_variable("acquired_frames")) 
 
 # %%
