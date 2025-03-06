@@ -1,6 +1,5 @@
 #%%
 import dearpygui.dearpygui as dpg
-import dearpygui.demo as demo
 from guihelplib import setChineseFont
 
 dpg.create_context()
