@@ -16,7 +16,7 @@ dpg.create_context()
 print(f"Ω Unicode : 0x{ord('Ω'):04x}")
 print(f"ant Unicode : 0x{ord('🐜'):06x}")
 with dpg.font_registry():
-    with dpg.font("/System/Library/Fonts/Supplemental/Arial Unicode.ttf", 20) as default_font:
+    with dpg.font("/System/Library/Fonts/STHeiti Light.ttc", 20) as default_font: # macOS
         # add the default font range
         dpg.add_font_range_hint(dpg.mvFontRangeHint_Default)
         dpg.add_font_range_hint(dpg.mvFontRangeHint_Chinese_Simplified_Common)
