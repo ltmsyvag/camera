@@ -3,7 +3,7 @@ import dearpygui.dearpygui as dpg
 from guihelplib import setChineseFont
 
 dpg.create_context()
-setChineseFont(dpg, fontsize=20)
+setChineseFont(dpg, fontsize=19)
 
 dpg.create_viewport(title='DPG doc', 
                     width=600, height=600,

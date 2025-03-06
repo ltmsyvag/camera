@@ -8,7 +8,9 @@ def chinesefontpath() -> str:
     """
     system = platform.system()
     if system == "Windows": return r"C:/Windows/Fonts/msyh.ttc"
-    elif system == "Darwin": return r"/System/Library/Fonts/STHeiti Light.ttc"
+    # elif system == "Darwin": return r"/System/Library/Fonts/Supplemental/Arial Unicode.ttf"
+    elif system == "Darwin": return r"/System/Library/Fonts/Monaco.ttf" # 没有中文字体, 但是读文档舒服
+    # elif system == "Darwin": return r"/Users/haiteng/Library/Fonts/sarasa-term-sc-nerd.ttc"
     else: raise NameError("没有定义本操作系统的中文字体地址")
 
 def setChineseFont(dpg: ModuleType, fontsize: int) -> None:
