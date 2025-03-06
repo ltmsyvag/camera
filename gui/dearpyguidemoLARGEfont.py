@@ -6,8 +6,8 @@ dpg.create_context()
 #### 下面的部分让 gui 字体大一些
 # Load a custom font with a larger size
 with dpg.font_registry():
-    # custom_font = dpg.add_font("/System/Library/Fonts/Supplemental/Arial.ttf", 20)  # macOS
-    custom_font = dpg.add_font("C:/Windows/Fonts/msyh.ttc", 20)  # Windows
+    custom_font = dpg.add_font("/System/Library/Fonts/Supplemental/Arial Unicode.ttf", 22)  # macOS
+    # custom_font = dpg.add_font("C:/Windows/Fonts/msyh.ttc", 20)  # Windows
     # Linux: "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 # Bind the custom font globally
 dpg.bind_font(custom_font)
