@@ -1,18 +1,14 @@
 #%%
 import dearpygui.dearpygui as dpg
-from guihelplib import chinesefontpath
+from guihelplib import setChineseFont
 
 
 def save_callback():
     print("Save Clicked")
 
 dpg.create_context()
-with dpg.font_registry():
-    custom_font = dpg.add_font(chinesefontpath(), 21)  # macOS
-    # custom_font = dpg.add_font("C:/Windows/Fonts/msyh.ttc", 20)  # Windows
-    # Linux: "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
-# Bind the custom font globally
-dpg.bind_font(custom_font)
+setChineseFont(dpg, 20)
+
 dpg.create_viewport()
 dpg.setup_dearpygui()
 
@@ -25,3 +21,4 @@ with dpg.window(label="Example Window"):
 dpg.show_viewport()
 dpg.start_dearpygui()
 dpg.destroy_context()
+# %%
