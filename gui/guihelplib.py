@@ -1,6 +1,7 @@
 #%%
 import platform
 from types import ModuleType # 用于 type annotation
+# import dearpygui.dearpygui as dpg
 
 def chinesefontpath() -> str:
     """
@@ -26,5 +27,19 @@ def setChineseFont(dpg: ModuleType, fontsize: int) -> None:
             dpg.add_font_range_hint(dpg.mvFontRangeHint_Chinese_Full)   # @source 这个会影响启动速度
             # dpg.add_font_range(0x300, 0x400)
         dpg.bind_font(default_font)
+
+
+def _log(sender, app_data, user_data):
+    """
+    helper function from demo.py. 可以作为还没写好的 callback 的 placeholder，
+    coding 时用来查看 callback 的所有三个 argument：
+    - sender：the id of the UI item that submitted teh callback
+    - app_data: occasionally UI items will send their own data (e.g. file dialog)
+    - user_data: any python object you want to send to the function
+    (quoted from dpg online doc)
+    """
+    print(f"sender: {sender}, \t app_data: {app_data}, \t user_data: {user_data}")
+
+
 if __name__ == "__main__":
     print(chinesefontpath())

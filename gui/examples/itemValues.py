@@ -35,6 +35,7 @@ with dpg.window(width=300):
 
 dpg.create_viewport(title='Custom Title', width=800, height=600)
 dpg.setup_dearpygui()
+dpg.set_global_font_scale(1.2)
 dpg.show_viewport()
 dpg.start_dearpygui()
 dpg.destroy_context()
