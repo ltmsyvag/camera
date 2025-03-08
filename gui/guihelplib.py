@@ -2,31 +2,56 @@
 import platform
 from types import ModuleType # 用于 type annotation
 # import dearpygui.dearpygui as dpg
+from pylablib.devices import DCAM
 
-def chinesefontpath() -> str:
+_myRoi = 1352,1352+240,948,948+240
+def guiOpenCam() -> DCAM.DCAM.DCAMCamera:
+    cam = DCAM.DCAMCamera()
+    if cam.is_opened(): cam.close()
+    cam.open()
+    cam.set_trigger_mode("ext")
+    cam.set_exposure(0.1)
+    cam.set_roi(*_myRoi)
+    cam.setup_acquisition(mode="snap", nframes=100)
+    print("cam is opened")
+    return cam
+
+
+def _chinesefontpath() -> str:
     """
     返回中文字体地址，以便 dpg 调用
+    返回 tuple (normalFontPath, largeFontPath)
     """
     system = platform.system()
-    if system == "Windows": return r"C:/Windows/Fonts/msyh.ttc"
+    if system == "Windows": 
+        return (
+            r"C:/Windows/Fonts/msyh.ttc", # 微软雅黑
+            r"C:/Windows/Fonts/msyhbd.ttc", # 微软雅黑 bold
+                ) # 微软雅黑 bold
     # elif system == "Darwin": return r"/System/Library/Fonts/Supplemental/Arial Unicode.ttf"
-    elif system == "Darwin": return r"/System/Library/Fonts/Monaco.ttf" # 没有中文字体, 但是读文档舒服
+    elif system == "Darwin": return (
+        r"/System/Library/Fonts/Monaco.ttf", # 没有中文字体, 但是读文档舒服
+        r"/System/Library/Fonts/Monaco.ttf", # 没有中文字体, 但是读文档舒服
+        ) 
     # elif system == "Darwin": return r"/Users/haiteng/Library/Fonts/sarasa-term-sc-nerd.ttc"
     else: raise NameError("没有定义本操作系统的中文字体地址")
 
-def setChineseFont(dpg: ModuleType, fontsize: int) -> None:
+def _setChineseFont(dpg: ModuleType, default_fontsize: int, large_fontsize: int) -> tuple[int, int]:
     """
-    （必须放置在 `dpg.create_context()` 之后）为 dpg 设置支持中文的默认字体
+    设置一些支持中文的字体和字号, 然后全局绑定一个默认中文字体
+    （必须放置在 `dpg.create_context()` 之后）
+    see https://dearpygui.readthedocs.io/en/latest/documentation/fonts.html
     """
+    normalFontPath, largeFontPath = _chinesefontpath()
     with dpg.font_registry():
-        with dpg.font(chinesefontpath(), fontsize) as default_font:
-            ## 本函数的方案来自于 https://www.skfwe.cn/p/dearpygui-显示中文和特殊字符/
-            ## 但是我发现实际上起作用的指令就一条，于是把其他指令注释掉了。其他指令可能有其他应用
-            # dpg.add_font_range_hint(dpg.mvFontRangeHint_Default)
+        with dpg.font(normalFontPath, default_fontsize) as default_font:
             # dpg.add_font_range_hint(dpg.mvFontRangeHint_Chinese_Simplified_Common) # 不包含锶铷这类生僻字
             dpg.add_font_range_hint(dpg.mvFontRangeHint_Chinese_Full)   # @source 这个会影响启动速度
-            # dpg.add_font_range(0x300, 0x400)
-        dpg.bind_font(default_font)
+        with dpg.font(largeFontPath, large_fontsize) as large_font:
+            dpg.add_font_range_hint(dpg.mvFontRangeHint_Chinese_Full)
+    dpg.bind_font(default_font)
+    return default_font, large_font
+
 
 
 def _log(sender, app_data, user_data):
@@ -40,6 +65,16 @@ def _log(sender, app_data, user_data):
     """
     print(f"sender: {sender}, \t app_data: {app_data}, \t user_data: {user_data}")
 
+
+import colorsys
+def rgbOppositeTo(r, g, b):
+    """
+    给出某 rgb 相对最大对比度颜色（HSL approach）。@GPT
+    """
+    h, l, s = colorsys.rgb_to_hls(r/255, g/255, b/255) # convert to HSL
+    h = (h + 0.5) % 1.0 # Rotate hue by 180° (opposite color)
+    r2, g2, b2 = colorsys.hls_to_rgb(h, l, s) # Convert back to RGB
+    return int(r2*255), int(g2*255), int(b2*255)
 
 if __name__ == "__main__":
     print(chinesefontpath())
