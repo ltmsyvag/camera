@@ -5,12 +5,15 @@ from types import ModuleType # 用于 type annotation
 from pylablib.devices import DCAM
 
 _myRoi = 1352,1352+240,948,948+240
+def guiSetExposure(cam, timeInMs): 
+    cam.set_exposure(timeInMs*1e-3)
+    # print(cam.cav["exposure_time"]) # REPL check
 def guiOpenCam() -> DCAM.DCAM.DCAMCamera:
     cam = DCAM.DCAMCamera()
     if cam.is_opened(): cam.close()
     cam.open()
     cam.set_trigger_mode("ext")
-    cam.set_exposure(0.1)
+    # cam.set_exposure(0.1)
     cam.set_roi(*_myRoi)
     cam.setup_acquisition(mode="snap", nframes=100)
     print("cam is opened")
