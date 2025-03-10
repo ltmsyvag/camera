@@ -3,18 +3,21 @@ import platform
 from types import ModuleType # 用于 type annotation
 # import dearpygui.dearpygui as dpg
 from pylablib.devices import DCAM
+import numpy as np
 
-_myRoi = 1352,1352+240,948,948+240
-def guiSetExposure(cam, timeInMs): 
-    cam.set_exposure(timeInMs*1e-3)
-    # print(cam.cav["exposure_time"]) # REPL check
+def _feedTheAWG(frame):
+    pass
+def _myRandFrame(v=2304,h=4096)-> np.ndarray:
+    myarr = np.random.randint(0,65535, size = v*h, dtype=np.uint16)
+    return myarr.reshape((v,-1))
+
 def guiOpenCam() -> DCAM.DCAM.DCAMCamera:
     cam = DCAM.DCAMCamera()
     if cam.is_opened(): cam.close()
     cam.open()
     cam.set_trigger_mode("ext")
     # cam.set_exposure(0.1)
-    cam.set_roi(*_myRoi)
+    # cam.set_roi(*_myRoi)
     cam.setup_acquisition(mode="snap", nframes=100)
     print("cam is opened")
     return cam
