@@ -3,6 +3,7 @@ from pylablib.devices import DCAM
 import matplotlib.pyplot as plt
 myRoi = 1352,1352+240,948,948+240
 expo = 0
+import time
 
 cam = DCAM.DCAMCamera()
 if cam.is_opened(): cam.close()
@@ -29,5 +30,6 @@ except KeyboardInterrupt:
     cam.stop_acquisition()
     cam.close()
     print("=======THE END=====")
+
 
 # %%

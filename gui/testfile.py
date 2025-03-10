@@ -24,15 +24,16 @@ with dpg.window() as win1:
                 0.1, 2.0, 0.0, 1.4, 0.0, 1.9, 6.3)
     # values = np.array(values, dtype=np.uint16)
     # _fmin, _fmax, _nVrows, _nHcols = 0,6.3,7,7
+    print(frame.nbytes)
     with dpg.group(horizontal=True):
         dpg.add_colormap_scale(min_scale=_fmin, max_scale=_fmax, height=400)
         dpg.bind_colormap(dpg.last_item(), dpg.mvPlotColormap_Hot)
         with dpg.plot(label="Heat Series", no_mouse_pos=True, height=400, width=-1):
             dpg.bind_colormap(dpg.last_item(), dpg.mvPlotColormap_Hot)
             _xyaxeskwargs = dict(no_gridlines = True, no_tick_marks = True)
-            dpg.add_plot_axis(dpg.mvXAxis, label="x", 
+            dpg.add_plot_axis(dpg.mvXAxis, label="h", opposite=True,
                               **_xyaxeskwargs)
-            with dpg.plot_axis(dpg.mvYAxis, label="y",
+            with dpg.plot_axis(dpg.mvYAxis, label="v", invert=True,
                                **_xyaxeskwargs) as theYax:
                 with Timer():
                     dpg.add_heat_series(fframe,
@@ -41,6 +42,8 @@ with dpg.window() as win1:
                                         tag="heat_series",
                                         scale_min=_fmin, 
                                         scale_max=_fmax,
+                                        bounds_min= (0,0),
+                                        bounds_max= (240,240),
                                         format="")
                     _feedTheAWG(fframe)
     def _changefig(*callbackArgs):

@@ -15,12 +15,21 @@ def guiOpenCam() -> DCAM.DCAM.DCAMCamera:
     cam = DCAM.DCAMCamera()
     if cam.is_opened(): cam.close()
     cam.open()
-    cam.set_trigger_mode("ext")
-    # cam.set_exposure(0.1)
-    # cam.set_roi(*_myRoi)
-    cam.setup_acquisition(mode="snap", nframes=100)
     print("cam is opened")
     return cam
+
+def prepCamForTrigAndPlot(cam: DCAM.DCAM.DCAMCamera):
+    cam.set_trigger_mode("ext")
+    # cam.setup_acquisition(mode="snap")
+    cam.start_acquisition(mode="sequence")
+    try:
+        while True:
+            cam.wait_for_frame(timeout=None)
+            thisFrame = cam.read_oldest_image()
+            _feedTheAWG(thisFrame)
+    except KeyboardInterrupt:
+        cam.stop_acquisition()
+        print("safe quit!")
 
 
 def _chinesefontpath() -> str:

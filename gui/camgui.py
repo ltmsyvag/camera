@@ -1,6 +1,8 @@
 #%%
 import dearpygui.dearpygui as dpg
-from guihelplib import (_log, _setChineseFont,rgbOppositeTo, guiOpenCam, _myRandFrame, _feedTheAWG)
+from guihelplib import (
+    _log, _setChineseFont,rgbOppositeTo, guiOpenCam, _myRandFrame,
+      _feedTheAWG, prepCamForTrigAndPlot)
 
 dpg.create_context()
 
@@ -32,6 +34,12 @@ with dpg.window(tag="win1", pos=(0,0)):
                     "camera on rgb" : (25,219,72),
                     "camera on hovered rgb" : (0,255,0),
                     })
+            # def _raiseKBI(): raise KeyboardInterrupt
+            # stopAcqButton = dpg.add_button(label="stop acquisition", callback = _raiseKBI)
+            # with dpg.item_handler_registry(tag="clicked"):
+            #     dpg.add_item_clicked_handler(callback=_raiseKBI)
+            # dpg.bind_item_handler_registry(stopAcqButton, "clicked")
+
             _1 = dpg.get_item_user_data(camSwitch)
             dpg.set_item_label(camSwitch, _1["camera off label"])
             dpg.add_separator()
@@ -80,11 +88,18 @@ with dpg.window(tag="win1", pos=(0,0)):
         with dpg.child_window():
             frame = _myRandFrame()
             with dpg.group(horizontal=True):
+                _cmap = dpg.mvPlotColormap_Hot
                 dpg.add_colormap_scale(min_scale=0,max_scale=65535, height=400)
-                with dpg.plot(label="frame", no_mouse_pos=True, height=400, width=-1):
-                    dpg.add_plot_axis(dpg.mvXAxis, label="x", lock_min=True, lockmax=True, no_gridlines=True,no_tick_marks=True)
-                    with dpg.plot_axis(dpg.mvYAxis,label="y", lock_min=True, lockmax=True, no_gridlines=True, no_tick_marks=True):
-                        dpg.add_heat_series(frame,7)
+                dpg.bind_colormap(dpg.last_item(), _cmap)
+                with dpg.plot(label = "frame", no_mouse_pos=True, height=400, width=-1):
+                    dpg.bind_colormap(dpg.last_item(), _cmap)
+                    _xyaxeskwargs = dict(no_gridlines = True, no_tick_marks = True)
+                    dpg.add_plot_axis(dpg.mvXAxis, label= "h", opposite=True, **_xyaxeskwargs)
+                    axCmap = dpg.add_plot_axis(dpg.mvYAxis, label= "v", invert=True, **_xyaxeskwargs)
+                # with dpg.plot(label="frame", no_mouse_pos=True, height=400, width=-1):
+                #     dpg.add_plot_axis(dpg.mvXAxis, label="x", lock_min=True, lockmax=True, no_gridlines=True,no_tick_marks=True)
+                #     with dpg.plot_axis(dpg.mvYAxis,label="y", lock_min=True, lockmax=True, no_gridlines=True, no_tick_marks=True):
+                #         dpg.add_heat_series(frame,7)
 dpg.set_primary_window("win1", True)
 
 #==== camSwitch: camera power switch button
@@ -117,16 +132,21 @@ def camSwitch_callback(sender, _, user_data):
         dpg.set_item_label(camSwitch,"开启中...")
         cam = guiOpenCam()
         user_data["camera object"] = cam; dpg.set_item_user_data(sender, user_data) # push the cam object to the switch button user_data, to be used by the initial cam settings from the fields below
+
+        ## make cam trig
+
         ## set cam exposure from field value, then refresh field by cam value
         expFieldValInMs = dpg.get_value(fieldExpo) 
         cam.set_exposure(expFieldValInMs*1e-3)
         expoCamValInS = cam.cav["exposure_time"]
         dpg.set_value(fieldExpo, expoCamValInS*1e3)
+        
         setCamROIfrom6Fields()
         set6FieldsROIfromCAM()
         dpg.set_item_label(sender, camONlabel)
         dpg.bind_item_theme(sender, camONbtn_theme)
     else:
+        # cam.stop_acquisition()
         cam.close(); print("=====cam closed")
         cam = None
         dpg.set_item_label(sender, camOFFlabel)
@@ -134,13 +154,16 @@ def camSwitch_callback(sender, _, user_data):
     dpg.configure_item(groupExpoRoi, enabled=state)
     user_data["is on"] = state
     dpg.set_item_user_data(sender, user_data)
+    # if state:
+    #     prepCamForTrigAndPlot(cam)
+
 
 dpg.set_item_callback(camSwitch,camSwitch_callback)
 dpg.bind_item_theme(camSwitch, camOFFbtn_theme)
 
 # print(dpg.get_value(fieldExpo))
 # dpg.show_style_editor()
-# dpg.show_item_registry()
+dpg.show_item_registry()
 dpg.setup_dearpygui()
 dpg.show_viewport()
 dpg.start_dearpygui()
