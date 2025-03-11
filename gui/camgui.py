@@ -1,9 +1,10 @@
 #%%
 import dearpygui.dearpygui as dpg
 import threading
+import tifffile
 from guihelplib import (
     _log, _setChineseFont,rgbOppositeTo, guiOpenCam, _myRandFrame,
-      _feedTheAWG, startAcqLoop)
+      _feedTheAWG, startAcqLoop,plotFrame,)
 
 dpg.create_context()
 
@@ -13,7 +14,7 @@ _, bold_font, large_font = _setChineseFont(dpg,
                                 large_fontsize=30)
 
 dpg.create_viewport(title='cam-AWG GUI', 
-                    width=1000, height=700,
+                    width=1000, height=800,
                     vsync=False) # important option to dismiss input lab, see https://github.com/hoffstadt/DearPyGui/issues/1571
 with dpg.theme(label="global theme") as global_theme:
     with dpg.theme_component(dpg.mvAll): # online doc: theme components must have a specified item type. This can either be `mvAll` for all items or a specific item type
@@ -114,8 +115,42 @@ with dpg.window(tag="win1", pos=(0,0)):
                 for _item in [fieldsROIh, fieldsROIv, fieldsBinning]:
                     dpg.set_item_callback(_item, setCamROIfrom6Fields)
                     dpg.bind_item_handler_registry(_item, "on leaving 6 ROI fields")
+            
         with dpg.child_window():
-            frame = _myRandFrame()
+            # frame = _myRandFrame()
+            fieldSavePath = dpg.add_input_text(hint="path to save tiff, e.g. C:\\Users\\username\\Desktop\\", width=600)
+            with dpg.group(horizontal=True):
+                frameStackCnt = dpg.add_text(tag = "frame stack count display", default_value= "0 frames in stack")
+                saveBtn = dpg.add_button(callback=_log, label="保存 frame stack", width=150, height=35)
+                dpg.add_spacer(width=30)
+                leftArr = dpg.add_button(tag = "plot previous frame", label="<", width=30, height=30, arrow=True)
+                rightArr = dpg.add_button(tag = "plot next frame", label=">", width=30, height=30, arrow=True, direction=dpg.mvDir_Right)
+                def _leftArrCallback(sender, _, user_data):
+                    id = user_data
+                    if frameStack:
+                        id -= 1
+                        if id<0: id = 0
+                        plotFrame(frameStack[id])
+                        # print("re-plotted!")
+                    dpg.set_item_user_data(sender, id)
+                def _rightArrCallback(*args):
+                    id = dpg.get_item_user_data(leftArr)
+                    if frameStack:
+                        id += 1
+                        if id >= len(frameStack): id = len(frameStack)-1
+                        plotFrame(frameStack[id])
+                    dpg.set_item_user_data(leftArr, id)
+                dpg.set_item_callback(leftArr, _leftArrCallback)
+                dpg.set_item_callback(rightArr, _rightArrCallback)
+                dpg.bind_item_font(frameStackCnt, bold_font)
+                def _saveFrame(*_callbackArgs):
+                    path = dpg.get_value(fieldSavePath)
+                    for id, frame in enumerate(frameStack):
+                        fpath = path + f"{id}.tiff"
+                        tifffile.imwrite(fpath, frame)
+                    frameStack.clear()
+                    dpg.set_value(frameStackCnt, "0 frames in stack")
+                dpg.set_item_callback(saveBtn, _saveFrame)
             with dpg.group(horizontal=True):
                 _cmap = dpg.mvPlotColormap_Hot
                 dpg.add_colormap_scale(tag = "frame colorbar", min_scale=0,max_scale=65535, height=400)

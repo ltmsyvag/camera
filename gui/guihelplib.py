@@ -6,7 +6,7 @@ from types import ModuleType # 用于 type annotation
 from pylablib.devices import DCAM
 import numpy as np
 import dearpygui.dearpygui as dpg
-from codetiming import Timer
+
 
 def _feedTheAWG(frame):
     pass
@@ -21,8 +21,9 @@ def guiOpenCam() -> DCAM.DCAM.DCAMCamera:
     print("cam is opened")
     return cam
 
-def storeAndPlotFrame(frame, frameStack, ax="frame yax", colorbar="frame colorbar")-> None:
-    frameStack.append(frame)
+def plotFrame(frame: np.ndarray,
+              ax = "frame yax",
+              colorbar="frame colorbar") -> None:
     fframe, _fmin, _fmax, (_nVrows, _nHcols) = frame.astype(float), frame.min(), frame.max(), frame.shape
     dpg.configure_item(colorbar, min_scale =_fmin, max_scale=_fmax)
     dpg.delete_item(ax, children_only=True) # this is necessary!
@@ -31,7 +32,22 @@ def storeAndPlotFrame(frame, frameStack, ax="frame yax", colorbar="frame colorba
                         bounds_min= (1,1), bounds_max= (_nHcols, _nVrows))
     dpg.fit_axis_data(ax)
     dpg.fit_axis_data("frame xax")
-import time
+
+def storeAndPlotFrame(frame: np.ndarray, frameStack: list)-> None:
+    frameStack.append(frame)
+    # if len(frameStack) > 500: frameStack.pop(0)
+    dpg.set_item_user_data("plot previous frame", len(frameStack)-1)
+    dpg.set_value("frame stack count display", f"{len(frameStack)} frames in stack")
+    plotFrame(frame)
+    # fframe, _fmin, _fmax, (_nVrows, _nHcols) = frame.astype(float), frame.min(), frame.max(), frame.shape
+    # dpg.configure_item(colorbar, min_scale =_fmin, max_scale=_fmax)
+    # dpg.delete_item(ax, children_only=True) # this is necessary!
+    # dpg.add_heat_series(fframe, _nVrows, _nHcols, parent=ax, 
+    #                     scale_min=_fmin, scale_max=_fmax,format="",
+    #                     bounds_min= (1,1), bounds_max= (_nHcols, _nVrows))
+    # dpg.fit_axis_data(ax)
+    # dpg.fit_axis_data("frame xax")
+
 def startAcqLoop(
         cam: DCAM.DCAM.DCAMCamera,
         event: threading.Event,
@@ -47,8 +63,7 @@ def startAcqLoop(
         _feedTheAWG(thisFrame)
         storeAndPlotFrame(thisFrame, frameStack)
         print("frame acquired")
-        print(Timer.timers.mean("t"))
-        print(Timer.timers.stdev("t"))
+
 
 
 def _chinesefontpath() -> str:
@@ -116,5 +131,3 @@ def rgbOppositeTo(r, g, b):
     r2, g2, b2 = colorsys.hls_to_rgb(h, l, s) # Convert back to RGB
     return int(r2*255), int(g2*255), int(b2*255)
 
-if __name__ == "__main__":
-    print(chinesefontpath())
