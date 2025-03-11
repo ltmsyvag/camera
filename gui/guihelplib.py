@@ -6,11 +6,12 @@ from types import ModuleType # 用于 type annotation
 from pylablib.devices import DCAM
 import numpy as np
 import dearpygui.dearpygui as dpg
+from codetiming import Timer
 
 def _feedTheAWG(frame):
     pass
-def _myRandFrame(v=2304,h=4096)-> np.ndarray:
-    myarr = np.random.randint(0,65535, size = v*h, dtype=np.uint16)
+def _myRandFrame(v=2304,h=4096, max=65535)-> np.ndarray:
+    myarr = np.random.randint(0,max, size = v*h, dtype=np.uint16)
     return myarr.reshape((v,-1))
 
 def guiOpenCam() -> DCAM.DCAM.DCAMCamera:
@@ -20,21 +21,35 @@ def guiOpenCam() -> DCAM.DCAM.DCAMCamera:
     print("cam is opened")
     return cam
 
-def startAcqLoop(cam: DCAM.DCAM.DCAMCamera, event: threading.Event)-> None:
+def storeAndPlotFrame(frame, frameStack, ax="frame yax", colorbar="frame colorbar")-> None:
+    frameStack.append(frame)
+    fframe, _fmin, _fmax, (_nVrows, _nHcols) = frame.astype(float), frame.min(), frame.max(), frame.shape
+    dpg.configure_item(colorbar, min_scale =_fmin, max_scale=_fmax)
+    dpg.delete_item(ax, children_only=True) # this is necessary!
+    dpg.add_heat_series(fframe, _nVrows, _nHcols, parent=ax, 
+                        scale_min=_fmin, scale_max=_fmax,format="",
+                        bounds_min= (1,1), bounds_max= (_nHcols, _nVrows))
+    dpg.fit_axis_data(ax)
+    dpg.fit_axis_data("frame xax")
+import time
+def startAcqLoop(
+        cam: DCAM.DCAM.DCAMCamera,
+        event: threading.Event,
+        frameStack: list)-> None:
     cam.set_trigger_mode("ext")
-    cam.start_acquisition(mode="sequence")
+    cam.start_acquisition(mode="sequence", nframes=100)
     while event.is_set():
-        try: 
-            cam.wait_for_frame(timeout=1)
+        try:
+            cam.wait_for_frame(timeout=0.2)
         except DCAM.DCAMTimeoutError:
-            print("timeout")
             continue
         thisFrame = cam.read_oldest_image()
         _feedTheAWG(thisFrame)
+        storeAndPlotFrame(thisFrame, frameStack)
         print("frame acquired")
-        
-def storeAndPlotFrame(frame, frameStack, ax)-> None:
-    pass
+        print(Timer.timers.mean("t"))
+        print(Timer.timers.stdev("t"))
+
 
 def _chinesefontpath() -> str:
     """

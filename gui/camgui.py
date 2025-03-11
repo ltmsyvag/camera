@@ -13,7 +13,7 @@ _, bold_font, large_font = _setChineseFont(dpg,
                                 large_fontsize=30)
 
 dpg.create_viewport(title='cam-AWG GUI', 
-                    width=1000, height=600,
+                    width=1000, height=700,
                     vsync=False) # important option to dismiss input lab, see https://github.com/hoffstadt/DearPyGui/issues/1571
 with dpg.theme(label="global theme") as global_theme:
     with dpg.theme_component(dpg.mvAll): # online doc: theme components must have a specified item type. This can either be `mvAll` for all items or a specific item type
@@ -48,13 +48,14 @@ with dpg.window(tag="win1", pos=(0,0)):
                                                  "acq loop thread" : None,
                                               })
                 dpg.bind_item_font(dpg.last_item(), bold_font)
+                frameStack = []
                 def _toggleAcqLoop(sender, app_data, user_data):
                     state = app_data
                     eventKeepAcquiring = user_data["keep acquiring thread event"]
                     cam = dpg.get_item_user_data(camSwitch)["camera object"]
                     itemsToToggle = ["expo and roi fields", camSwitch]
                     if state:
-                        threadAcq = threading.Thread(target=startAcqLoop, args=(cam, eventKeepAcquiring))
+                        threadAcq = threading.Thread(target=startAcqLoop, args=(cam, eventKeepAcquiring, frameStack))
                         user_data["acq loop thread"] = threadAcq
                         eventKeepAcquiring.set()
                         threadAcq.start()
@@ -117,13 +118,14 @@ with dpg.window(tag="win1", pos=(0,0)):
             frame = _myRandFrame()
             with dpg.group(horizontal=True):
                 _cmap = dpg.mvPlotColormap_Hot
-                dpg.add_colormap_scale(min_scale=0,max_scale=65535, height=400)
+                dpg.add_colormap_scale(tag = "frame colorbar", min_scale=0,max_scale=65535, height=400)
                 dpg.bind_colormap(dpg.last_item(), _cmap)
-                with dpg.plot(tag="frame plot",label = "frame", no_mouse_pos=True, height=400, width=-1):
+                _side = 600
+                with dpg.plot(tag="frame plot",label = "frame", no_mouse_pos=True, height=_side, width=_side):
                     dpg.bind_colormap(dpg.last_item(), _cmap)
                     _xyaxeskwargs = dict(no_gridlines = True, no_tick_marks = True)
-                    dpg.add_plot_axis(dpg.mvXAxis, label= "h", opposite=True, **_xyaxeskwargs)
-                    axCmap = dpg.add_plot_axis(dpg.mvYAxis, label= "v", invert=True, **_xyaxeskwargs)
+                    dpg.add_plot_axis(dpg.mvXAxis, tag = "frame xax", label= "h", opposite=True, **_xyaxeskwargs)
+                    axCmap = dpg.add_plot_axis(dpg.mvYAxis, tag= "frame yax", label= "v", invert=True, **_xyaxeskwargs)
                 # with dpg.plot(label="frame", no_mouse_pos=True, height=400, width=-1):
                 #     dpg.add_plot_axis(dpg.mvXAxis, label="x", lock_min=True, lockmax=True, no_gridlines=True,no_tick_marks=True)
                 #     with dpg.plot_axis(dpg.mvYAxis,label="y", lock_min=True, lockmax=True, no_gridlines=True, no_tick_marks=True):
@@ -193,7 +195,7 @@ dpg.bind_item_theme(camSwitch, camOFFbtn_theme)
 
 # print(dpg.get_value(fieldExpo))
 # dpg.show_style_editor()
-dpg.show_item_registry()
+# dpg.show_item_registry()
 dpg.setup_dearpygui()
 dpg.show_viewport()
 dpg.start_dearpygui()
