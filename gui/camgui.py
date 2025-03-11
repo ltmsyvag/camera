@@ -151,6 +151,11 @@ with dpg.window(tag="win1", pos=(0,0)):
                     frameStack.clear()
                     dpg.set_value(frameStackCnt, "0 frames in stack")
                 dpg.set_item_callback(saveBtn, _saveFrame)
+            # def _printstuff(sender):
+            #     print(dpg.get_value(sender))
+            with dpg.group(horizontal=True):
+                dpg.add_checkbox(label = "manual scale", tag = "manual scale checkbox")
+                dpg.add_input_intx(tag = "color scale lims",label = "color scale min & max (0-65535)", size = 2, width=120, default_value=[0,65535,0,0])
             with dpg.group(horizontal=True):
                 _cmap = dpg.mvPlotColormap_Hot
                 dpg.add_colormap_scale(tag = "frame colorbar", min_scale=0,max_scale=65535, height=400)

@@ -13,7 +13,7 @@ dpg.create_viewport(title='test',
                     vsync=False) # important option to dismiss input lab, see https://github.com/hoffstadt/DearPyGui/issues/1571
 
 with dpg.window() as win1:
-    frame = _myRandFrame(20, 240,50)
+    frame = _myRandFrame(20, 240)
     fframe, _fmin, _fmax, (_nVrows, _nHcols) = frame.astype(float), frame.min(), frame.max(), frame.shape
     values = (0.8, 2.4, 2.5, 3.9, 0.0, 4.0, 0.0,
                 2.4, 0.0, 4.0, 1.0, 2.7, 0.0, 0.0,
@@ -25,6 +25,7 @@ with dpg.window() as win1:
     # values = np.array(values, dtype=np.uint16)
     # _fmin, _fmax, _nVrows, _nHcols = 0,6.3,7,7
     print(frame.nbytes)
+    # _fmin, _fmax = 50000,65535
     with dpg.group(horizontal=True):
         colorbar = dpg.add_colormap_scale(min_scale=_fmin, max_scale=_fmax, height=400)
         dpg.bind_colormap(dpg.last_item(), dpg.mvPlotColormap_Hot)

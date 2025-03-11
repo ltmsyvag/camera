@@ -23,9 +23,15 @@ def guiOpenCam() -> DCAM.DCAM.DCAMCamera:
 
 def plotFrame(frame: np.ndarray,
               ax = "frame yax",
-              colorbar="frame colorbar") -> None:
+              colorbar="frame colorbar",
+              ) -> None:
     fframe, _fmin, _fmax, (_nVrows, _nHcols) = frame.astype(float), frame.min(), frame.max(), frame.shape
-    dpg.configure_item(colorbar, min_scale =_fmin, max_scale=_fmax)
+    if dpg.get_value("manual scale checkbox"):
+        _fmin, _fmax, *_ = dpg.get_value("color scale lims")
+    dpg.configure_item(
+        colorbar, 
+        min_scale = _fmin, 
+        max_scale = _fmax)
     dpg.delete_item(ax, children_only=True) # this is necessary!
     dpg.add_heat_series(fframe, _nVrows, _nHcols, parent=ax, 
                         scale_min=_fmin, scale_max=_fmax,format="",
