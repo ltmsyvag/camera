@@ -19,12 +19,15 @@ id = 0
 cam.start_acquisition()
 try:
     while True:
-        cam.wait_for_frame(timeout=1)
+        try: 
+            cam.wait_for_frame(timeout=1)
+            print("still waiting")
+        except DCAM.DCAMTimeoutError:
+            print("timeout")
+            continue
         thisFrame = cam.read_oldest_image()
-        id+=1
         fig, ax = plt.subplots()
-        ax.set_title(id)
-        ax.imshow(thisFrame, aspect="auto")
+        ax.imshow(thisFrame)
         plt.show()
 except KeyboardInterrupt:
     cam.stop_acquisition()
