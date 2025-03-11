@@ -1,13 +1,15 @@
 #%%
 import dearpygui.dearpygui as dpg
+import threading
 from guihelplib import (
     _log, _setChineseFont,rgbOppositeTo, guiOpenCam, _myRandFrame,
-      _feedTheAWG, prepCamForTrigAndPlot)
+      _feedTheAWG, startAcqLoop)
 
 dpg.create_context()
 
-_, large_font = _setChineseFont(dpg,
+_, bold_font, large_font = _setChineseFont(dpg,
                                 default_fontsize=19,
+                                bold_fontsize=21,
                                 large_fontsize=30)
 
 dpg.create_viewport(title='cam-AWG GUI', 
@@ -15,35 +17,61 @@ dpg.create_viewport(title='cam-AWG GUI',
                     vsync=False) # important option to dismiss input lab, see https://github.com/hoffstadt/DearPyGui/issues/1571
 with dpg.theme(label="global theme") as global_theme:
     with dpg.theme_component(dpg.mvAll): # online doc: theme components must have a specified item type. This can either be `mvAll` for all items or a specific item type
-        dpg.add_theme_style(dpg.mvStyleVar_FrameBorderSize, 1, 
-                            category=dpg.mvThemeCat_Core # online docstring paraphrase: you are mvThemeCat_core, if you are not doing plots or nodes. 实际上我发现不加这个 kwarg 也能产生出想要的 theme。但是看到网上都加，也就跟着加吧
-                            )
-# dpg.bind_theme(global_theme)
+        # dpg.add_theme_style(dpg.mvStyleVar_FrameBorderSize, 1, 
+        #                     category=dpg.mvThemeCat_Core # online docstring paraphrase: you are mvThemeCat_core, if you are not doing plots or nodes. 实际上我发现不加这个 kwarg 也能产生出想要的 theme。但是看到网上都加，也就跟着加吧
+        #                     )
+        dpg.add_theme_color(dpg.mvThemeCol_CheckMark, (255,255,0), category=dpg.mvThemeCat_Core)
+dpg.bind_theme(global_theme)
 
 with dpg.window(tag="win1", pos=(0,0)):
     with dpg.group(horizontal=True):
         with dpg.child_window(width=220):
-            camSwitch = dpg.add_button(
-                width=150, height=70, user_data={
-                    "is on" : False, 
-                    "camera object" : None, 
-                    "camera off label" : "相机已关闭",
-                    "camera on label" : "相机已开启",
-                    "camera off rgb" : (202, 33, 33),
-                    "camera off hovered rgb" : (255, 0, 0),
-                    "camera on rgb" : (25,219,72),
-                    "camera on hovered rgb" : (0,255,0),
-                    })
-            # def _raiseKBI(): raise KeyboardInterrupt
-            # stopAcqButton = dpg.add_button(label="stop acquisition", callback = _raiseKBI)
-            # with dpg.item_handler_registry(tag="clicked"):
-            #     dpg.add_item_clicked_handler(callback=_raiseKBI)
-            # dpg.bind_item_handler_registry(stopAcqButton, "clicked")
+            with dpg.group(horizontal=False):
+                camSwitch = dpg.add_button(
+                    width=150, height=70, user_data={
+                        "is on" : False, 
+                        "camera object" : None, 
+                        "camera off label" : "相机已关闭",
+                        "camera on label" : "相机已开启",
+                        "camera off rgb" : (202, 33, 33),
+                        "camera off hovered rgb" : (255, 0, 0),
+                        "camera on rgb" : (25,219,72),
+                        "camera on hovered rgb" : (0,255,0),
+                        })
 
-            _1 = dpg.get_item_user_data(camSwitch)
-            dpg.set_item_label(camSwitch, _1["camera off label"])
+                _1 = dpg.get_item_user_data(camSwitch)
+                dpg.set_item_label(camSwitch, _1["camera off label"])
+                acqToggle = dpg.add_checkbox(label = "采集循环开关",callback=_log, enabled=False,
+                                             user_data=
+                                             {
+                                                 "keep acquiring thread event" : threading.Event(),
+                                                 "acq loop thread" : None,
+                                              })
+                dpg.bind_item_font(dpg.last_item(), bold_font)
+                def _toggleAcqLoop(sender, app_data, user_data):
+                    state = app_data
+                    eventKeepAcquiring = user_data["keep acquiring thread event"]
+                    cam = dpg.get_item_user_data(camSwitch)["camera object"]
+                    itemsToToggle = ["expo and roi fields", camSwitch]
+                    if state:
+                        threadAcq = threading.Thread(target=startAcqLoop, args=(cam, eventKeepAcquiring))
+                        user_data["acq loop thread"] = threadAcq
+                        eventKeepAcquiring.set()
+                        threadAcq.start()
+                    else:
+                        threadAcq = user_data["acq loop thread"]
+                        eventKeepAcquiring.clear()
+                        threadAcq.join()
+                        user_data["acq loop thread"] = None
+                        cam.stop_acquisition()
+                        cam.set_trigger_mode("int")
+                        print("acq loop stopped")
+                    for item in itemsToToggle: # userproof: toggle the gray/ungray of some fields
+                        dpg.configure_item(item, enabled = not state)
+                    dpg.set_item_user_data(sender, user_data)
+            dpg.set_item_callback(acqToggle, _toggleAcqLoop)
             dpg.add_separator()
-            with dpg.group(horizontal=False, enabled=False) as groupExpoRoi:
+            with dpg.group(tag = "expo and roi fields",horizontal=False, enabled=False) as groupExpoRoi:
                 dpg.add_text("exposure time (ms):")
                 fieldExpo = dpg.add_input_float(
                     width = 120, step=0, format="%.4f",
@@ -59,7 +87,7 @@ with dpg.window(tag="win1", pos=(0,0)):
                         dpg.set_value(fieldExpo, camInternalExpoInMs)
                     dpg.add_item_deactivated_after_edit_handler(callback= _changeField)
                 dpg.bind_item_handler_registry(fieldExpo, "on Leaving fieldExpo")
-                dpg.add_spacing(count=5)
+                dpg.add_spacer(height=10)
                 dpg.add_separator(label="ROI (max h 4096, v 2304)")
                 dpg.add_text("h start & h length:", )
                 fieldsROIh = dpg.add_input_intx(size=2, indent= 20,width=100, default_value=[1352, 240,0,0])
@@ -91,7 +119,7 @@ with dpg.window(tag="win1", pos=(0,0)):
                 _cmap = dpg.mvPlotColormap_Hot
                 dpg.add_colormap_scale(min_scale=0,max_scale=65535, height=400)
                 dpg.bind_colormap(dpg.last_item(), _cmap)
-                with dpg.plot(label = "frame", no_mouse_pos=True, height=400, width=-1):
+                with dpg.plot(tag="frame plot",label = "frame", no_mouse_pos=True, height=400, width=-1):
                     dpg.bind_colormap(dpg.last_item(), _cmap)
                     _xyaxeskwargs = dict(no_gridlines = True, no_tick_marks = True)
                     dpg.add_plot_axis(dpg.mvXAxis, label= "h", opposite=True, **_xyaxeskwargs)
@@ -151,7 +179,9 @@ def camSwitch_callback(sender, _, user_data):
         cam = None
         dpg.set_item_label(sender, camOFFlabel)
         dpg.bind_item_theme(sender, camOFFbtn_theme)
-    dpg.configure_item(groupExpoRoi, enabled=state)
+    itemsToToggle = ["expo and roi fields", acqToggle]
+    for item in itemsToToggle:
+        dpg.configure_item(item, enabled=state)
     user_data["is on"] = state
     dpg.set_item_user_data(sender, user_data)
     # if state:

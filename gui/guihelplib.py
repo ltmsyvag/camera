@@ -1,9 +1,11 @@
 #%%
 import platform
+import threading
 from types import ModuleType # 用于 type annotation
 # import dearpygui.dearpygui as dpg
 from pylablib.devices import DCAM
 import numpy as np
+import dearpygui.dearpygui as dpg
 
 def _feedTheAWG(frame):
     pass
@@ -18,19 +20,21 @@ def guiOpenCam() -> DCAM.DCAM.DCAMCamera:
     print("cam is opened")
     return cam
 
-def prepCamForTrigAndPlot(cam: DCAM.DCAM.DCAMCamera):
+def startAcqLoop(cam: DCAM.DCAM.DCAMCamera, event: threading.Event)-> None:
     cam.set_trigger_mode("ext")
-    # cam.setup_acquisition(mode="snap")
     cam.start_acquisition(mode="sequence")
-    try:
-        while True:
-            cam.wait_for_frame(timeout=None)
-            thisFrame = cam.read_oldest_image()
-            _feedTheAWG(thisFrame)
-    except KeyboardInterrupt:
-        cam.stop_acquisition()
-        print("safe quit!")
-
+    while event.is_set():
+        try: 
+            cam.wait_for_frame(timeout=1)
+        except DCAM.DCAMTimeoutError:
+            print("timeout")
+            continue
+        thisFrame = cam.read_oldest_image()
+        _feedTheAWG(thisFrame)
+        print("frame acquired")
+        
+def storeAndPlotFrame(frame, frameStack, ax)-> None:
+    pass
 
 def _chinesefontpath() -> str:
     """
@@ -51,21 +55,27 @@ def _chinesefontpath() -> str:
     # elif system == "Darwin": return r"/Users/haiteng/Library/Fonts/sarasa-term-sc-nerd.ttc"
     else: raise NameError("没有定义本操作系统的中文字体地址")
 
-def _setChineseFont(dpg: ModuleType, default_fontsize: int, large_fontsize: int) -> tuple[int, int]:
+def _setChineseFont(dpg: ModuleType,
+                    default_fontsize: int, 
+                    bold_fontsize: int, 
+                    large_fontsize: int) -> tuple[int, int]:
     """
     设置一些支持中文的字体和字号, 然后全局绑定一个默认中文字体
     （必须放置在 `dpg.create_context()` 之后）
     see https://dearpygui.readthedocs.io/en/latest/documentation/fonts.html
     """
     normalFontPath, largeFontPath = _chinesefontpath()
+    boldFontPath = largeFontPath
     with dpg.font_registry():
         with dpg.font(normalFontPath, default_fontsize) as default_font:
             # dpg.add_font_range_hint(dpg.mvFontRangeHint_Chinese_Simplified_Common) # 不包含锶铷这类生僻字
             dpg.add_font_range_hint(dpg.mvFontRangeHint_Chinese_Full)   # @source 这个会影响启动速度
+        with dpg.font(boldFontPath, bold_fontsize) as bold_font:
+            dpg.add_font_range_hint(dpg.mvFontRangeHint_Chinese_Full)
         with dpg.font(largeFontPath, large_fontsize) as large_font:
             dpg.add_font_range_hint(dpg.mvFontRangeHint_Chinese_Full)
     dpg.bind_font(default_font)
-    return default_font, large_font
+    return default_font, bold_font, large_font
 
 
 

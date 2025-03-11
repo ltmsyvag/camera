@@ -2,12 +2,9 @@
 from pylablib.devices import DCAM
 import matplotlib.pyplot as plt
 import threading
+import time
 myRoi = 1352,1352+240,948,948+240
 expo = 0
-import time
-
-class QuitAcquisition(Exception):
-    pass
 
 cam = DCAM.DCAMCamera()
 if cam.is_opened(): cam.close()
@@ -23,19 +20,20 @@ id = 0
 cam.start_acquisition()
 
 eventKeepAcquiring = threading.Event()
-def acq_loop():
-    while eventKeepAcquiring.is_set():
+def acq_loop(cam: DCAM.DCAMCamera, event: threading.Event)-> None:
+    while event.is_set():
         try:
             cam.wait_for_frame(timeout=1)
         except DCAM.DCAMTimeoutError:
-            print("e")
+            print("timeout")
             continue
         thisFrame = cam.read_oldest_image()
         _, ax = plt.subplots()
         ax.imshow(thisFrame)
 
-threadAcq = threading.Thread(target=acq_loop)
+threadAcq = threading.Thread(target=acq_loop, args=(cam, eventKeepAcquiring))
 
+eventKeepAcquiring.set()
 threadAcq.start()
 print("start sleeping")
 time.sleep(10)
