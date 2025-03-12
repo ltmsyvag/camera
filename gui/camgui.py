@@ -8,7 +8,7 @@ from guihelplib import (
 
 dpg.create_context()
 
-_, bold_font, large_font = _setChineseFont(dpg,
+_, bold_font, large_font = _setChineseFont(
                                 default_fontsize=19,
                                 bold_fontsize=21,
                                 large_fontsize=30)

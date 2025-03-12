@@ -6,12 +6,11 @@ from codetiming import Timer
 import time
 
 dpg.create_context()
-_setChineseFont(dpg, 19,19,19)
-
 dpg.create_viewport(title='test', 
                     width=600, height=600,
                     vsync=False) # important option to dismiss input lab, see https://github.com/hoffstadt/DearPyGui/issues/1571
 
+_setChineseFont(dpg, 19,19,19)
 with dpg.window() as win1:
     frame = _myRandFrame(20, 240)
     fframe, _fmin, _fmax, (_nVrows, _nHcols) = frame.astype(float), frame.min(), frame.max(), frame.shape

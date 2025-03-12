@@ -105,7 +105,7 @@ def _setChineseFont(dpg: ModuleType,
     with dpg.font_registry():
         with dpg.font(normalFontPath, default_fontsize) as default_font:
             # dpg.add_font_range_hint(dpg.mvFontRangeHint_Chinese_Simplified_Common) # 不包含锶铷这类生僻字
-            dpg.add_font_range_hint(dpg.mvFontRangeHint_Chinese_Full)   # @source 这个会影响启动速度
+            dpg.add_font_range_hint(dpg.mvFontRangeHint_Chinese_Full)  
         with dpg.font(boldFontPath, bold_fontsize) as bold_font:
             dpg.add_font_range_hint(dpg.mvFontRangeHint_Chinese_Full)
         with dpg.font(largeFontPath, large_fontsize) as large_font:
