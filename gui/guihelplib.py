@@ -91,10 +91,9 @@ def _chinesefontpath() -> str:
     # elif system == "Darwin": return r"/Users/haiteng/Library/Fonts/sarasa-term-sc-nerd.ttc"
     else: raise NameError("没有定义本操作系统的中文字体地址")
 
-def _setChineseFont(dpg: ModuleType,
-                    default_fontsize: int, 
-                    bold_fontsize: int, 
-                    large_fontsize: int) -> tuple[int, int]:
+def _setChineseFont(default_fontsize: int, 
+                    bold_fontsize: int=21, 
+                    large_fontsize: int=30) -> tuple[int, int]:
     """
     设置一些支持中文的字体和字号, 然后全局绑定一个默认中文字体
     （必须放置在 `dpg.create_context()` 之后）
