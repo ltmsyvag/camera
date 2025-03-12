@@ -157,7 +157,7 @@ with dpg.window(tag="win1", pos=(0,0)):
                 dpg.add_checkbox(label = "manual scale", tag = "manual scale checkbox")
                 dpg.add_input_intx(tag = "color scale lims",label = "color scale min & max (0-65535)", size = 2, width=120, default_value=[0,65535,0,0])
             with dpg.group(horizontal=True):
-                _cmap = dpg.mvPlotColormap_Hot
+                _cmap = dpg.mvPlotColormap_Viridis
                 dpg.add_colormap_scale(tag = "frame colorbar", min_scale=0,max_scale=65535, height=400)
                 dpg.bind_colormap(dpg.last_item(), _cmap)
                 _side = 600
@@ -166,10 +166,6 @@ with dpg.window(tag="win1", pos=(0,0)):
                     _xyaxeskwargs = dict(no_gridlines = True, no_tick_marks = True)
                     dpg.add_plot_axis(dpg.mvXAxis, tag = "frame xax", label= "h", opposite=True, **_xyaxeskwargs)
                     axCmap = dpg.add_plot_axis(dpg.mvYAxis, tag= "frame yax", label= "v", invert=True, **_xyaxeskwargs)
-                # with dpg.plot(label="frame", no_mouse_pos=True, height=400, width=-1):
-                #     dpg.add_plot_axis(dpg.mvXAxis, label="x", lock_min=True, lockmax=True, no_gridlines=True,no_tick_marks=True)
-                #     with dpg.plot_axis(dpg.mvYAxis,label="y", lock_min=True, lockmax=True, no_gridlines=True, no_tick_marks=True):
-                #         dpg.add_heat_series(frame,7)
 dpg.set_primary_window("win1", True)
 
 #==== camSwitch: camera power switch button
