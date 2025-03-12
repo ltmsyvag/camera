@@ -1,4 +1,6 @@
 #%%
+from datetime import datetime
+from pathlib import Path
 import platform
 import threading
 from types import ModuleType # 用于 type annotation
@@ -6,7 +8,8 @@ from types import ModuleType # 用于 type annotation
 from pylablib.devices import DCAM
 import numpy as np
 import dearpygui.dearpygui as dpg
-
+import colorsys
+import tifffile
 
 def _feedTheAWG(frame):
     pass
@@ -45,14 +48,6 @@ def storeAndPlotFrame(frame: np.ndarray, frameStack: list)-> None:
     dpg.set_item_user_data("plot previous frame", len(frameStack)-1)
     dpg.set_value("frame stack count display", f"{len(frameStack)} frames in stack")
     plotFrame(frame)
-    # fframe, _fmin, _fmax, (_nVrows, _nHcols) = frame.astype(float), frame.min(), frame.max(), frame.shape
-    # dpg.configure_item(colorbar, min_scale =_fmin, max_scale=_fmax)
-    # dpg.delete_item(ax, children_only=True) # this is necessary!
-    # dpg.add_heat_series(fframe, _nVrows, _nHcols, parent=ax, 
-    #                     scale_min=_fmin, scale_max=_fmax,format="",
-    #                     bounds_min= (1,1), bounds_max= (_nHcols, _nVrows))
-    # dpg.fit_axis_data(ax)
-    # dpg.fit_axis_data("frame xax")
 
 def startAcqLoop(
         cam: DCAM.DCAM.DCAMCamera,
@@ -126,7 +121,7 @@ def _log(sender, app_data, user_data):
     print(f"sender: {sender}, \t app_data: {app_data}, \t user_data: {user_data}")
 
 
-import colorsys
+
 def rgbOppositeTo(r, g, b):
     """
     给出某 rgb 相对最大对比度颜色（HSL approach）。@GPT
@@ -136,3 +131,18 @@ def rgbOppositeTo(r, g, b):
     r2, g2, b2 = colorsys.hls_to_rgb(h, l, s) # Convert back to RGB
     return int(r2*255), int(g2*255), int(b2*255)
 
+def saveWithTimestamp(dpathStr: str, frame: np.ndarray, id: int=0) -> bool:
+    """
+    保存 frame 为 tiff 文件，文件名为 fpath 加上时间戳, 如果保存失败（dir 不存在, permission denied, etc.）则返回 True
+    """
+    try:
+        timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+        dpath = Path(dpathStr)
+        fpath = dpath / (timestamp + f"_{id}.tiff")
+        tifffile.imwrite(fpath, frame)
+        print(f"frame saved as {fpath}")
+    except:
+        return True
+if __name__ == "__main__":
+    frame = _myRandFrame(240, 240)
+    notsaved = saveWithTimestamp(r"", frame)

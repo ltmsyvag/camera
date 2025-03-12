@@ -4,7 +4,7 @@ import threading
 import tifffile
 from guihelplib import (
     _log, _setChineseFont,rgbOppositeTo, guiOpenCam, _myRandFrame,
-      _feedTheAWG, startAcqLoop,plotFrame,)
+      _feedTheAWG, startAcqLoop,plotFrame, saveWithTimestamp)
 
 dpg.create_context()
 
@@ -106,7 +106,7 @@ with dpg.window(tag="win1", pos=(0,0)):
                 def set6FieldsROIfromCAM(): # arg free callback, also indpendently used (not as callback) in cam switch initialization
                     cam = dpg.get_item_user_data(camSwitch)["camera object"]
                     hstart, hend, vstart, vend, hbin, vbin = cam.get_roi()
-                    print(hstart, hend, vstart, vend, hbin, vbin)
+                    # print(hstart, hend, vstart, vend, hbin, vbin)
                     dpg.set_value(fieldsROIh,[hstart, hend-hstart,0,0])
                     dpg.set_value(fieldsROIv,[vstart, vend-vstart,0,0])
                     dpg.set_value(fieldsBinning,[hbin, vbin,0,0])
@@ -122,9 +122,38 @@ with dpg.window(tag="win1", pos=(0,0)):
             with dpg.group(horizontal=True):
                 frameStackCnt = dpg.add_text(tag = "frame stack count display", default_value= "0 frames in stack")
                 saveBtn = dpg.add_button(callback=_log, label="保存 frame stack", width=150, height=35)
-                dpg.add_spacer(width=30)
-                leftArr = dpg.add_button(tag = "plot previous frame", label="<", width=30, height=30, arrow=True)
-                rightArr = dpg.add_button(tag = "plot next frame", label=">", width=30, height=30, arrow=True, direction=dpg.mvDir_Right)
+                
+                dpg.add_button(tag = "clear stack button", label="清空 frame stack", width=150, height=35)
+                def _on_confirm():
+                    frameStack.clear()
+                    dpg.set_value(frameStackCnt, "0 frames in stack")
+                    dpg.delete_item("confirmation_modal")  # Close the modal after confirming
+
+                def _on_cancel():
+                    print("Cancelled!")
+                    dpg.delete_item("confirmation_modal")  # Close the modal after cancelling
+
+                def _open_confirmation():
+                    if not dpg.does_item_exist("confirmation_modal"):
+                        with dpg.window(label="Confirm Action", pos=(200, 200),
+                                        modal=True, tag="confirmation_modal", 
+                                        width=300, height=150):
+                            dpg.add_text("确认要清空内存中所有的 frames 吗？")
+                            with dpg.group(horizontal=True):
+                                dpg.add_button(label="Yes", width=75, callback=_on_confirm)
+                                dpg.add_button(label="No", width=75, callback=_on_cancel)
+                dpg.set_item_callback("clear stack button", _open_confirmation)
+                btnSaveCurrent = dpg.add_button(label="保存当前 frame", width=150, height=35)
+                def _saveCurrentFrame(*cbargs):
+                    id = dpg.get_item_user_data(leftArr)
+                    frame = frameStack[id]
+                    dpath = dpg.get_value(fieldSavePath)
+                    notsaved = saveWithTimestamp(dpath, frame, id)
+                    if notsaved:
+                        dpg.set_value(frameStackCnt, "NOT Saved!")
+                    else:
+                        dpg.set_value(frameStackCnt, "Saved!")
+                dpg.set_item_callback(btnSaveCurrent, _saveCurrentFrame)
                 def _leftArrCallback(sender, _, user_data):
                     id = user_data
                     if frameStack:
@@ -140,22 +169,30 @@ with dpg.window(tag="win1", pos=(0,0)):
                         if id >= len(frameStack): id = len(frameStack)-1
                         plotFrame(frameStack[id])
                     dpg.set_item_user_data(leftArr, id)
-                dpg.set_item_callback(leftArr, _leftArrCallback)
-                dpg.set_item_callback(rightArr, _rightArrCallback)
                 dpg.bind_item_font(frameStackCnt, bold_font)
-                def _saveFrame(*_callbackArgs):
-                    path = dpg.get_value(fieldSavePath)
+                def _saveFrame(*cbargs):
+                    dpath = dpg.get_value(fieldSavePath)
+                    notsaved = None
                     for id, frame in enumerate(frameStack):
-                        fpath = path + f"{id}.tiff"
-                        tifffile.imwrite(fpath, frame)
-                    frameStack.clear()
-                    dpg.set_value(frameStackCnt, "0 frames in stack")
+                        notsaved = saveWithTimestamp(dpath, frame, id)
+                        if notsaved:
+                            dpg.set_value(frameStackCnt, "NOT Saved!")
+                            break
+                    if not notsaved:
+                        frameStack.clear()
+                        dpg.set_value(frameStackCnt, "0 frames in stack")
                 dpg.set_item_callback(saveBtn, _saveFrame)
             # def _printstuff(sender):
             #     print(dpg.get_value(sender))
+            dpg.add_separator()
             with dpg.group(horizontal=True):
                 dpg.add_checkbox(label = "manual scale", tag = "manual scale checkbox")
                 dpg.add_input_intx(tag = "color scale lims",label = "color scale min & max (0-65535)", size = 2, width=120, default_value=[0,65535,0,0])
+                dpg.add_spacer(width=10)
+                leftArr = dpg.add_button(tag = "plot previous frame", label="<", width=30, height=30, arrow=True)
+                rightArr = dpg.add_button(tag = "plot next frame", label=">", width=30, height=30, arrow=True, direction=dpg.mvDir_Right)
+                dpg.set_item_callback(leftArr, _leftArrCallback)
+                dpg.set_item_callback(rightArr, _rightArrCallback)
             with dpg.group(horizontal=True):
                 _cmap = dpg.mvPlotColormap_Viridis
                 dpg.add_colormap_scale(tag = "frame colorbar", min_scale=0,max_scale=65535, height=400)
