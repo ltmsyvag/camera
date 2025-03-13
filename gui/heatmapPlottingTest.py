@@ -10,9 +10,9 @@ dpg.create_viewport(title='test',
                     width=600, height=600,
                     vsync=False) # important option to dismiss input lab, see https://github.com/hoffstadt/DearPyGui/issues/1571
 
-_setChineseFont(dpg, 19,19,19)
+_setChineseFont(19)
 with dpg.window() as win1:
-    frame = _myRandFrame(20, 240)
+    frame = _myRandFrame(240, 240)
     fframe, _fmin, _fmax, (_nVrows, _nHcols) = frame.astype(float), frame.min(), frame.max(), frame.shape
     values = (0.8, 2.4, 2.5, 3.9, 0.0, 4.0, 0.0,
                 2.4, 0.0, 4.0, 1.0, 2.7, 0.0, 0.0,
@@ -25,11 +25,29 @@ with dpg.window() as win1:
     # _fmin, _fmax, _nVrows, _nHcols = 0,6.3,7,7
     print(frame.nbytes)
     # _fmin, _fmax = 50000,65535
+    ### cmaps from the source code of dearpygui.dearpygui
+    # _cmap = dpg.mvPlotColormap_Default
+    # _cmap = dpg.mvPlotColormap_Deep
+    # _cmap = dpg.mvPlotColormap_Dark
+    # _cmap = dpg.mvPlotColormap_Pastel
+    # _cmap = dpg.mvPlotColormap_Paired
+    _cmap = dpg.mvPlotColormap_Viridis
+    # _cmap = dpg.mvPlotColormap_Plasma
+    # _cmap = dpg.mvPlotColormap_Hot
+    # _cmap = dpg.mvPlotColormap_Cool
+    # _cmap = dpg.mvPlotColormap_Pink
+    # _cmap = dpg.mvPlotColormap_Jet
+    # _cmap = dpg.mvPlotColormap_Twilight
+    # _cmap = dpg.mvPlotColormap_RdBu
+    # _cmap = dpg.mvPlotColormap_BrBG
+    # _cmap = dpg.mvPlotColormap_PiYG
+    # _cmap = dpg.mvPlotColormap_Spectral
+    # _cmap = dpg.mvPlotColormap_Greys
     with dpg.group(horizontal=True):
         colorbar = dpg.add_colormap_scale(min_scale=_fmin, max_scale=_fmax, height=400)
-        dpg.bind_colormap(dpg.last_item(), dpg.mvPlotColormap_Hot)
+        dpg.bind_colormap(dpg.last_item(), _cmap)
         with dpg.plot(label="Heat Series", no_mouse_pos=True, height=400, width=-1):
-            dpg.bind_colormap(dpg.last_item(), dpg.mvPlotColormap_Hot)
+            dpg.bind_colormap(dpg.last_item(), _cmap)
             _xyaxeskwargs = dict(no_gridlines = True, no_tick_marks = True)
             theXax = dpg.add_plot_axis(dpg.mvXAxis, label="h", opposite=True,
                               **_xyaxeskwargs)
