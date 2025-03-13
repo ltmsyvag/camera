@@ -2,7 +2,6 @@
 import platform
 import threading
 from types import ModuleType # 用于 type annotation
-# import dearpygui.dearpygui as dpg
 from pylablib.devices import DCAM
 import numpy as np
 import dearpygui.dearpygui as dpg
