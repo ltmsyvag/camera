@@ -14,7 +14,7 @@ _, bold_font, large_font = _setChineseFont(
                                 large_fontsize=30)
 
 dpg.create_viewport(title='cam-AWG GUI', 
-                    width=1000, height=800,
+                    width=1000, height=1020, x_pos=0, y_pos=0,
                     vsync=False) # important option to dismiss input lab, see https://github.com/hoffstadt/DearPyGui/issues/1571
 with dpg.theme(label="global theme") as global_theme:
     with dpg.theme_component(dpg.mvAll): # online doc: theme components must have a specified item type. This can either be `mvAll` for all items or a specific item type
@@ -25,7 +25,8 @@ with dpg.theme(label="global theme") as global_theme:
 dpg.bind_theme(global_theme)
 
 with dpg.window(tag="win1", pos=(0,0)):
-    with dpg.group(horizontal=True):
+    # with dpg.group():
+    with dpg.group(horizontal=True, height=720):
         with dpg.child_window(width=220):
             with dpg.group(horizontal=False):
                 camSwitch = dpg.add_button(
@@ -43,11 +44,11 @@ with dpg.window(tag="win1", pos=(0,0)):
                 _1 = dpg.get_item_user_data(camSwitch)
                 dpg.set_item_label(camSwitch, _1["camera off label"])
                 acqToggle = dpg.add_checkbox(label = "采集循环开关",callback=_log, enabled=False,
-                                             user_data=
-                                             {
-                                                 "keep acquiring thread event" : threading.Event(),
-                                                 "acq loop thread" : None,
-                                              })
+                                            user_data=
+                                            {
+                                                "keep acquiring thread event" : threading.Event(),
+                                                "acq loop thread" : None,
+                                            })
                 dpg.bind_item_font(dpg.last_item(), bold_font)
                 frameStack = []
                 def _toggleAcqLoop(sender, app_data, user_data):
@@ -162,7 +163,7 @@ with dpg.window(tag="win1", pos=(0,0)):
                         plotFrame(frameStack[id])
                         # print("re-plotted!")
                     dpg.set_item_user_data(sender, id)
-                def _rightArrCallback(*args):
+                def _rightArrCallback(*cbargs):
                     id = dpg.get_item_user_data(leftArr)
                     if frameStack:
                         id += 1
@@ -189,10 +190,24 @@ with dpg.window(tag="win1", pos=(0,0)):
                 dpg.add_checkbox(label = "manual scale", tag = "manual scale checkbox")
                 dpg.add_input_intx(tag = "color scale lims",label = "color scale min & max (0-65535)", size = 2, width=120, default_value=[0,65535,0,0])
                 dpg.add_spacer(width=10)
-                leftArr = dpg.add_button(tag = "plot previous frame", label="<", width=30, height=30, arrow=True)
-                rightArr = dpg.add_button(tag = "plot next frame", label=">", width=30, height=30, arrow=True, direction=dpg.mvDir_Right)
-                dpg.set_item_callback(leftArr, _leftArrCallback)
-                dpg.set_item_callback(rightArr, _rightArrCallback)
+                with dpg.group(tag="frame browse arrows",horizontal=True):
+                    leftArr = dpg.add_button(tag = "plot previous frame", label="<", width=30, height=30, arrow=True)
+                    rightArr = dpg.add_button(tag = "plot next frame", label=">", width=30, height=30, arrow=True, direction=dpg.mvDir_Right)
+                    dpg.set_item_callback(leftArr, _leftArrCallback)
+                    dpg.set_item_callback(rightArr, _rightArrCallback)
+                dpg.add_spacer(width=20)
+                dpg.add_checkbox(label="stack 平均图",tag="toggle 积分/单张 map")
+                def _toggleSingleEtIntegratedMap(_, app_data,__):
+                    if frameStack:
+                        if app_data:
+                            dpg.configure_item("frame browse arrows", enabled=False)
+                            frameAvg = sum(frameStack)/len(frameStack)
+                            plotFrame(frameAvg)
+                        else:
+                            dpg.configure_item("frame browse arrows", enabled=True)
+                            id = dpg.get_item_user_data(leftArr)
+                            plotFrame(frameStack[id])
+                dpg.set_item_callback("toggle 积分/单张 map", _toggleSingleEtIntegratedMap)
             with dpg.group(horizontal=True):
                 _cmap = dpg.mvPlotColormap_Viridis
                 dpg.add_colormap_scale(tag = "frame colorbar", min_scale=0,max_scale=65535, height=400)
@@ -203,8 +218,13 @@ with dpg.window(tag="win1", pos=(0,0)):
                     _xyaxeskwargs = dict(no_gridlines = True, no_tick_marks = True)
                     dpg.add_plot_axis(dpg.mvXAxis, tag = "frame xax", label= "h", opposite=True, **_xyaxeskwargs)
                     axCmap = dpg.add_plot_axis(dpg.mvYAxis, tag= "frame yax", label= "v", invert=True, **_xyaxeskwargs)
+    with dpg.child_window():
+        with dpg.plot(tag = "hist plot", label = "hist", height=-1, width=-1, no_mouse_pos=True):
+            dpg.add_plot_axis(dpg.mvXAxis, label = "converted counts (<frame pixel counts>*0.1/0.9)")
+            dpg.add_plot_axis(dpg.mvYAxis, label = "frequency")
+        dpg.add_input_int(pos=(10,10), label="hist binning", width=100,
+                          min_value=1, default_value=1, min_clamped=True)
 dpg.set_primary_window("win1", True)
-
 #==== camSwitch: camera power switch button
 dpg.bind_item_font(camSwitch, large_font)
 

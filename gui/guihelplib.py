@@ -46,7 +46,12 @@ def storeAndPlotFrame(frame: np.ndarray, frameStack: list)-> None:
     # if len(frameStack) > 500: frameStack.pop(0)
     dpg.set_item_user_data("plot previous frame", len(frameStack)-1)
     dpg.set_value("frame stack count display", f"{len(frameStack)} frames in stack")
-    plotFrame(frame)
+    if dpg.get_value("toggle 积分/单张 map"):
+        pass
+        frameAvg = sum(frameStack)/len(frameStack)
+        plotFrame(frameAvg)
+    else:
+        plotFrame(frame)
 
 def startAcqLoop(
         cam: DCAM.DCAM.DCAMCamera,
