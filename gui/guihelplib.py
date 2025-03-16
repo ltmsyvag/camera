@@ -1,4 +1,5 @@
 #%%
+import math
 from datetime import datetime
 from pathlib import Path
 import platform
@@ -23,23 +24,34 @@ def guiOpenCam() -> DCAM.DCAM.DCAMCamera:
     print("cam is opened")
     return cam
 
+def ZYLconversion(frame: np.ndarray)->np.ndarray:
+    """
+    ZYL formula to infer photon counts
+    """
+    # fframe = frame.astype(float)
+    frame = frame * 0.1/0.9
+    return frame
 def plotFrame(frame: np.ndarray,
-              ax = "frame yax",
+              yax = "frame yax",
               colorbar="frame colorbar",
               ) -> None:
-    fframe, _fmin, _fmax, (_nVrows, _nHcols) = frame.astype(float), frame.min(), frame.max(), frame.shape
+    fframe = ZYLconversion(frame)
+    # fframe = frame.astype(float) # only float cam be plotted in heatmap
+    # fframe*= 0.1/0.9 # ZYL formula to infer photon counts
+    _fmin, _fmax, (_nVrows, _nHcols) = fframe.min(), fframe.max(), fframe.shape
     if dpg.get_value("manual scale checkbox"):
         _fmin, _fmax, *_ = dpg.get_value("color scale lims")
     dpg.configure_item(
         colorbar, 
         min_scale = _fmin, 
         max_scale = _fmax)
-    dpg.delete_item(ax, children_only=True) # this is necessary!
-    dpg.add_heat_series(fframe, _nVrows, _nHcols, parent=ax, 
+    dpg.delete_item(yax, children_only=True) # this is necessary!
+    dpg.add_heat_series(fframe, _nVrows, _nHcols, parent=yax, 
                         scale_min=_fmin, scale_max=_fmax,format="",
                         bounds_min= (1,1), bounds_max= (_nHcols, _nVrows))
-    dpg.fit_axis_data(ax)
-    dpg.fit_axis_data("frame xax")
+    if not dpg.get_item_user_data("frame plot"): # 只有在无 query rect 选区时，才重置 heatmap 的 zoom
+        dpg.fit_axis_data(yax)
+        dpg.fit_axis_data("frame xax")
 
 def storeAndPlotFrame(frame: np.ndarray, frameStack: list)-> None:
     frameStack.append(frame)
@@ -52,6 +64,27 @@ def storeAndPlotFrame(frame: np.ndarray, frameStack: list)-> None:
         plotFrame(frameAvg)
     else:
         plotFrame(frame)
+
+def _updateHist(hLhRvLvR: tuple, frameStack:list, yax = "hist plot yax")->None:
+    """
+    hLhRvLvR 保存了一个矩形选区所包裹的像素中心点坐标（只能是半整数）h 向最小最大值和 v 向最小最大值。
+    这些值确定了所选取的像素集合。然后，在此选择基础上将 frame stack 中的每一张 frame 在该选区中的部分的 counts 求得，
+    加入 histdata 数据列表
+    """
+    hLlim, hRlim, vLlim, vRlim = hLhRvLvR
+    vidLo, vidHi = math.floor(vLlim), math.floor(vRlim)
+    hidLo, hidHi = math.floor(hLlim), math.floor(hRlim)
+    histData = []
+    for frame in frameStack: # make hist data
+        frame = ZYLconversion(frame)
+        subFrame = frame[vidLo:vidHi+1, hidLo:hidHi+1]
+        histData.append(subFrame.sum())
+    dpg.delete_item(yax,children_only=True) # delete old hist, then get some hist params for new plot
+    binning = dpg.get_value("hist binning input")
+    theMaxInt = int(max(histData))
+    nBins = theMaxInt//binning + 1
+    max_range = nBins*binning
+    dpg.add_histogram_series(histData, parent = yax, bins =nBins, max_range=max_range)
 
 def startAcqLoop(
         cam: DCAM.DCAM.DCAMCamera,
@@ -67,7 +100,10 @@ def startAcqLoop(
         thisFrame = cam.read_oldest_image()
         _feedTheAWG(thisFrame)
         storeAndPlotFrame(thisFrame, frameStack)
-        print("frame acquired")
+        hLhRvLvR = dpg.get_item_user_data("frame plot")
+        if hLhRvLvR:
+            _updateHist(hLhRvLvR, frameStack)
+        # print("frame acquired")
 
 
 

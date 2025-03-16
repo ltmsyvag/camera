@@ -1,7 +1,7 @@
 #%%
 import dearpygui.dearpygui as dpg
 import numpy as np
-from guihelplib import _setChineseFont, _log
+from guihelplib import _setChineseFont, _log, ZYLconversion
 from scipy.stats import poisson
 import math
 
@@ -46,11 +46,11 @@ with dpg.window() as win1:
     # with dpg.child_window() as win2:
     data = poisson.rvs(100, size = 100).tolist()
     def produceHistParams(data: list, binning: int = 1):
-        themax, themin = max(data), min(data)
-        nBins = themax//binning+1
+        themaxInt = int(max(data))
+        nBins = themaxInt//binning+1
         max_range = nBins*binning
-        return themax, themin, nBins, max_range
-    _max, _min, _nBins, max_range = produceHistParams(data, binning=1)
+        return themaxInt, nBins, max_range
+    _max, _nBins, max_range = produceHistParams(data, binning=1)
     # data = [0,0,0,1,1,2,3,4]
     dpg.add_input_int()
     with dpg.plot(label = "hist", height= -1, width=-1,no_mouse_pos=True):
@@ -61,7 +61,21 @@ with dpg.window() as win1:
                                      max_range=max_range,
                                     #  bar_scale=2
                                      )
-def _cb(_, app_data, user_data):
+def _updateHist(hLhRvLvR: tuple, frameStack: list)->None:
+    hLlim, hRlim, vLlim, vRlim = hLhRvLvR
+    vidLo, vidHi = math.floor(vLlim), math.floor(vRlim)
+    hidLo, hidHi = math.floor(hLlim), math.floor(hRlim)
+    histData = []
+    for frame in frameStack:
+        frame = ZYLconversion(frame)
+        subFrame = frame[vidLo:vidHi+1, hidLo:hidHi+1]
+        histData.append(subFrame.sum())
+    dpg.delete_item(yaxis, children_only=True)
+    _, _nBins, max_range = produceHistParams(histData,binning=1)
+    dpg.add_histogram_series(histData, parent=yaxis, bins = _nBins, max_range=max_range)
+
+
+def _cb(sender, app_data, user_data):
     """
          h->
       #1------+
@@ -79,17 +93,31 @@ def _cb(_, app_data, user_data):
         else:
             dpg.set_item_user_data(thePlot, hLhRvLvR)
             if hLlim<=hRlim and vLlim <=vRlim: # if at least one rect center is selected
-                vidLo, vidHi = math.floor(vLlim), math.floor(vRlim)
-                hidLo, hidHi = math.floor(hLlim), math.floor(hRlim)
-                histData = []
-                for frame in frameStack:
-                    subFrame = frame[vidLo:vidHi+1, hidLo:hidHi+1]
-                    histData.append(int(subFrame.sum())) # int is somehow necessary for hist plotting
-                dpg.delete_item(yaxis, children_only=True)
-                # dpg.add_histogram_series(data, bins)
-                _,_, _nBins, max_range = produceHistParams(histData, binning=1)
-                dpg.add_histogram_series(histData, parent=yaxis,bins = _nBins, max_range=max_range)
- 
+                _updateHist(hLhRvLvR, frameStack)
+                # vidLo, vidHi = math.floor(vLlim), math.floor(vRlim)
+                # hidLo, hidHi = math.floor(hLlim), math.floor(hRlim)
+                # histData = []
+                # for frame in frameStack:
+                #     frame = ZYLconversion(frame)
+                #     subFrame = frame[vidLo:vidHi+1, hidLo:hidHi+1]
+                #     histData.append(subFrame.sum())
+                #     # histData.append(int(subFrame.sum())) # int is somehow necessary for hist plotting
+                # dpg.delete_item(yaxis, children_only=True)
+                # # dpg.add_histogram_series(data, bins)
+                # _, _nBins, max_range = produceHistParams(histData, binning=1)
+                # dpg.add_histogram_series(histData, parent=yaxis,bins = _nBins, max_range=max_range)
+    else:
+        dpg.set_item_user_data(sender, None) # actions from other items cannot check app_data of this item directly (usually dpg.get_value(item) can check the app_data of an item, but not for this very special query rect coordinates app_data belonging to the heatmap plot!), so they check the user_data of this item. since I mean to stop any histogram updating when no query rect is present, then this no-rect info is given by user_data = None of the heatmap plot.
+
+
+# def _cb(sender, app_data,user_data):
+    ### print(user_data is None)
+    # if not app_data:
+    #     dpg.set_item_user_data(sender, None)
+    #     print("user data cleared")
+    # else:
+    #     dpg.set_item_user_data(sender, "blah")
+    #     print(dpg.get_item_user_data(sender))
 dpg.set_item_callback(thePlot, callback=_cb)
 dpg.set_primary_window(win1, True)
 dpg.setup_dearpygui()
