@@ -2,9 +2,10 @@
 import dearpygui.dearpygui as dpg
 import threading
 import tifffile
+import math
 from guihelplib import (
     _log, _setChineseFont,rgbOppositeTo, guiOpenCam, _myRandFrame,
-      _feedTheAWG, startAcqLoop,plotFrame, saveWithTimestamp)
+      _feedTheAWG, startAcqLoop,plotFrame, saveWithTimestamp, _updateHist)
 
 dpg.create_context()
 
@@ -131,7 +132,7 @@ with dpg.window(tag="win1", pos=(0,0)):
                     dpg.delete_item("confirmation_modal")  # Close the modal after confirming
 
                 def _on_cancel():
-                    print("Cancelled!")
+                    # print("Cancelled!")
                     dpg.delete_item("confirmation_modal")  # Close the modal after cancelling
 
                 def _open_confirmation():
@@ -213,16 +214,42 @@ with dpg.window(tag="win1", pos=(0,0)):
                 dpg.add_colormap_scale(tag = "frame colorbar", min_scale=0,max_scale=65535, height=400)
                 dpg.bind_colormap(dpg.last_item(), _cmap)
                 _side = 600
-                with dpg.plot(tag="frame plot",label = "frame", no_mouse_pos=True, height=_side, width=_side):
+                with dpg.plot(tag="frame plot",label = "frame", no_mouse_pos=False, height=_side, width=_side,
+                              query=True, query_color=(255,0,0), max_query_rects=1, min_query_rects=0):
                     dpg.bind_colormap(dpg.last_item(), _cmap)
                     _xyaxeskwargs = dict(no_gridlines = True, no_tick_marks = True)
                     dpg.add_plot_axis(dpg.mvXAxis, tag = "frame xax", label= "h", opposite=True, **_xyaxeskwargs)
                     axCmap = dpg.add_plot_axis(dpg.mvYAxis, tag= "frame yax", label= "v", invert=True, **_xyaxeskwargs)
-    with dpg.child_window():
-        with dpg.plot(tag = "hist plot", label = "hist", height=-1, width=-1, no_mouse_pos=True):
+                    def floorHalfInt(num: float) -> float: # 0.6, 0.5 -> 0.5; 0.4 -> -0.5
+                        return math.floor(num-0.5) + 0.5
+                    def ceilHalfInt(num: float) -> float: # -0.6,-0.5 -> -0.5; 0.4,0.5 ->0.5, 0.6 - > 1.5
+                        return math.ceil(num+0.5) - 0.5
+                    def _updateHistOnQuery(sender, app_data, user_data):
+                        """
+                        log geometric centers of box selected pixels
+                            h->
+                          #1------+
+                        v  |      |
+                        ↓  +-----#2
+                        app_data: (h1, v1, h2, v2)
+                        """
+                        if app_data:
+                            h1, v1, h2, v2 = app_data[0]
+                            hLhRvLvR = hLlim, hRlim, vLlim, vRlim = ceilHalfInt(h1), floorHalfInt(h2), ceilHalfInt(v1), floorHalfInt(v2)
+                            if user_data and hLhRvLvR == user_data:
+                                pass
+                            else:
+                                dpg.set_item_user_data("frame plot", hLhRvLvR)
+                                if hLlim <= hRlim and vLlim <=vRlim: # make sure at least one pixel's geo center falls within the query rect
+                                    _updateHist(hLhRvLvR, frameStack)
+                        else: # this is only needed for the current query rect solution for hist udpates. actions from other items cannot check app_data of this item directly (usually dpg.get_value(item) can check the app_data of an item, but not for this very special query rect coordinates app_data belonging to the heatmap plot!), so they check the user_data of this item. since I mean to stop any histogram updating when no query rect is present, then this no-rect info is given by user_data = None of the heatmap plot.
+                            dpg.set_item_user_data(sender, None)
+                    dpg.set_item_callback("frame plot",callback=_updateHistOnQuery)
+    with dpg.child_window(): # 为了让下面的 hist binning field 可以自然地从一个 window 的左上角开始选取 h，v 坐标，所以这里设置一个 child window
+        with dpg.plot(tag="hist plot", label = "hist", height=-1, width=-1, no_mouse_pos=True):
             dpg.add_plot_axis(dpg.mvXAxis, label = "converted counts (<frame pixel counts>*0.1/0.9)")
-            dpg.add_plot_axis(dpg.mvYAxis, label = "frequency")
-        dpg.add_input_int(pos=(10,10), label="hist binning", width=100,
+            dpg.add_plot_axis(dpg.mvYAxis, label = "frequency", tag = "hist plot yax")
+        dpg.add_input_int(pos=(80,10), tag = "hist binning input",label="hist binning", width=80,
                           min_value=1, default_value=1, min_clamped=True)
 dpg.set_primary_window("win1", True)
 #==== camSwitch: camera power switch button
