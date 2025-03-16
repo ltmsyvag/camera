@@ -48,7 +48,7 @@ def plotFrame(frame: np.ndarray,
     dpg.delete_item(yax, children_only=True) # this is necessary!
     dpg.add_heat_series(fframe, _nVrows, _nHcols, parent=yax, 
                         scale_min=_fmin, scale_max=_fmax,format="",
-                        bounds_min= (1,1), bounds_max= (_nHcols, _nVrows))
+                        bounds_min= (0,_nVrows), bounds_max= (_nHcols, 0))
     if not dpg.get_item_user_data("frame plot"): # 只有在无 query rect 选区时，才重置 heatmap 的 zoom
         dpg.fit_axis_data(yax)
         dpg.fit_axis_data("frame xax")
