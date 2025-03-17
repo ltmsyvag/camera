@@ -11,6 +11,19 @@ import dearpygui.dearpygui as dpg
 import colorsys
 import tifffile
 
+class FrameStack(list):
+    """
+    a method to be developed.
+    """
+    cid = None # current heatmap's id in stack # unused yet
+    def getAvgFrame(self):
+        """
+        why don't I simply use `sum(mylist)`? becaue `sum(<empty list []>)` returns 0, 
+        whereas in the case of a frame stack list, it should return None when there's no frame.
+        So this method is better!
+        """
+        if self: # non empty list
+            return sum(self)
 def _feedTheAWG(frame):
     pass
 def _myRandFrame(v=2304,h=4096, max=65535)-> np.ndarray:
@@ -28,17 +41,13 @@ def ZYLconversion(frame: np.ndarray)->np.ndarray:
     """
     ZYL formula to infer photon counts
     """
-    # fframe = frame.astype(float)
-    frame = frame * 0.1/0.9
+    frame = (frame -200) * 0.1/0.9
     return frame
 def plotFrame(frame: np.ndarray,
               yax = "frame yax",
               colorbar="frame colorbar",
               ) -> None:
-    fframe = ZYLconversion(frame)
-    # fframe = frame.astype(float) # only float cam be plotted in heatmap
-    # fframe*= 0.1/0.9 # ZYL formula to infer photon counts
-    _fmin, _fmax, (_nVrows, _nHcols) = fframe.min(), fframe.max(), fframe.shape
+    _fmin, _fmax, (_nVrows, _nHcols) = frame.min(), frame.max(), frame.shape
     if dpg.get_value("manual scale checkbox"):
         _fmin, _fmax, *_ = dpg.get_value("color scale lims")
     dpg.configure_item(
@@ -46,22 +55,20 @@ def plotFrame(frame: np.ndarray,
         min_scale = _fmin, 
         max_scale = _fmax)
     dpg.delete_item(yax, children_only=True) # this is necessary!
-    dpg.add_heat_series(fframe, _nVrows, _nHcols, parent=yax, 
+    dpg.add_heat_series(frame, _nVrows, _nHcols, parent=yax, 
                         scale_min=_fmin, scale_max=_fmax,format="",
                         bounds_min= (0,_nVrows), bounds_max= (_nHcols, 0))
     if not dpg.get_item_user_data("frame plot"): # 只有在无 query rect 选区时，才重置 heatmap 的 zoom
         dpg.fit_axis_data(yax)
         dpg.fit_axis_data("frame xax")
 
-def storeAndPlotFrame(frame: np.ndarray, frameStack: list)-> None:
+def storeAndPlotFrame(frame: np.ndarray, frameStack: FrameStack)-> None:
     frameStack.append(frame)
     # if len(frameStack) > 500: frameStack.pop(0)
     dpg.set_item_user_data("plot previous frame", len(frameStack)-1)
     dpg.set_value("frame stack count display", f"{len(frameStack)} frames in stack")
     if dpg.get_value("toggle 积分/单张 map"):
-        pass
-        frameAvg = sum(frameStack)/len(frameStack)
-        plotFrame(frameAvg)
+        plotFrame(frameStack.getAvgFrame())
     else:
         plotFrame(frame)
 
@@ -98,8 +105,8 @@ def startAcqLoop(
         except DCAM.DCAMTimeoutError:
             continue
         thisFrame = cam.read_oldest_image()
-        _feedTheAWG(thisFrame)
-        storeAndPlotFrame(thisFrame, frameStack)
+        _feedTheAWG(thisFrame) # feed original uint16 format to AWG
+        storeAndPlotFrame(thisFrame.astype(float), frameStack) # I changed the default uint16 type when I acquire each frame. I need float (not uint16) for robust graphic processing, and batch conversion of many frames to int can be slow (e.g. when plotting the avg frame) for large frame stack.
         hLhRvLvR = dpg.get_item_user_data("frame plot")
         if hLhRvLvR:
             _updateHist(hLhRvLvR, frameStack)

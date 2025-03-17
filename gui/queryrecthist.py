@@ -15,7 +15,7 @@ frameStack, nFrames = [], 1000
 
 for _ in range(nFrames):
     atom1fluoXY = [(v,h) for v,h in zip(np.random.normal(20,3,nFluoPhotons), np.random.normal(50,3,nFluoPhotons))]
-    frame = poisson.rvs(200, size = ilim*jlim).reshape((ilim,-1)).astype(np.uint16)
+    frame = poisson.rvs(200, size = ilim*jlim).reshape((ilim,-1))
 
     for v,h in atom1fluoXY:
         i,j = int(v), int(h)
@@ -45,20 +45,23 @@ with dpg.window() as win1:
                                 )
     # with dpg.child_window() as win2:
     data = poisson.rvs(100, size = 100).tolist()
+    data = [0,0,0,1,1,2,3,4,-1,-1.1]
     def produceHistParams(data: list, binning: int = 1):
-        themaxInt = int(max(data))
-        nBins = themaxInt//binning+1
-        max_range = nBins*binning
-        return themaxInt, nBins, max_range
-    _max, _nBins, max_range = produceHistParams(data, binning=1)
-    # data = [0,0,0,1,1,2,3,4]
+        theminInt, themaxInt = math.floor(min(data)), math.floor(max(data))
+        print(theminInt)
+        nBins = (themaxInt-theminInt)//binning+1
+        min_range = theminInt
+        max_range = theminInt + nBins*binning
+        return theminInt, themaxInt, nBins, min_range, max_range
+    _min, _max, _nBins, min_range, max_range = produceHistParams(data, binning=2)
     dpg.add_input_int()
     with dpg.plot(label = "hist", height= -1, width=-1,no_mouse_pos=True):
         dpg.add_plot_axis(dpg.mvXAxis, label= "camera counts")
         with dpg.plot_axis(dpg.mvYAxis, label= "frequency") as yaxis:
             dpg.add_histogram_series(data, 
                                      bins=_nBins,
-                                     max_range=max_range,
+                                     min_range= min_range,
+                                     max_range= max_range,
                                     #  bar_scale=2
                                      )
 def _updateHist(hLhRvLvR: tuple, frameStack: list)->None:
@@ -71,7 +74,7 @@ def _updateHist(hLhRvLvR: tuple, frameStack: list)->None:
         subFrame = frame[vidLo:vidHi+1, hidLo:hidHi+1]
         histData.append(subFrame.sum())
     dpg.delete_item(yaxis, children_only=True)
-    _, _nBins, max_range = produceHistParams(histData,binning=1)
+    _,_, _nBins, min_range, max_range = produceHistParams(histData,binning=1)
     dpg.add_histogram_series(histData, parent=yaxis, bins = _nBins, max_range=max_range)
 
 

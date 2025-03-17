@@ -4,7 +4,7 @@ import threading
 import tifffile
 import math
 from guihelplib import (
-    _log, _setChineseFont,rgbOppositeTo, guiOpenCam, _myRandFrame,
+    _log, _setChineseFont,rgbOppositeTo, guiOpenCam, _myRandFrame, FrameStack,
       _feedTheAWG, startAcqLoop,plotFrame, saveWithTimestamp, _updateHist)
 
 dpg.create_context()
@@ -51,7 +51,7 @@ with dpg.window(tag="win1", pos=(0,0)):
                                                 "acq loop thread" : None,
                                             })
                 dpg.bind_item_font(dpg.last_item(), bold_font)
-                frameStack = []
+                frameStack = FrameStack()
                 def _toggleAcqLoop(sender, app_data, user_data):
                     state = app_data
                     eventKeepAcquiring = user_data["keep acquiring thread event"]
