@@ -88,10 +88,12 @@ def _updateHist(hLhRvLvR: tuple, frameStack:list, yax = "hist plot yax")->None:
         histData.append(subFrame.sum())
     dpg.delete_item(yax,children_only=True) # delete old hist, then get some hist params for new plot
     binning = dpg.get_value("hist binning input")
-    theMaxInt = int(max(histData))
-    nBins = theMaxInt//binning + 1
+    theMinInt, theMaxInt = math.floor(min(histData)), math.floor(max(histData))
+    nBins = (theMaxInt-theMinInt)//binning + 1
     max_range = nBins*binning
-    dpg.add_histogram_series(histData, parent = yax, bins =nBins, max_range=max_range)
+    dpg.add_histogram_series(
+        histData, parent = yax, bins =nBins, 
+        min_range=theMinInt,max_range=max_range)
 
 def startAcqLoop(
         cam: DCAM.DCAM.DCAMCamera,
@@ -186,7 +188,7 @@ def saveWithTimestamp(dpathStr: str, frame: np.ndarray, id: int=0) -> bool:
         timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
         dpath = Path(dpathStr)
         fpath = dpath / (timestamp + f"_{id}.tiff")
-        tifffile.imwrite(fpath, frame)
+        tifffile.imwrite(fpath, frame.astype(np.uint16))
         print(f"frame saved as {fpath}")
     except:
         return True
