@@ -90,7 +90,7 @@ def _updateHist(hLhRvLvR: tuple, frameStack:list, yax = "hist plot yax")->None:
     binning = dpg.get_value("hist binning input")
     theMinInt, theMaxInt = math.floor(min(histData)), math.floor(max(histData))
     nBins = (theMaxInt-theMinInt)//binning + 1
-    max_range = nBins*binning
+    max_range = theMinInt + nBins*binning
     dpg.add_histogram_series(
         histData, parent = yax, bins =nBins, 
         min_range=theMinInt,max_range=max_range)
