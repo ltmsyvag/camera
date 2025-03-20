@@ -37,26 +37,9 @@ with dpg.window() as win1:
                                 scale_max=137,
                                 format=""
                                 )
-        # dpg.add_drag_rect(color = [255,0,0,255], default_value=(-0.5,-0.5,0.2,0.2),)
-    def _cb():
-        dpg.delete_item("yax", 
-                        # children_only=True
-                        )
-        dpg.delete_item("xax", 
-                        # children_only=True
-                        )
-        # dpg.add_heat_series(mapdata,
-        #                         10,10, parent = "yax",
-        #                         tag = "heat series",
-        #                         scale_min=0, 
-        #                         scale_max=137,
-        #                         format=""
-        #                         )
-        # dpg.configure_item("the plot", query=False)
-        # dpg.set_axis_limits("xax", 0,1)
-    with dpg.plot(tag="the plot2", pos= (10,10),label="Heat Series", no_mouse_pos=True, height=400, width=400,
-                #   query=True, 
-                #   min_query_rects=0,
+    with dpg.plot(tag="the plot2", pos= (10,10),label="Heat Series 2", no_mouse_pos=True, height=400, width=400,
+                  query=True, 
+                  no_frame = True,
                 #   max_query_rects=0,
                   callback=_log):
         # dpg.bind_colormap(dpg.last_item(), dpg.mvPlotColormap_Viridis)
@@ -69,11 +52,12 @@ with dpg.window() as win1:
                                 scale_max=137,
                                 format=""
                                 )
-    dpg.add_button(label="clear", callback=_cb)
+        dpg.add_drag_rect(color = (255,0,0), default_value=(-0.5,-0.5,0.2,0.2),)
 print(dpg.get_item_pos("the plot"))
 with dpg.theme() as foreplot_theme:
     with dpg.theme_component(dpg.mvPlot):
-        dpg.add_theme_color(dpg.mvPlotCol_PlotBg, (255,0,0,0), category=dpg.mvThemeCat_Core)
+        dpg.add_theme_color(dpg.mvPlotCol_PlotBg, (0,0,0,0), category=dpg.mvThemeCat_Plots)
+        # dpg.add_theme_color(dpg.mvPlotCol_FrameBg, (0,0,0,0), category=dpg.mvThemeCat_Plots)
         # dpg.add_theme_style(dpg.mvPlotCol_PlotBg, (255,0,0,0), category=dpg.mvThemeCat_Core)
 
 dpg.bind_item_theme("the plot2", foreplot_theme)

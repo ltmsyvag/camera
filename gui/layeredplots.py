@@ -1,7 +1,9 @@
 #%%
 import dearpygui.dearpygui as dpg
+from guihelplib import _setChineseFont
 import numpy as np
 
+np.random.seed(42)
 # Sample data for heatmap
 data = np.random.rand(10, 10)
 
@@ -10,6 +12,7 @@ rect_pos = [2, 2]
 rect_size = [3, 3]
 
 dpg.create_context()
+_setChineseFont(19)
 def on_drag(sender, app_data):
     rect_pos[0] = app_data[0]
     rect_pos[1] = app_data[1]
@@ -20,17 +23,18 @@ def on_drag(sender, app_data):
 with dpg.window(label="Heatmap with Draggable Rect", width=600, height=500):
 
     # **Bottom plot** for heatmap
+        # dpg.set_axis_limits("x_axis", 0, 10)
+        # dpg.set_axis_limits("y_axis", 0, 10)
+
     with dpg.plot(label="Heatmap", width=-1, height=-1, tag="bottom_plot"):
         dpg.add_plot_axis(dpg.mvXAxis, label="X", tag="x_axis")
         dpg.add_plot_axis(dpg.mvYAxis, label="Y", tag="y_axis")
         dpg.add_heat_series(data.flatten(), 10, 10, parent="y_axis", bounds_min=(-5, -5), bounds_max=(0, 0))
-        # dpg.set_axis_limits("x_axis", 0, 10)
-        # dpg.set_axis_limits("y_axis", 0, 10)
-    with dpg.plot(label="Heatmap", width=-1, height=-1, tag="bottom_plot2"):
-        dpg.add_plot_axis(dpg.mvXAxis, label="X", tag="x_axis2")
-        dpg.add_plot_axis(dpg.mvYAxis, label="Y", tag="y_axis2")
-        dpg.add_heat_series(data.flatten(), 10, 10, parent="y_axis2", bounds_min=(0, 0), bounds_max=(5, 5))
-
+    # with dpg.plot(label="Heatmap", width=-1, height=-1, tag="bottom_plot2"):
+    #     dpg.bind_colormap(dpg.last_item(), dpg.mvPlotColormap_Viridis)
+    #     dpg.add_plot_axis(dpg.mvXAxis, label="X", tag="x_axis2")
+    #     dpg.add_plot_axis(dpg.mvYAxis, label="Y", tag="y_axis2")
+    #     dpg.add_heat_series(data.flatten(), 5, 5, parent="y_axis2", bounds_min=(0, 0), bounds_max=(5, 5))
     if False:
         # **Top transparent plot** for drag rect
         with dpg.plot(label="", width=-1, height=-1, tag="top_plot", 
@@ -59,7 +63,7 @@ with dpg.window(label="Heatmap with Draggable Rect", width=600, height=500):
             #     tag="selection_rect"
             # )
 
-
+dpg.show_style_editor()
 dpg.create_viewport(title="Heatmap Example", width=600, height=500)
 dpg.setup_dearpygui()
 dpg.show_viewport()
