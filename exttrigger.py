@@ -31,4 +31,3 @@ try:
 except KeyboardInterrupt:
     closeCamAndSay("======THE END=======")
 
-# %%
