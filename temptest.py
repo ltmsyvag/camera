@@ -1,21 +1,21 @@
-#%% NONTRIVIAL script: gives the enum value texts of all available options in our specific cam. It does NOT return preset generic enum results in pylablib or dcamsdk4. It queries the camera!
-from tqdm import tqdm
+#%% 计时代码。codetiming 计时模组的 overhead 在 150 ns 量级，可忽略
 import pylablib as pll
-from pylablib.devices import DCAM # gives error if dll is not found. The dll is by default in system32 folder and automatically found. if not, then use code `pll.par["devices/dlls/dcamapi"] = "path/to/dlls"`
-from pylablib.devices.DCAM.dcamapi4_lib import DCAMLibError
+from pylablib.devices import DCAM
+from codetiming import Timer
+tKey = "progressive3kHz"
+tWait = Timer(tKey, logger=None)
 with DCAM.DCAMCamera() as cam:
-    attrNames = [e for e in cam.attributes]
-    dAttrTextSettings = dict()
-    for attrName in tqdm(attrNames):
-        intTextList = [] # to store (int, text), such as (1, "internal") for the attribute "trigger_source"
-        attr = cam.ca[attrName]
-        if attr.kind != "enum":
-            dAttrTextSettings[attrName] = attr.kind
-        else:
-            for val in range(int(attr.min),int(attr.max)+1):
-                try:
-                    valText = attr.as_text(val)
-                    intTextList.append((val, valText))
-                except DCAMLibError:
-                    intTextList.append((val, None))
-            dAttrTextSettings[attrName] = intTextList
+    cam.set_trigger_mode("ext")
+    cam.cav["sensor_mode"] = 12
+    cam.set_exposure(0) # default 0.0082944
+    cam.set_roi(1352,1352+240,948,948+240) # full region (2304, 4096)
+    cam.start_acquisition(mode="snap", nframes=100)
+    for _ in range(5):
+        cam.wait_for_frame()
+        frame1 = cam.read_oldest_image()
+        with tWait:
+            cam.wait_for_frame()
+            frame2 = cam.read_oldest_image()
+    cam.stop_acquisition()
+print(Timer.timers.mean(tKey))
+print(Timer.timers.stdev(tKey))
