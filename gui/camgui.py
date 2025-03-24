@@ -219,7 +219,7 @@ with dpg.window(tag="win1", pos=(0,0)):
                     dpg.bind_colormap(dpg.last_item(), _cmap)
                     _xyaxeskwargs = dict(no_gridlines = True, no_tick_marks = True)
                     dpg.add_plot_axis(dpg.mvXAxis, tag = "frame xax", label= "h", opposite=True, **_xyaxeskwargs)
-                    axCmap = dpg.add_plot_axis(dpg.mvYAxis, tag= "frame yax", label= "v", invert=True, **_xyaxeskwargs)
+                    dpg.add_plot_axis(dpg.mvYAxis, tag= "frame yax", label= "v", invert=True, **_xyaxeskwargs)
                     def floorHalfInt(num: float) -> float: # 0.6, 0.5 -> 0.5; 0.4 -> -0.5
                         return math.floor(num-0.5) + 0.5
                     def ceilHalfInt(num: float) -> float: # -0.6,-0.5 -> -0.5; 0.4,0.5 ->0.5, 0.6 - > 1.5
