@@ -1,7 +1,7 @@
 #%%
 import dearpygui.dearpygui as dpg
 import numpy as np
-from guihelplib import _setChineseFont, _log, ZYLconversion
+from camgui.helper import _setChineseFont, _log, ZYLconversion
 from scipy.stats import poisson
 import math
 

@@ -3,7 +3,7 @@ import dearpygui.dearpygui as dpg
 import threading
 import tifffile
 import math
-from guihelplib import (
+from helper import (
     _log, _setChineseFont,rgbOppositeTo, guiOpenCam, _myRandFrame, FrameStack,
       _feedTheAWG, startAcqLoop,plotFrame, saveWithTimestamp, _updateHist)
 

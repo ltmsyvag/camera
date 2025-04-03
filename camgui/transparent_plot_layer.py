@@ -1,5 +1,5 @@
 #%%
-from guihelplib import _log, _myRandFrame
+from camgui.helper import _log, _myRandFrame
 import dearpygui.dearpygui as dpg
 mapdata = _myRandFrame()
 mapdata = (0,0,0,0,0,0,0,0,0,0,

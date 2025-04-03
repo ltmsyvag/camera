@@ -1,16 +1,15 @@
 #%%
 import dearpygui.dearpygui as dpg
-import dearpygui.demo as demo
-from guihelplib import _setChineseFont
+from camgui.helper import setChineseFont
 
 dpg.create_context()
-_setChineseFont(19)
+setChineseFont(dpg, fontsize=19)
 
-dpg.create_viewport(title='Custom Title', 
+dpg.create_viewport(title='DPG doc', 
                     width=600, height=600,
                     vsync=False) # important option to dismiss input lab, see https://github.com/hoffstadt/DearPyGui/issues/1571
 
-demo.show_demo()
+dpg.show_documentation()
 
 dpg.setup_dearpygui()
 dpg.show_viewport()

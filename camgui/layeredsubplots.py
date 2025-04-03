@@ -1,7 +1,7 @@
 #%%
 import dearpygui.dearpygui as dpg
 from math import sin, cos
-from guihelplib import _setChineseFont
+from camgui.helper import _setChineseFont
 sindatax = []
 sindatay = []
 cosdatay = []
