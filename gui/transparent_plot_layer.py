@@ -46,7 +46,7 @@ def _loosen_axes_lims():
 dpg.set_frame_callback(1, _loosen_axes_lims) # need this, or else the resulting plot has fixed lims without any interactivity
 
 ### make the master plot transparent.
-# by default its alpha = -255. 
+# by default its alpha == -255. 
 # Not sure what a negative alpha means, 
 # but it's not transparent by default
 with dpg.theme() as masterplot_theme:
@@ -55,6 +55,9 @@ with dpg.theme() as masterplot_theme:
         dpg.add_theme_color(dpg.mvPlotCol_FrameBg, (0,0,0,0), category=dpg.mvThemeCat_Plots)
 dpg.bind_item_theme("master plot", masterplot_theme)
 
+### use a item_visible_handler to sync the slave axes to those of the master at every frame
+# a seemingly more natural way is to use the `link_all_x` and `link_all_y` kwargs of the subplots.
+# but I found it counterproductive having to worry about the subplots' layout behavior.
 def sync_axes(_,__, user_data):
     """
     obtain master plot's axes range, using which we set the axes range of slave plot
@@ -65,12 +68,12 @@ def sync_axes(_,__, user_data):
     if not params_master==params_slave:
         dpg.set_axis_limits(xax_slave, xmin_mst, xmax_mst)
         dpg.set_axis_limits(yax_slave, ymin_mst, ymax_mst)
-
 with dpg.item_handler_registry(tag= "master-slave sync hreg"):
     dpg.add_item_visible_handler(callback = sync_axes, user_data = ("master xax", "master yax", "slave xax", "slave yax"))
 dpg.bind_item_handler_registry("master plot", "master-slave sync hreg")
+
 dpg.setup_dearpygui()
 dpg.show_viewport()
-dpg.show_style_editor()
+# dpg.show_style_editor()
 dpg.start_dearpygui()
 dpg.destroy_context()
