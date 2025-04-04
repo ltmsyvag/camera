@@ -1,6 +1,6 @@
 #%%
 import dearpygui.dearpygui as dpg
-from camgui.helper import _setChineseFont
+from helper import _setChineseFont
 
 dpg.create_context()
 dpg.create_viewport(title='Custom Title', width=600, height=600)
