@@ -227,12 +227,12 @@ def rearrange(controller, num_segments,tuple_of_4,power_ramp_time,move_time,perc
     # controller = DDSRampController(raw_card)
 
     controller.run_the_procedure(0, num_segments, _1, _2, _3, _4, power_ramp_time, move_time, percentage_total_power_for_list, ramp_type)
-    input("Press Enter to Exit")
-    controller.run_the_procedure(1, num_segments, _1, _2, _3, _4, power_ramp_time,
-                                    move_time, percentage_total_power_for_list, ramp_type)
-    input("Press Enter to Exit")
-    controller.run_the_procedure(2, num_segments, _1, _2, _3, _4, power_ramp_time,
-                                    move_time, percentage_total_power_for_list, ramp_type)
+    # input("Press Enter to Exit")
+    # controller.run_the_procedure(1, num_segments, _1, _2, _3, _4, power_ramp_time,
+    #                                 move_time, percentage_total_power_for_list, ramp_type)
+    # input("Press Enter to Exit")
+    # controller.run_the_procedure(2, num_segments, _1, _2, _3, _4, power_ramp_time,
+    #                                 move_time, percentage_total_power_for_list, ramp_type)
 
 
 
