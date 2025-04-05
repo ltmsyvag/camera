@@ -10,7 +10,7 @@ import dearpygui.dearpygui as dpg
 import colorsys
 import tifffile
 import spcm
-from AWG_module.dds_dot_moving_queue_streaming_official import DDSRampController
+from AWG_module.no_with_func import DDSRampController
 from AWG_module.unified import feed_AWG
 
 class FrameStack(list):
