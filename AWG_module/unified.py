@@ -3,13 +3,13 @@ from .image_to_atom_array import image_process
 from .rearrangement_method_zylcopy import main
 from .coordinate_to_frequency import convert_coordinate_to_frequency
 from .no_with_func import rearrange
-import spcm
+# import spcm
 # import tifffile
 
 # image = tifffile.imread("frame.tif")
 
-raw_card = spcm.Card(card_type=spcm.SPCM_TYPE_AO)
-raw_card.open()
+# raw_card = spcm.Card(card_type=spcm.SPCM_TYPE_AO)
+# raw_card.open()
 # controller = DDSRampController(raw_card)
 
 def feed_AWG(frame, controller):

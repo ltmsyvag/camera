@@ -4,12 +4,14 @@ from datetime import datetime
 from pathlib import Path
 import platform
 import threading
-from types import ModuleType # 用于 type annotation
 from pylablib.devices import DCAM
 import numpy as np
 import dearpygui.dearpygui as dpg
 import colorsys
 import tifffile
+import spcm
+from AWG_module.dds_dot_moving_queue_streaming_official import DDSRampController
+from AWG_module.unified import feed_AWG
 
 class FrameStack(list):
     """
@@ -24,11 +26,19 @@ class FrameStack(list):
         """
         if self: # non empty list
             return sum(self)
+
 def _feedTheAWG(frame):
     pass
 def _myRandFrame(v=2304,h=4096, max=65535)-> np.ndarray:
     myarr = np.random.randint(0,max, size = v*h, dtype=np.uint16)
     return myarr.reshape((v,-1))
+
+def gui_open_awg():
+    raw_card = spcm.Card(card_type = spcm.SPCM_TYPE_AO)
+    raw_card.open()
+    controller = DDSRampController(raw_card)
+    print("AWG is opened")
+    return raw_card, controller
 
 def guiOpenCam() -> DCAM.DCAM.DCAMCamera:
     cam = DCAM.DCAMCamera()
@@ -97,6 +107,7 @@ def _updateHist(hLhRvLvR: tuple, frameStack:list, yax = "hist plot yax")->None:
 
 def startAcqLoop(
         cam: DCAM.DCAM.DCAMCamera,
+        controller: DDSRampController,
         event: threading.Event,
         frameStack: list)-> None:
     cam.set_trigger_mode("ext")
@@ -107,7 +118,8 @@ def startAcqLoop(
         except DCAM.DCAMTimeoutError:
             continue
         thisFrame = cam.read_oldest_image()
-        _feedTheAWG(thisFrame) # feed original uint16 format to AWG
+        feed_AWG(thisFrame, controller) # feed original uint16 format to AWG
+        # _feedTheAWG(thisFrame) # feed original uint16 format to AWG
         storeAndPlotFrame(thisFrame.astype(float), frameStack) # I changed the default uint16 type when I acquire each frame. I need float (not uint16) for robust graphic processing, and batch conversion of many frames to int can be slow (e.g. when plotting the avg frame) for large frame stack.
         hLhRvLvR = dpg.get_item_user_data("frame plot")
         if hLhRvLvR:
