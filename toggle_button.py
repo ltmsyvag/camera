@@ -1,6 +1,15 @@
 #%%
 import dearpygui.dearpygui as dpg
 from helper import _setChineseFont
+from helper import rgbOppositeTo
+
+with dpg.theme(label="cam switch OFF") as theme_btnoff:
+    with dpg.theme_component(dpg.mvAll):
+        dpg.add_theme_color(dpg.mvThemeCol_Button, (255), category=dpg.mvThemeCat_Core)
+        dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered, _4, category=dpg.mvThemeCat_Core)
+        dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, _4, category=dpg.mvThemeCat_Core)
+        # dpg.add_theme_color(dpg.mvThemeCol_Text, rgbOppositeTo(*_2), category=dpg.mvThemeCat_Core) 
+        dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 15, category=dpg.mvThemeCat_Core)
 
 dpg.create_context()
 dpg.create_viewport(title='Custom Title', width=600, height=600)
@@ -11,8 +20,8 @@ _, bold_font, large_font = _setChineseFont(
 with dpg.window():
     dpg.add_button(label= "hello", width = 150, height = 70,
                    user_data={
-                        "is on" : False, 
-                        "camera object" : None, 
+                        "is on" : False,
+                        "camera object" : None,
                         "camera off label" : "cam closed",
                         "camera on label" : "cam opened",
                         "camera off rgb" : (202, 33, 33),
@@ -27,3 +36,4 @@ dpg.setup_dearpygui()
 dpg.show_viewport()
 dpg.start_dearpygui()
 dpg.destroy_context()
+# %%
