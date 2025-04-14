@@ -236,7 +236,7 @@ def extend_dpg_methods(m: ModuleType):
             return wrapper
         m.add_button = provide_toggle_btn_mechanism(m.add_button)
 
-        def toggle_btn_state(cb):
+        def toggle_btn_state(cb: function)->function:
             def wrapper(sender, app_data, user_data):
                 assert m.get_item_type(sender) == "mvAppItemType::mvButton", "sender must be a button"
                 assert isinstance(user_data, dict) and ("is on" in user_data), "user_data must be a dict with 'is on' key"
