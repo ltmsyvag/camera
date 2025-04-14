@@ -192,6 +192,83 @@ def saveWithTimestamp(dpathStr: str, frame: np.ndarray, id: int=0) -> bool:
         print(f"frame saved as {fpath}")
     except:
         return True
+
+def extend_dpg_methods(m: ModuleType):
+    assert m is dpg, "decoratee must be dpg"
+    def initialize_toggle_btn():
+        _off_rgb = (202, 33, 33) # off rgb 
+        _offhov_rgb = (255, 0, 0) # off hovered rgb
+        _on_rgb = (25,219,72) # on rgb 
+        _onhov_rgb = (0,255,0) # on hovered rgb 
+        _1 = 15 # frame rounding
+        with m.theme() as theme_btnoff:
+            with m.theme_component(m.mvAll):
+                m.add_theme_color(m.mvThemeCol_Button, _off_rgb, category=m.mvThemeCat_Core)
+                m.add_theme_color(m.mvThemeCol_ButtonHovered, _offhov_rgb, category=m.mvThemeCat_Core)
+                m.add_theme_color(m.mvThemeCol_ButtonActive, _offhov_rgb, category=m.mvThemeCat_Core)
+                # m.add_theme_color(m.mvThemeCol_Text, rgbOppositeTo(*_off_rgb), category=m.mvThemeCat_Core) 
+                m.add_theme_style(m.mvStyleVar_FrameRounding, _1, category=m.mvThemeCat_Core)
+        with m.theme() as theme_btnon:
+            with m.theme_component(m.mvAll):
+                m.add_theme_color(m.mvThemeCol_Button, _on_rgb, category=m.mvThemeCat_Core)
+                m.add_theme_color(m.mvThemeCol_ButtonHovered, _onhov_rgb, category=m.mvThemeCat_Core)
+                m.add_theme_color(m.mvThemeCol_ButtonActive, _onhov_rgb, category=m.mvThemeCat_Core)
+                m.add_theme_color(m.mvThemeCol_Text, rgbOppositeTo(*_on_rgb), category=m.mvThemeCat_Core) 
+                m.add_theme_style(m.mvStyleVar_FrameRounding, _1, category=m.mvThemeCat_Core)
+
+        def provide_toggle_btn_mechanism(func):
+            assert func == m.add_button, "decoratee must be dearpygui.dearpygui.add_button"
+            def wrapper(*args, **kwargs):
+                btn = func(*args, **kwargs)
+                if "user_data" in kwargs:
+                    if isinstance(kwargs["user_data"], dict):
+                        _dict = kwargs["user_data"]
+                        if "is on" in _dict:
+                            if _dict["is on"]:
+                                m.bind_item_theme(btn, theme_btnon)
+                                if "on label" in _dict:
+                                    m.set_item_label(btn, _dict["on label"])
+                            else:
+                                m.bind_item_theme(btn, theme_btnoff)
+                                if "off label" in _dict:
+                                    m.set_item_label(btn, _dict["off label"])
+                return btn
+            return wrapper
+        m.add_button = provide_toggle_btn_mechanism(m.add_button)
+
+        def toggle_btn_state(cb):
+            def wrapper(sender, app_data, user_data):
+                assert m.get_item_type(sender) == "mvAppItemType::mvButton", "sender must be a button"
+                assert isinstance(user_data, dict) and ("is on" in user_data), "user_data must be a dict with 'is on' key"
+                state = user_data["is on"]
+                next_state = not state
+                if next_state:
+                    m.set_item_label(sender, "开启中…")
+                else:
+                    m.set_item_label(sender, "关闭中…")
+                try:
+                    cb(sender, app_data, user_data)
+                    state = not state # flip state
+                except:
+                    m.set_item_label(sender, "错误!")
+                    return # exit early 
+
+                if state:
+                    m.bind_item_theme(sender, theme_btnon)
+                    if "on label" in user_data:
+                        m.set_item_label(sender, user_data["on label"])
+                else:
+                    m.bind_item_theme(sender, theme_btnoff)
+                    if "off label" in user_data:
+                        m.set_item_label(sender, user_data["off label"])
+                user_data["is on"] = state
+                m.set_item_user_data(sender, user_data) # store state
+            return wrapper
+            
+        return toggle_btn_state
+    m.initialize_toggle_btn = initialize_toggle_btn
+    return m
+
 if __name__ == "__main__":
     frame = _myRandFrame(240, 240)
     notsaved = saveWithTimestamp(r"", frame)
