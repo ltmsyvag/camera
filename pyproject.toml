@@ -9,4 +9,4 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-py-modules = ["helper"]  # <== This is the key
+py-modules = ["mydpghelper"]  # <== This is the key

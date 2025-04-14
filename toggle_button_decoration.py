@@ -1,6 +1,6 @@
 #%%
 import dearpygui.dearpygui as dpg
-from helper import _setChineseFont, extend_dpg_methods
+from mydpghelper import _setChineseFont, extend_dpg_methods
 dpg = extend_dpg_methods(dpg)
 import time
 
