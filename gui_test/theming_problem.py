@@ -16,6 +16,11 @@ with dpg.theme() as mytheme:
         dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered, (255,0,0), category=dpg.mvThemeCat_Core)
         dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, (255,0,0), category=dpg.mvThemeCat_Core)
         dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 15, category=dpg.mvThemeCat_Core)
+    with dpg.theme_component(dpg.mvAll, enabled_state=False):
+        dpg.add_theme_color(dpg.mvThemeCol_Button, (0,0,0), category=dpg.mvThemeCat_Core)
+        dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered, (10,10,10), category=dpg.mvThemeCat_Core)
+        dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, (10,10,10), category=dpg.mvThemeCat_Core)
+        dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 15, category=dpg.mvThemeCat_Core)
 
 dpg.bind_item_theme(btn, mytheme)
 
