@@ -1,12 +1,12 @@
 #%%
 import dearpygui.dearpygui as dpg
-from mydpghelper import _setChineseFont, extend_dpg_methods
+from mydpghelper import extend_dpg_methods
 dpg = extend_dpg_methods(dpg)
 import time
 
 
 dpg.create_context()
-_, bold_font, large_font = _setChineseFont(
+_, bold_font, large_font = dpg.initialize_chinese_fonts(
                                 default_fontsize=19,
                                 bold_fontsize=21,
                                 large_fontsize=30)

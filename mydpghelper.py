@@ -116,7 +116,7 @@ def startAcqLoop(
 
 
 
-def _chinesefontpath() -> str:
+def _chinese_font_path() -> tuple[str, str]:
     """
     返回中文字体地址，以便 dpg 调用
     返回 tuple (normalFontPath, largeFontPath)
@@ -137,13 +137,13 @@ def _chinesefontpath() -> str:
 
 def _setChineseFont(default_fontsize: int, 
                     bold_fontsize: int=21, 
-                    large_fontsize: int=30) -> tuple[int, int]:
+                    large_fontsize: int=30) -> tuple[int, int, int]:
     """
     设置一些支持中文的字体和字号, 然后全局绑定一个默认中文字体
     （必须放置在 `dpg.create_context()` 之后）
     see https://dearpygui.readthedocs.io/en/latest/documentation/fonts.html
     """
-    normalFontPath, largeFontPath = _chinesefontpath()
+    normalFontPath, largeFontPath = _chinese_font_path()
     boldFontPath = largeFontPath
     with dpg.font_registry():
         with dpg.font(normalFontPath, default_fontsize) as default_font:
@@ -195,6 +195,46 @@ def saveWithTimestamp(dpathStr: str, frame: np.ndarray, id: int=0) -> bool:
 
 def extend_dpg_methods(m: ModuleType):
     assert m is dpg, "decoratee must be dpg"
+    
+
+    def initialize_chinese_fonts(default_fontsize: int, 
+                        bold_fontsize: int=21, 
+                        large_fontsize: int=30) -> tuple[int, int, int]:
+        """
+        设置一些支持中文的字体和字号, 然后全局绑定一个默认中文字体
+        （必须放置在 `dpg.create_context()` 之后）
+        see https://dearpygui.readthedocs.io/en/latest/documentation/fonts.html
+        """
+        def _chinese_font_path() -> tuple[str, str]:
+            """
+            返回中文字体地址，以便 dpg 调用
+            返回 tuple (normalFontPath, largeFontPath)
+            """
+            system = platform.system()
+            if system == "Windows": 
+                return (
+                    r"C:/Windows/Fonts/msyh.ttc", # 微软雅黑
+                    r"C:/Windows/Fonts/msyhbd.ttc", # 微软雅黑 bold
+                        ) # 微软雅黑 bold
+            # elif system == "Darwin": return r"/System/Library/Fonts/Supplemental/Arial Unicode.ttf"
+            elif system == "Darwin": return (
+                r"/System/Library/Fonts/Monaco.ttf", # 没有中文字体, 但是读文档舒服
+                r"/System/Library/Fonts/Monaco.ttf", # 没有中文字体, 但是读文档舒服
+                ) 
+            # elif system == "Darwin": return r"/Users/haiteng/Library/Fonts/sarasa-term-sc-nerd.ttc"
+            else: raise NameError("没有定义本操作系统的中文字体地址")
+        normal_font_path, large_font_path = _chinese_font_path()
+        bold_font_path = large_font_path
+        with m.font_registry():
+            with m.font(normal_font_path, default_fontsize) as default_font:
+                # m.add_font_range_hint(m.mvFontRangeHint_Chinese_Simplified_Common) # 不包含锶铷这类生僻字
+                m.add_font_range_hint(m.mvFontRangeHint_Chinese_Full)
+            with m.font(bold_font_path, bold_fontsize) as bold_font:
+                m.add_font_range_hint(m.mvFontRangeHint_Chinese_Full)
+            with m.font(large_font_path, large_fontsize) as large_font:
+                m.add_font_range_hint(m.mvFontRangeHint_Chinese_Full)
+        m.bind_font(default_font)
+        return default_font, bold_font, large_font
     def initialize_toggle_btn():
         _off_rgb = (202, 33, 33) # off rgb 
         _offhov_rgb = (255, 0, 0) # off hovered rgb
@@ -269,6 +309,7 @@ def extend_dpg_methods(m: ModuleType):
             return middle
         return toggle_btn_state_and_disable_items
     m.initialize_toggle_btn = initialize_toggle_btn
+    m.initialize_chinese_fonts = initialize_chinese_fonts
     return m
 
 if __name__ == "__main__":
