@@ -235,37 +235,39 @@ def extend_dpg_methods(m: ModuleType):
                 return btn
             return wrapper
         m.add_button = provide_toggle_btn_mechanism(m.add_button)
+        def toggle_btn_state_and_disable_items(*items):
+            def middle(cb):
+                def wrapper(sender, app_data, user_data):
+                    assert m.get_item_type(sender) == "mvAppItemType::mvButton", "sender must be a button"
+                    assert isinstance(user_data, dict) and ("is on" in user_data), "user_data must be a dict with 'is on' key"
+                    state = user_data["is on"]
+                    next_state = not state
+                    if next_state:
+                        m.set_item_label(sender, "开启中…")
+                    else:
+                        m.set_item_label(sender, "关闭中…")
+                    try:
+                        cb(sender, app_data, user_data)
+                        state = not state # flip state
+                        for item in items:
+                            m.configure_item(item, enabled=not state) # if button on, then selected items are disabled
+                    except:
+                        m.set_item_label(sender, "错误!")
+                        return # exit early 
 
-        def toggle_btn_state(cb: function)->function:
-            def wrapper(sender, app_data, user_data):
-                assert m.get_item_type(sender) == "mvAppItemType::mvButton", "sender must be a button"
-                assert isinstance(user_data, dict) and ("is on" in user_data), "user_data must be a dict with 'is on' key"
-                state = user_data["is on"]
-                next_state = not state
-                if next_state:
-                    m.set_item_label(sender, "开启中…")
-                else:
-                    m.set_item_label(sender, "关闭中…")
-                try:
-                    cb(sender, app_data, user_data)
-                    state = not state # flip state
-                except:
-                    m.set_item_label(sender, "错误!")
-                    return # exit early 
-
-                if state:
-                    m.bind_item_theme(sender, theme_btnon)
-                    if "on label" in user_data:
-                        m.set_item_label(sender, user_data["on label"])
-                else:
-                    m.bind_item_theme(sender, theme_btnoff)
-                    if "off label" in user_data:
-                        m.set_item_label(sender, user_data["off label"])
-                user_data["is on"] = state
-                m.set_item_user_data(sender, user_data) # store state
-            return wrapper
-            
-        return toggle_btn_state
+                    if state:
+                        m.bind_item_theme(sender, theme_btnon)
+                        if "on label" in user_data:
+                            m.set_item_label(sender, user_data["on label"])
+                    else:
+                        m.bind_item_theme(sender, theme_btnoff)
+                        if "off label" in user_data:
+                            m.set_item_label(sender, user_data["off label"])
+                    user_data["is on"] = state
+                    m.set_item_user_data(sender, user_data) # store state
+                return wrapper
+            return middle
+        return toggle_btn_state_and_disable_items
     m.initialize_toggle_btn = initialize_toggle_btn
     return m
 

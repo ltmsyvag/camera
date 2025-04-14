@@ -18,7 +18,7 @@ with dpg.theme() as mytheme:
         dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 15, category=dpg.mvThemeCat_Core)
 
 dpg.bind_item_theme(btn, mytheme)
-dpg.bind_item_theme(toggle, mytheme)
+
 def _cb(*args):
     state = dpg.get_item_configuration(btn)["enabled"]
     dpg.configure_item(btn, enabled=not state)
