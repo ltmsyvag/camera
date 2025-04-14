@@ -249,8 +249,10 @@ def extend_dpg_methods(m: ModuleType):
                         state = not state # flip state
                         for item in items:
                             m.configure_item(item, enabled=not state) # if button on, then selected items are disabled
-                    except:
+                    except Exception as e:
                         m.set_item_label(sender, "错误!")
+                        print("exception type: ", type(e).__name__)
+                        print("exception message: ", e)
                         return # exit early 
 
                     if state:

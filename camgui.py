@@ -10,7 +10,7 @@ dpg = extend_dpg_methods(dpg)
 dpg.create_context()
 
 _, bold_font, large_font = dpg.initialize_chinese_fonts()
-
+toggle_decor = dpg.initialize_toggle_btn()
 dpg.create_viewport(title='cam-AWG GUI', 
                     width=1000, height=1020, x_pos=0, y_pos=0,
                     vsync=False) # important option to dismiss input lab, see https://github.com/hoffstadt/DearPyGui/issues/1571
@@ -40,7 +40,7 @@ with dpg.window(tag="win1", pos=(0,0)):
                         })
 
                 _1 = dpg.get_item_user_data(camSwitch)
-                dpg.set_item_label(camSwitch, _1["camera off label"])
+                # dpg.set_item_label(camSwitch, _1["camera off label"])
                 acqToggle = dpg.add_checkbox(label = "采集循环开关", enabled=False,
                                             user_data=
                                             {
@@ -305,9 +305,9 @@ with dpg.theme(label="cam switch OFF") as camOFFbtn_theme:
 #     dpg.set_item_user_data(sender, user_data)
 #     # if state:
 #     #     prepCamForTrigAndPlot(cam)
-toggle_decor = dpg.initialize_toggle_btn()
 
-@toggle_decor(["expo and roi fields", acqToggle])
+
+@toggle_decor("expo and roi fields", acqToggle)
 def camSwitch_callback(sender, _, user_data):
     state, cam, = user_data["is on"], user_data["camera object"], 
     next_state = not state # state after toggle
