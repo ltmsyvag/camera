@@ -3,6 +3,7 @@ import dearpygui.dearpygui as dpg
 from helper import _setChineseFont
 from helper import rgbOppositeTo
 
+<<<<<<< HEAD
 _1 = (202, 33, 33) # off rgb 
 _2 = (255, 0, 0) # off hovered rgb
 _3 = (25,219,72) # on rgb 
@@ -12,6 +13,13 @@ with dpg.theme(label="cam switch OFF") as theme_btnoff:
         dpg.add_theme_color(dpg.mvThemeCol_Button, _1, category=dpg.mvThemeCat_Core)
         dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered, _2, category=dpg.mvThemeCat_Core)
         dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, _2, category=dpg.mvThemeCat_Core)
+=======
+with dpg.theme(label="cam switch OFF") as theme_btnoff:
+    with dpg.theme_component(dpg.mvAll):
+        dpg.add_theme_color(dpg.mvThemeCol_Button, (255), category=dpg.mvThemeCat_Core)
+        dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered, _4, category=dpg.mvThemeCat_Core)
+        dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, _4, category=dpg.mvThemeCat_Core)
+>>>>>>> 71383ee8380dbc6a0c80e12835c826331c5b1eba
         # dpg.add_theme_color(dpg.mvThemeCol_Text, rgbOppositeTo(*_2), category=dpg.mvThemeCat_Core) 
         dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 15, category=dpg.mvThemeCat_Core)
 
