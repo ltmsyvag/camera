@@ -4,15 +4,12 @@ import threading
 import tifffile
 import math
 from mydpghelper import (
-    _log, _setChineseFont,rgbOppositeTo, guiOpenCam, _myRandFrame, FrameStack,
-      _feedTheAWG, startAcqLoop,plotFrame, saveWithTimestamp, _updateHist)
-
+    _log, rgbOppositeTo, guiOpenCam, _myRandFrame, FrameStack,
+      _feedTheAWG, startAcqLoop,plotFrame, saveWithTimestamp, _updateHist, extend_dpg_methods)
+dpg = extend_dpg_methods(dpg)
 dpg.create_context()
 
-_, bold_font, large_font = _setChineseFont(
-                                default_fontsize=19,
-                                bold_fontsize=21,
-                                large_fontsize=30)
+_, bold_font, large_font = dpg.initialize_chinese_fonts()
 
 dpg.create_viewport(title='cam-AWG GUI', 
                     width=1000, height=1020, x_pos=0, y_pos=0,
@@ -34,8 +31,8 @@ with dpg.window(tag="win1", pos=(0,0)):
                     width=150, height=70, user_data={
                         "is on" : False, 
                         "camera object" : None, 
-                        "camera off label" : "相机已关闭",
-                        "camera on label" : "相机已开启",
+                        "off label" : "相机已关闭",
+                        "on label" : "相机已开启",
                         "camera off rgb" : (202, 33, 33),
                         "camera off hovered rgb" : (255, 0, 0),
                         "camera on rgb" : (25,219,72),
@@ -275,14 +272,50 @@ with dpg.theme(label="cam switch OFF") as camOFFbtn_theme:
         # dpg.add_theme_color(dpg.mvThemeCol_Text, rgbOppositeTo(*_2), category=dpg.mvThemeCat_Core) 
         dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 15, category=dpg.mvThemeCat_Core)
 
-def camSwitch_callback(sender, _, user_data):
-    state, cam, camONlabel, camOFFlabel = user_data["is on"], user_data["camera object"], user_data["camera on label"], user_data["camera off label"]
-    state = not state # flip the state
-    if state:
-        dpg.set_item_label(camSwitch,"开启中...")
-        cam = guiOpenCam()
-        user_data["camera object"] = cam; dpg.set_item_user_data(sender, user_data) # push the cam object to the switch button user_data, to be used by the initial cam settings from the fields below
+# def camSwitch_callback(sender, _, user_data):
+#     state, cam, camONlabel, camOFFlabel = user_data["is on"], user_data["camera object"], user_data["camera on label"], user_data["camera off label"]
+#     state = not state # flip the state
+#     if state:
+#         dpg.set_item_label(camSwitch,"开启中...")
+#         cam = guiOpenCam()
+#         user_data["camera object"] = cam; dpg.set_item_user_data(sender, user_data) # push the cam object to the switch button user_data, to be used by the initial cam settings from the fields below
 
+#         ## make cam trig
+
+#         ## set cam exposure from field value, then refresh field by cam value
+#         expFieldValInMs = dpg.get_value(fieldExpo) 
+#         cam.set_exposure(expFieldValInMs*1e-3)
+#         expoCamValInS = cam.cav["exposure_time"]
+#         dpg.set_value(fieldExpo, expoCamValInS*1e3)
+        
+#         setCamROIfrom6Fields()
+#         set6FieldsROIfromCAM()
+#         dpg.set_item_label(sender, camONlabel)
+#         dpg.bind_item_theme(sender, camONbtn_theme)
+#     else:
+#         # cam.stop_acquisition()
+#         cam.close(); print("=====cam closed")
+#         cam = None
+#         dpg.set_item_label(sender, camOFFlabel)
+#         dpg.bind_item_theme(sender, camOFFbtn_theme)
+#     itemsToToggle = ["expo and roi fields", acqToggle]
+#     for item in itemsToToggle:
+#         dpg.configure_item(item, enabled=state)
+#     user_data["is on"] = state
+#     dpg.set_item_user_data(sender, user_data)
+#     # if state:
+#     #     prepCamForTrigAndPlot(cam)
+toggle_decor = dpg.initialize_toggle_btn()
+
+@toggle_decor(["expo and roi fields", acqToggle])
+def camSwitch_callback(sender, _, user_data):
+    state, cam, = user_data["is on"], user_data["camera object"], 
+    next_state = not state # state after toggle
+    if next_state:
+        # dpg.set_item_label(camSwitch,"开启中...")
+        cam = guiOpenCam()
+        user_data["camera object"] = cam
+        dpg.set_item_user_data(sender, user_data) # store cam object
         ## make cam trig
 
         ## set cam exposure from field value, then refresh field by cam value
@@ -293,19 +326,12 @@ def camSwitch_callback(sender, _, user_data):
         
         setCamROIfrom6Fields()
         set6FieldsROIfromCAM()
-        dpg.set_item_label(sender, camONlabel)
-        dpg.bind_item_theme(sender, camONbtn_theme)
     else:
         # cam.stop_acquisition()
         cam.close(); print("=====cam closed")
-        cam = None
-        dpg.set_item_label(sender, camOFFlabel)
-        dpg.bind_item_theme(sender, camOFFbtn_theme)
-    itemsToToggle = ["expo and roi fields", acqToggle]
-    for item in itemsToToggle:
-        dpg.configure_item(item, enabled=state)
-    user_data["is on"] = state
-    dpg.set_item_user_data(sender, user_data)
+        user_data["camera object"] = None
+        dpg.set_item_user_data(sender, user_data)
+ 
     # if state:
     #     prepCamForTrigAndPlot(cam)
 

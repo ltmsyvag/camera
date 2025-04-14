@@ -116,48 +116,6 @@ def startAcqLoop(
 
 
 
-def _chinese_font_path() -> tuple[str, str]:
-    """
-    返回中文字体地址，以便 dpg 调用
-    返回 tuple (normalFontPath, largeFontPath)
-    """
-    system = platform.system()
-    if system == "Windows": 
-        return (
-            r"C:/Windows/Fonts/msyh.ttc", # 微软雅黑
-            r"C:/Windows/Fonts/msyhbd.ttc", # 微软雅黑 bold
-                ) # 微软雅黑 bold
-    # elif system == "Darwin": return r"/System/Library/Fonts/Supplemental/Arial Unicode.ttf"
-    elif system == "Darwin": return (
-        r"/System/Library/Fonts/Monaco.ttf", # 没有中文字体, 但是读文档舒服
-        r"/System/Library/Fonts/Monaco.ttf", # 没有中文字体, 但是读文档舒服
-        ) 
-    # elif system == "Darwin": return r"/Users/haiteng/Library/Fonts/sarasa-term-sc-nerd.ttc"
-    else: raise NameError("没有定义本操作系统的中文字体地址")
-
-def _setChineseFont(default_fontsize: int, 
-                    bold_fontsize: int=21, 
-                    large_fontsize: int=30) -> tuple[int, int, int]:
-    """
-    设置一些支持中文的字体和字号, 然后全局绑定一个默认中文字体
-    （必须放置在 `dpg.create_context()` 之后）
-    see https://dearpygui.readthedocs.io/en/latest/documentation/fonts.html
-    """
-    normalFontPath, largeFontPath = _chinese_font_path()
-    boldFontPath = largeFontPath
-    with dpg.font_registry():
-        with dpg.font(normalFontPath, default_fontsize) as default_font:
-            # dpg.add_font_range_hint(dpg.mvFontRangeHint_Chinese_Simplified_Common) # 不包含锶铷这类生僻字
-            dpg.add_font_range_hint(dpg.mvFontRangeHint_Chinese_Full)  
-        with dpg.font(boldFontPath, bold_fontsize) as bold_font:
-            dpg.add_font_range_hint(dpg.mvFontRangeHint_Chinese_Full)
-        with dpg.font(largeFontPath, large_fontsize) as large_font:
-            dpg.add_font_range_hint(dpg.mvFontRangeHint_Chinese_Full)
-    dpg.bind_font(default_font)
-    return default_font, bold_font, large_font
-
-
-
 def _log(sender, app_data, user_data):
     """
     helper function from demo.py. 可以作为还没写好的 callback 的 placeholder，
@@ -197,7 +155,7 @@ def extend_dpg_methods(m: ModuleType):
     assert m is dpg, "decoratee must be dpg"
     
 
-    def initialize_chinese_fonts(default_fontsize: int, 
+    def initialize_chinese_fonts(default_fontsize: int=19, 
                         bold_fontsize: int=21, 
                         large_fontsize: int=30) -> tuple[int, int, int]:
         """

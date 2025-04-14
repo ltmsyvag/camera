@@ -6,10 +6,7 @@ import time
 
 
 dpg.create_context()
-_, bold_font, large_font = dpg.initialize_chinese_fonts(
-                                default_fontsize=19,
-                                bold_fontsize=21,
-                                large_fontsize=30)
+_, bold_font, large_font = dpg.initialize_chinese_fonts()
 toggle_decor = dpg.initialize_toggle_btn()
 
 dpg.create_viewport(title='Custom Title', width=600, height=600)
@@ -26,7 +23,7 @@ with dpg.window():
     cbox = dpg.add_checkbox()
 dpg.bind_item_font(_tag, large_font)
 
-@toggle_decor(cbox)
+@toggle_decor()
 def _cb(*args,**kwargs):
     time.sleep(0.5)
     # raise Exception
