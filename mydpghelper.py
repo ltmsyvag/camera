@@ -152,9 +152,14 @@ def saveWithTimestamp(dpathStr: str, frame: np.ndarray, id: int=0) -> bool:
         return True
 
 def extend_dpg_methods(m: ModuleType):
+    """
+    由于 dearpygui 的设计原因，对 GUI 元素的操作都需要在 dpg.create_context() 之后才能使用.
+    本"模组装饰器"用于装饰 dpg 模组, 使将很多 gui 元素操作的方法得以用 dpg.method() 的形式执行.
+    这不但简化了主脚本中 import 的内容(只 import 一个本装饰器即可), 
+    也可以提醒我在 dpg.create_context() 之后才能使用这些附加方法.
+    """
     assert m is dpg, "decoratee must be dpg"
     
-
     def initialize_chinese_fonts(default_fontsize: int=19, 
                         bold_fontsize: int=21, 
                         large_fontsize: int=30) -> tuple[int, int, int]:
@@ -176,8 +181,8 @@ def extend_dpg_methods(m: ModuleType):
                         ) # 微软雅黑 bold
             # elif system == "Darwin": return r"/System/Library/Fonts/Supplemental/Arial Unicode.ttf"
             elif system == "Darwin": return (
-                r"/System/Library/Fonts/Monaco.ttf", # 没有中文字体, 但是读文档舒服
-                r"/System/Library/Fonts/Monaco.ttf", # 没有中文字体, 但是读文档舒服
+                r"/Users/haiteng/Library/Fonts/NotoSansSC-Medium.ttf", # 没有中文字体, 但是读文档舒服
+                r"/Users/haiteng/Library/Fonts/NotoSansSC-Bold.ttf", # 没有中文字体, 但是读文档舒服
                 ) 
             # elif system == "Darwin": return r"/Users/haiteng/Library/Fonts/sarasa-term-sc-nerd.ttc"
             else: raise NameError("没有定义本操作系统的中文字体地址")
@@ -194,6 +199,12 @@ def extend_dpg_methods(m: ModuleType):
         m.bind_font(default_font)
         return default_font, bold_font, large_font
     def initialize_toggle_btn():
+        """
+        因为准备 toggle button 一定有两个条件: 1. 装饰 pdg.add_button. 2. 装饰 toggle button 的 callback.
+        因此本方法内部执行第一步, 同时返回第二步所需的 decor, 非常合理. 在执行上表示这两个 explicit 的步骤缺一不可.
+        另一方面, 如果我在某个项目中完全不打算使用 toggle button. 那么本方法不会被 call, 也就不会创造出第二步的 decor,
+        满足"如无必要, 勿增实体"的逻辑.
+        """
         _off_rgb = (202, 33, 33) # off rgb 
         _offhov_rgb = (255, 0, 0) # off hovered rgb
         _on_rgb = (25,219,72) # on rgb 
@@ -215,6 +226,9 @@ def extend_dpg_methods(m: ModuleType):
                 m.add_theme_style(m.mvStyleVar_FrameRounding, _1, category=m.mvThemeCat_Core)
 
         def provide_toggle_btn_mechanism(func):
+            """
+            dpg.add_button 的装饰器, 使该命令可以创造初始化的 themed toggle button
+            """
             assert func == m.add_button, "decoratee must be dearpygui.dearpygui.add_button"
             def wrapper(*args, **kwargs):
                 btn = func(*args, **kwargs)
@@ -232,8 +246,18 @@ def extend_dpg_methods(m: ModuleType):
                                     m.set_item_label(btn, _dict["off label"])
                 return btn
             return wrapper
-        m.add_button = provide_toggle_btn_mechanism(m.add_button)
+        m.add_button = provide_toggle_btn_mechanism(m.add_button) # 装饰 add_button 命令
         def toggle_btn_state_and_disable_items(*items):
+            """
+            搭配 toggle button 使用的装饰器. 本函数是母函数 initialize_toggle_btn 的返回.
+            也就是说, 如果在一个不用 toggle button 的项目中, initialize_toggle_btn 不会被 call, 
+            那么本函数永远不会被创建. 
+            本装饰器用于装饰 toggle button 的 callback. 它的作用包括:
+            1. 根据 user_data 中的 "is on" key 判断 toggle 状态, 从而切换 button 的 on/off theme 和 label
+            2. 在 callback 执行失败时, 用 button label 报错
+                TODO 设置一个 button tooltip 来给出详细错误信息
+            3. 在 callback 执行成功后, 修改 user_data["is on"] 所保存的 toggle 状态. 
+            """
             def middle(cb):
                 def wrapper(sender, app_data, user_data):
                     assert m.get_item_type(sender) == "mvAppItemType::mvButton", "sender must be a button"
@@ -257,12 +281,12 @@ def extend_dpg_methods(m: ModuleType):
 
                     if state:
                         m.bind_item_theme(sender, theme_btnon)
-                        if "on label" in user_data:
-                            m.set_item_label(sender, user_data["on label"])
+                        label = user_data["on label"] if "on label" in user_data else ""
+                        m.set_item_label(sender, label)
                     else:
                         m.bind_item_theme(sender, theme_btnoff)
-                        if "off label" in user_data:
-                            m.set_item_label(sender, user_data["off label"])
+                        label = user_data["off label"] if "off label" in user_data else ""
+                        m.set_item_label(sender, label)
                     user_data["is on"] = state
                     m.set_item_user_data(sender, user_data) # store state
                 return wrapper
