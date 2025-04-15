@@ -11,12 +11,13 @@ import dearpygui.dearpygui as dpg
 import colorsys
 import tifffile
 
+
 class FrameStack(list):
     """
     a method to be developed.
     """
     cid = None # current heatmap's id in stack # unused yet
-    def getAvgFrame(self):
+    def get_avg_frame(self):
         """
         why don't I simply use `sum(mylist)`? becaue `sum(<empty list []>)` returns 0, 
         whereas in the case of a frame stack list, it should return None when there's no frame.
@@ -24,13 +25,13 @@ class FrameStack(list):
         """
         if self: # non empty list
             return sum(self)
-def _feedTheAWG(frame):
+def feed_the_awg(frame):
     pass
 def _myRandFrame(v=2304,h=4096, max=65535)-> np.ndarray:
     myarr = np.random.randint(0,max, size = v*h, dtype=np.uint16)
     return myarr.reshape((v,-1))
 
-def guiOpenCam() -> DCAM.DCAM.DCAMCamera:
+def gui_open_cam() -> DCAM.DCAM.DCAMCamera:
     cam = DCAM.DCAMCamera()
     if cam.is_opened(): cam.close()
     cam.open()
@@ -43,7 +44,7 @@ def ZYLconversion(frame: np.ndarray)->np.ndarray:
     """
     frame = (frame -200) * 0.1/0.9
     return frame
-def plotFrame(frame: np.ndarray,
+def plot_frame(frame: np.ndarray,
               yax = "frame yax",
               colorbar="frame colorbar",
               ) -> None:
@@ -62,17 +63,17 @@ def plotFrame(frame: np.ndarray,
         dpg.fit_axis_data(yax)
         dpg.fit_axis_data("frame xax")
 
-def storeAndPlotFrame(frame: np.ndarray, frameStack: FrameStack)-> None:
+def store_and_plot_frame(frame: np.ndarray, frameStack: FrameStack)-> None:
     frameStack.append(frame)
     # if len(frameStack) > 500: frameStack.pop(0)
     dpg.set_item_user_data("plot previous frame", len(frameStack)-1)
     dpg.set_value("frame stack count display", f"{len(frameStack)} frames in stack")
     if dpg.get_value("toggle 积分/单张 map"):
-        plotFrame(frameStack.getAvgFrame())
+        plot_frame(frameStack.get_avg_frame())
     else:
-        plotFrame(frame)
+        plot_frame(frame)
 
-def _updateHist(hLhRvLvR: tuple, frameStack:list, yax = "hist plot yax")->None:
+def _update_hist(hLhRvLvR: tuple, frameStack:list, yax = "hist plot yax")->None:
     """
     hLhRvLvR 保存了一个矩形选区所包裹的像素中心点坐标（只能是半整数）h 向最小最大值和 v 向最小最大值。
     这些值确定了所选取的像素集合。然后，在此选择基础上将 frame stack 中的每一张 frame 在该选区中的部分的 counts 求得，
@@ -95,7 +96,7 @@ def _updateHist(hLhRvLvR: tuple, frameStack:list, yax = "hist plot yax")->None:
         histData, parent = yax, bins =nBins, 
         min_range=theMinInt,max_range=max_range)
 
-def startAcqLoop(
+def start_acqloop(
         cam: DCAM.DCAM.DCAMCamera,
         event: threading.Event,
         frameStack: list)-> None:
@@ -107,11 +108,11 @@ def startAcqLoop(
         except DCAM.DCAMTimeoutError:
             continue
         thisFrame = cam.read_oldest_image()
-        _feedTheAWG(thisFrame) # feed original uint16 format to AWG
-        storeAndPlotFrame(thisFrame.astype(float), frameStack) # I changed the default uint16 type when I acquire each frame. I need float (not uint16) for robust graphic processing, and batch conversion of many frames to int can be slow (e.g. when plotting the avg frame) for large frame stack.
+        feed_the_awg(thisFrame) # feed original uint16 format to AWG
+        store_and_plot_frame(thisFrame.astype(float), frameStack) # I changed the default uint16 type when I acquire each frame. I need float (not uint16) for robust graphic processing, and batch conversion of many frames to int can be slow (e.g. when plotting the avg frame) for large frame stack.
         hLhRvLvR = dpg.get_item_user_data("frame plot")
         if hLhRvLvR:
-            _updateHist(hLhRvLvR, frameStack)
+            _update_hist(hLhRvLvR, frameStack)
         # print("frame acquired")
 
 
@@ -129,7 +130,7 @@ def _log(sender, app_data, user_data):
 
 
 
-def rgbOppositeTo(r, g, b):
+def rgb_opposite(r, g, b):
     """
     给出某 rgb 相对最大对比度颜色（HSL approach）。@GPT
     """
@@ -138,7 +139,7 @@ def rgbOppositeTo(r, g, b):
     r2, g2, b2 = colorsys.hls_to_rgb(h, l, s) # Convert back to RGB
     return int(r2*255), int(g2*255), int(b2*255)
 
-def saveWithTimestamp(dpathStr: str, frame: np.ndarray, id: int=0) -> bool:
+def save_with_timestamp(dpathStr: str, frame: np.ndarray, id: int=0) -> bool:
     """
     保存 frame 为 tiff 文件，文件名为 fpath 加上时间戳, 如果保存失败（dir 不存在, permission denied, etc.）则返回 True
     """
@@ -160,6 +161,17 @@ def extend_dpg_methods(m: ModuleType):
     """
     assert m is dpg, "decoratee must be dpg"
     
+    def bind_custom_theming():
+        with m.theme() as global_theme:
+            with m.theme_component(m.mvAll): # online doc: theme components must have a specified item type. This can either be `mvAll` for all items or a specific item type
+                # m.add_theme_style(m.mvStyleVar_FrameBorderSize, 1, 
+                #                     category=m.mvThemeCat_Core # online docstring paraphrase: you are mvThemeCat_core, if you are not doing plots or nodes. 实际上我发现不加这个 kwarg 也能产生出想要的 theme。但是看到网上都加，也就跟着加吧
+                #                     )
+                m.add_theme_color(m.mvThemeCol_CheckMark, (255,255,0), category=m.mvThemeCat_Core)
+                m.add_theme_style(m.mvStyleVar_FrameRounding, 3, category=m.mvThemeCat_Core)
+        m.bind_theme(global_theme)
+    
+
     def initialize_chinese_fonts(default_fontsize: int=19, 
                         bold_fontsize: int=21, 
                         large_fontsize: int=30) -> tuple[int, int, int]:
@@ -222,14 +234,14 @@ def extend_dpg_methods(m: ModuleType):
                 m.add_theme_color(m.mvThemeCol_Button, _on_rgb, category=m.mvThemeCat_Core)
                 m.add_theme_color(m.mvThemeCol_ButtonHovered, _onhov_rgb, category=m.mvThemeCat_Core)
                 m.add_theme_color(m.mvThemeCol_ButtonActive, _onhov_rgb, category=m.mvThemeCat_Core)
-                m.add_theme_color(m.mvThemeCol_Text, rgbOppositeTo(*_on_rgb), category=m.mvThemeCat_Core) 
+                m.add_theme_color(m.mvThemeCol_Text, rgb_opposite(*_on_rgb), category=m.mvThemeCat_Core) 
                 m.add_theme_style(m.mvStyleVar_FrameRounding, _1, category=m.mvThemeCat_Core)
 
-        def provide_toggle_btn_mechanism(func):
+        def _provide_toggle_btn_mechanism(func):
             """
             dpg.add_button 的装饰器, 使该命令可以创造初始化的 themed toggle button
             """
-            assert func == m.add_button, "decoratee must be dearpygui.dearpygui.add_button"
+            assert func is m.add_button, "decoratee must be dearpygui.dearpygui.add_button"
             def wrapper(*args, **kwargs):
                 btn = func(*args, **kwargs)
                 if "user_data" in kwargs:
@@ -246,8 +258,8 @@ def extend_dpg_methods(m: ModuleType):
                                     m.set_item_label(btn, _dict["off label"])
                 return btn
             return wrapper
-        m.add_button = provide_toggle_btn_mechanism(m.add_button) # 装饰 add_button 命令
-        def toggle_btn_state_and_disable_items(*items):
+        m.add_button = _provide_toggle_btn_mechanism(m.add_button) # 装饰 add_button 命令
+        def toggle_btn_state_and_disable_items(*items, on_and_enable=True):
             """
             搭配 toggle button 使用的装饰器. 本函数是母函数 initialize_toggle_btn 的返回.
             也就是说, 如果在一个不用 toggle button 的项目中, initialize_toggle_btn 不会被 call, 
@@ -256,7 +268,9 @@ def extend_dpg_methods(m: ModuleType):
             1. 根据 user_data 中的 "is on" key 判断 toggle 状态, 从而切换 button 的 on/off theme 和 label
             2. 在 callback 执行失败时, 用 button label 报错
                 TODO 设置一个 button tooltip 来给出详细错误信息
-            3. 在 callback 执行成功后, 修改 user_data["is on"] 所保存的 toggle 状态. 
+            3. 在 callback 执行成功后, 修改 user_data["is on"] 所保存的 toggle 状态.
+            4. 在 toggle on/off 成功时，enable/disable (若 `on_and_enable=False` 
+               则是 disable/enable) 参数 items 中包含的 gui 元素.
             """
             def middle(cb):
                 def wrapper(sender, app_data, user_data):
@@ -272,7 +286,7 @@ def extend_dpg_methods(m: ModuleType):
                         cb(sender, app_data, user_data)
                         state = not state # flip state
                         for item in items:
-                            m.configure_item(item, enabled=not state) # if button on, then selected items are disabled
+                            m.configure_item(item, enabled=state if on_and_enable else not state)
                     except Exception as e:
                         m.set_item_label(sender, "错误!")
                         print("exception type: ", type(e).__name__)
@@ -294,8 +308,9 @@ def extend_dpg_methods(m: ModuleType):
         return toggle_btn_state_and_disable_items
     m.initialize_toggle_btn = initialize_toggle_btn
     m.initialize_chinese_fonts = initialize_chinese_fonts
+    m.bind_custom_theming = bind_custom_theming
     return m
 
 if __name__ == "__main__":
     frame = _myRandFrame(240, 240)
-    notsaved = saveWithTimestamp(r"", frame)
+    notsaved = save_with_timestamp(r"", frame)

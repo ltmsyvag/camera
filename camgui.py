@@ -1,26 +1,21 @@
 #%%
 import dearpygui.dearpygui as dpg
 import threading
-import tifffile
+import time
 import math
 from mydpghelper import (
-    _log, rgbOppositeTo, guiOpenCam, _myRandFrame, FrameStack,
-      _feedTheAWG, startAcqLoop,plotFrame, saveWithTimestamp, _updateHist, extend_dpg_methods)
+    _log, gui_open_cam, FrameStack, start_acqloop, plot_frame,
+    save_with_timestamp, _update_hist, extend_dpg_methods)
 dpg = extend_dpg_methods(dpg)
 dpg.create_context()
 
 _, bold_font, large_font = dpg.initialize_chinese_fonts()
 toggle_decor = dpg.initialize_toggle_btn()
+dpg.bind_custom_theming()
 dpg.create_viewport(title='cam-AWG GUI', 
                     width=1000, height=1020, x_pos=0, y_pos=0,
                     vsync=False) # important option to dismiss input lab, see https://github.com/hoffstadt/DearPyGui/issues/1571
-with dpg.theme(label="global theme") as global_theme:
-    with dpg.theme_component(dpg.mvAll): # online doc: theme components must have a specified item type. This can either be `mvAll` for all items or a specific item type
-        # dpg.add_theme_style(dpg.mvStyleVar_FrameBorderSize, 1, 
-        #                     category=dpg.mvThemeCat_Core # online docstring paraphrase: you are mvThemeCat_core, if you are not doing plots or nodes. 实际上我发现不加这个 kwarg 也能产生出想要的 theme。但是看到网上都加，也就跟着加吧
-        #                     )
-        dpg.add_theme_color(dpg.mvThemeCol_CheckMark, (255,255,0), category=dpg.mvThemeCat_Core)
-dpg.bind_theme(global_theme)
+
 
 with dpg.window(tag="win1", pos=(0,0)):
     # with dpg.group():
@@ -30,17 +25,11 @@ with dpg.window(tag="win1", pos=(0,0)):
                 camSwitch = dpg.add_button(
                     width=150, height=70, user_data={
                         "is on" : False, 
-                        "camera object" : None, 
                         "off label" : "相机已关闭",
                         "on label" : "相机已开启",
-                        "camera off rgb" : (202, 33, 33),
-                        "camera off hovered rgb" : (255, 0, 0),
-                        "camera on rgb" : (25,219,72),
-                        "camera on hovered rgb" : (0,255,0),
+                        "camera object" : None, 
                         })
 
-                _1 = dpg.get_item_user_data(camSwitch)
-                # dpg.set_item_label(camSwitch, _1["camera off label"])
                 acqToggle = dpg.add_checkbox(label = "采集循环开关", enabled=False,
                                             user_data=
                                             {
@@ -55,7 +44,7 @@ with dpg.window(tag="win1", pos=(0,0)):
                     cam = dpg.get_item_user_data(camSwitch)["camera object"]
                     itemsToToggle = ["expo and roi fields", camSwitch]
                     if state:
-                        threadAcq = threading.Thread(target=startAcqLoop, args=(cam, eventKeepAcquiring, frameStack))
+                        threadAcq = threading.Thread(target=start_acqloop, args=(cam, eventKeepAcquiring, frameStack))
                         user_data["acq loop thread"] = threadAcq
                         eventKeepAcquiring.set()
                         threadAcq.start()
@@ -147,7 +136,7 @@ with dpg.window(tag="win1", pos=(0,0)):
                     id = dpg.get_item_user_data(leftArr)
                     frame = frameStack[id]
                     dpath = dpg.get_value(fieldSavePath)
-                    notsaved = saveWithTimestamp(dpath, frame, id)
+                    notsaved = save_with_timestamp(dpath, frame, id)
                     if notsaved:
                         dpg.set_value(frameStackCnt, "NOT Saved!")
                     else:
@@ -158,7 +147,7 @@ with dpg.window(tag="win1", pos=(0,0)):
                     if frameStack:
                         id -= 1
                         if id<0: id = 0
-                        plotFrame(frameStack[id])
+                        plot_frame(frameStack[id])
                         # print("re-plotted!")
                     dpg.set_item_user_data(sender, id)
                 def _rightArrCallback(*cbargs):
@@ -166,14 +155,14 @@ with dpg.window(tag="win1", pos=(0,0)):
                     if frameStack:
                         id += 1
                         if id >= len(frameStack): id = len(frameStack)-1
-                        plotFrame(frameStack[id])
+                        plot_frame(frameStack[id])
                     dpg.set_item_user_data(leftArr, id)
                 dpg.bind_item_font(frameStackCnt, bold_font)
                 def _saveFrame(*cbargs):
                     dpath = dpg.get_value(fieldSavePath)
                     notsaved = None
                     for id, frame in enumerate(frameStack):
-                        notsaved = saveWithTimestamp(dpath, frame, id)
+                        notsaved = save_with_timestamp(dpath, frame, id)
                         if notsaved:
                             dpg.set_value(frameStackCnt, "NOT Saved!")
                             break
@@ -200,11 +189,11 @@ with dpg.window(tag="win1", pos=(0,0)):
                         if app_data:
                             dpg.configure_item("frame browse arrows", enabled=False)
                             frameAvg = sum(frameStack)/len(frameStack)
-                            plotFrame(frameAvg)
+                            plot_frame(frameAvg)
                         else:
                             dpg.configure_item("frame browse arrows", enabled=True)
                             id = dpg.get_item_user_data(leftArr)
-                            plotFrame(frameStack[id])
+                            plot_frame(frameStack[id])
                 dpg.set_item_callback("toggle 积分/单张 map", _toggleSingleEtIntegratedMap)
             with dpg.group(horizontal=True):
                 _cmap = dpg.mvPlotColormap_Viridis
@@ -238,7 +227,7 @@ with dpg.window(tag="win1", pos=(0,0)):
                             else:
                                 dpg.set_item_user_data("frame plot", hLhRvLvR)
                                 if hLlim <= hRlim and vLlim <=vRlim: # make sure at least one pixel's geo center falls within the query rect
-                                    _updateHist(hLhRvLvR, frameStack)
+                                    _update_hist(hLhRvLvR, frameStack)
                         else: # this is only needed for the current query rect solution for hist udpates. actions from other items cannot check app_data of this item directly (usually dpg.get_value(item) can check the app_data of an item, but not for this very special query rect coordinates app_data belonging to the heatmap plot!), so they check the user_data of this item. since I mean to stop any histogram updating when no query rect is present, then this no-rect info is given by user_data = None of the heatmap plot.
                             dpg.set_item_user_data(sender, None)
                     dpg.set_item_callback("frame plot",callback=_updateHistOnQuery)
@@ -252,60 +241,6 @@ dpg.set_primary_window("win1", True)
 #==== camSwitch: camera power switch button
 dpg.bind_item_font(camSwitch, large_font)
 
-## 设置 cam switch 开关的 theme
-_1 = dpg.get_item_user_data(camSwitch)["camera on rgb"]
-_2 = dpg.get_item_user_data(camSwitch)["camera off rgb"]
-_3 = dpg.get_item_user_data(camSwitch)["camera on hovered rgb"]
-_4 = dpg.get_item_user_data(camSwitch)["camera off hovered rgb"]
-with dpg.theme(label="cam switch ON") as camONbtn_theme:
-    with dpg.theme_component(dpg.mvAll):
-        dpg.add_theme_color(dpg.mvThemeCol_Button, _1, category=dpg.mvThemeCat_Core) 
-        dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered, _3, category=dpg.mvThemeCat_Core) 
-        dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, _3, category=dpg.mvThemeCat_Core) 
-        dpg.add_theme_color(dpg.mvThemeCol_Text, rgbOppositeTo(*_1), category=dpg.mvThemeCat_Core) 
-        dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 15, category=dpg.mvThemeCat_Core)
-with dpg.theme(label="cam switch OFF") as camOFFbtn_theme:
-    with dpg.theme_component(dpg.mvAll):
-        dpg.add_theme_color(dpg.mvThemeCol_Button, _2, category=dpg.mvThemeCat_Core)
-        dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered, _4, category=dpg.mvThemeCat_Core)
-        dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, _4, category=dpg.mvThemeCat_Core)
-        # dpg.add_theme_color(dpg.mvThemeCol_Text, rgbOppositeTo(*_2), category=dpg.mvThemeCat_Core) 
-        dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 15, category=dpg.mvThemeCat_Core)
-
-# def camSwitch_callback(sender, _, user_data):
-#     state, cam, camONlabel, camOFFlabel = user_data["is on"], user_data["camera object"], user_data["camera on label"], user_data["camera off label"]
-#     state = not state # flip the state
-#     if state:
-#         dpg.set_item_label(camSwitch,"开启中...")
-#         cam = guiOpenCam()
-#         user_data["camera object"] = cam; dpg.set_item_user_data(sender, user_data) # push the cam object to the switch button user_data, to be used by the initial cam settings from the fields below
-
-#         ## make cam trig
-
-#         ## set cam exposure from field value, then refresh field by cam value
-#         expFieldValInMs = dpg.get_value(fieldExpo) 
-#         cam.set_exposure(expFieldValInMs*1e-3)
-#         expoCamValInS = cam.cav["exposure_time"]
-#         dpg.set_value(fieldExpo, expoCamValInS*1e3)
-        
-#         setCamROIfrom6Fields()
-#         set6FieldsROIfromCAM()
-#         dpg.set_item_label(sender, camONlabel)
-#         dpg.bind_item_theme(sender, camONbtn_theme)
-#     else:
-#         # cam.stop_acquisition()
-#         cam.close(); print("=====cam closed")
-#         cam = None
-#         dpg.set_item_label(sender, camOFFlabel)
-#         dpg.bind_item_theme(sender, camOFFbtn_theme)
-#     itemsToToggle = ["expo and roi fields", acqToggle]
-#     for item in itemsToToggle:
-#         dpg.configure_item(item, enabled=state)
-#     user_data["is on"] = state
-#     dpg.set_item_user_data(sender, user_data)
-#     # if state:
-#     #     prepCamForTrigAndPlot(cam)
-
 
 @toggle_decor("expo and roi fields", acqToggle)
 def camSwitch_callback(sender, _, user_data):
@@ -313,7 +248,7 @@ def camSwitch_callback(sender, _, user_data):
     next_state = not state # state after toggle
     if next_state:
         # dpg.set_item_label(camSwitch,"开启中...")
-        cam = guiOpenCam()
+        cam = gui_open_cam()
         user_data["camera object"] = cam
         dpg.set_item_user_data(sender, user_data) # store cam object
         ## make cam trig
@@ -331,17 +266,22 @@ def camSwitch_callback(sender, _, user_data):
         cam.close(); print("=====cam closed")
         user_data["camera object"] = None
         dpg.set_item_user_data(sender, user_data)
+
+@toggle_decor("expo and roi fields", acqToggle)
+def _dummy_camSwitch_callback(sender, _, user_data):
+    state = user_data["is on"]
+    next_state = not state # state after toggle
+    if next_state:
+        time.sleep(0.5)
+    else:
+        time.sleep(0.5)
  
-    # if state:
-    #     prepCamForTrigAndPlot(cam)
+camSwitch_callback = _dummy_camSwitch_callback
+
 
 
 dpg.set_item_callback(camSwitch,camSwitch_callback)
-dpg.bind_item_theme(camSwitch, camOFFbtn_theme)
 
-# print(dpg.get_value(fieldExpo))
-# dpg.show_style_editor()
-# dpg.show_item_registry()
 dpg.setup_dearpygui()
 dpg.show_viewport()
 dpg.start_dearpygui()
