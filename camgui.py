@@ -12,6 +12,7 @@ dpg.create_context()
 _, bold_font, large_font = dpg.initialize_chinese_fonts()
 toggle_decor = dpg.initialize_toggle_btn()
 dpg.bind_custom_theming()
+
 dpg.create_viewport(title='cam-AWG GUI', 
                     width=1000, height=1020, x_pos=0, y_pos=0,
                     vsync=False) # important option to dismiss input lab, see https://github.com/hoffstadt/DearPyGui/issues/1571
