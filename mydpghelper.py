@@ -10,24 +10,83 @@ import numpy as np
 import dearpygui.dearpygui as dpg
 import colorsys
 import tifffile
-
+import os
+import deprecated
 
 class FrameStack(list):
     """
-    a method to be developed.
+    class of a special list with my own methods for manipulating the frames it stores
     """
-    cid = None # current heatmap's id in stack # unused yet
-    def get_avg_frame(self):
+    cid = None # current heatmap's id in stack
+    float_stack = [] # gui 中的操作需要 float frame, 因此与 list (int stack) 对应, 要有一个 float stack
+    def _update_float_stack(self):
         """
-        why don't I simply use `sum(mylist)`? becaue `sum(<empty list []>)` returns 0, 
-        whereas in the case of a frame stack list, it should return None when there's no frame.
-        So this method is better!
+        强制 float_stack 和与 list 内容同步, overhead 可能较大, 在需要的时候使用
         """
-        if self: # non empty list
-            return sum(self)
-def feed_the_awg(frame):
+        self.float_stack = [e.astype(float) for e in self]
+        self.cid = len(self.float_stack) - 1
+    def append(self, frame: np.ndarray):
+        """
+        append a new frame to int & float stacks
+        """
+        assert np.issubdtype(frame, np.uint16), "frame should be uint16, something's off?!"
+
+        super().append(frame)
+        self.float_stack.append(frame.astype(float))
+        self.cid = len(self.float_stack) - 1
+    def clear(self):
+        """
+        clear int & float stacks
+        """
+        super().clear()
+        self.float_stack.clear()
+        self.cid = None
+    # @deprecated(reason = "我觉得我只需要 plot avg frame, 而不需要 get avg frame")
+    # def get_avg_frame(self):
+    #     """
+    #     why don't I simply use `sum(mylist)`? becaue `sum(<empty list []>)` returns 0, 
+    #     whereas in the case of a frame stack list, it should return None when there's no frame.
+    #     So this method is better!
+    #     """
+    #     if self.float_stack: # non empty list
+    #         return sum(self.float_stack) / len(self.float_stack)
+    def _plot_frame(self, frame):
+        yax = "frame yax"
+        colorbar="frame colorbar"
+        _fmin, _fmax, (_nVrows, _nHcols) = frame.min(), frame.max(), frame.shape
+        if dpg.get_value("manual scale checkbox"):
+            _fmin, _fmax, *_ = dpg.get_value("color scale lims")
+        dpg.configure_item(
+            colorbar, 
+            min_scale = _fmin, 
+            max_scale = _fmax)
+        dpg.delete_item(yax, children_only=True) # this is necessary!
+        dpg.add_heat_series(frame, _nVrows, _nHcols, parent=yax, 
+                            scale_min=_fmin, scale_max=_fmax,format="",
+                            bounds_min= (0,_nVrows), bounds_max= (_nHcols, 0))
+        if not dpg.get_item_user_data("frame plot"): # 只有在无 query rect 选区时，才重置 heatmap 的 zoom
+            dpg.fit_axis_data(yax)
+            dpg.fit_axis_data("frame xax")
+    def plot_avg_frame(self):
+        if  self.float_stack:
+            avg_frame = sum(self.float_stack) / len(self.float_stack)
+            self._plot_frame(avg_frame)
+    def plot_cid_frame(self):
+        if self.cid is not None:
+            frame = self.float_stack[self.cid]
+            self._plot_frame(frame)
+
+class MyPath(Path):
+    def is_readable(self):
+        return os.access(self, os.R_OK)
+    def is_writable(self):
+        return os.access(self, os.W_OK)
+    def is_executable(self):
+        return os.access(self, os.X_OK)
+
+def dummy_feed_awg(frame):
     pass
-def _myRandFrame(v=2304,h=4096, max=65535)-> np.ndarray:
+def _my_rand_frame(v=2304,h=4096, max=65535)-> np.ndarray:
     myarr = np.random.randint(0,max, size = v*h, dtype=np.uint16)
     return myarr.reshape((v,-1))
 
@@ -44,36 +103,37 @@ def ZYLconversion(frame: np.ndarray)->np.ndarray:
     """
     frame = (frame -200) * 0.1/0.9
     return frame
-def plot_frame(frame: np.ndarray,
-              yax = "frame yax",
-              colorbar="frame colorbar",
-              ) -> None:
-    _fmin, _fmax, (_nVrows, _nHcols) = frame.min(), frame.max(), frame.shape
-    if dpg.get_value("manual scale checkbox"):
-        _fmin, _fmax, *_ = dpg.get_value("color scale lims")
-    dpg.configure_item(
-        colorbar, 
-        min_scale = _fmin, 
-        max_scale = _fmax)
-    dpg.delete_item(yax, children_only=True) # this is necessary!
-    dpg.add_heat_series(frame, _nVrows, _nHcols, parent=yax, 
-                        scale_min=_fmin, scale_max=_fmax,format="",
-                        bounds_min= (0,_nVrows), bounds_max= (_nHcols, 0))
-    if not dpg.get_item_user_data("frame plot"): # 只有在无 query rect 选区时，才重置 heatmap 的 zoom
-        dpg.fit_axis_data(yax)
-        dpg.fit_axis_data("frame xax")
+# def plot_frame(frame: np.ndarray,
+#               yax = "frame yax",
+#               colorbar="frame colorbar",
+#               ) -> None:
+#     print(type(frame[0,0]))
+#     _fmin, _fmax, (_nVrows, _nHcols) = frame.min(), frame.max(), frame.shape
+#     if dpg.get_value("manual scale checkbox"):
+#         _fmin, _fmax, *_ = dpg.get_value("color scale lims")
+#     dpg.configure_item(
+#         colorbar, 
+#         min_scale = _fmin, 
+#         max_scale = _fmax)
+#     dpg.delete_item(yax, children_only=True) # this is necessary!
+#     dpg.add_heat_series(frame, _nVrows, _nHcols, parent=yax, 
+#                         scale_min=_fmin, scale_max=_fmax,format="",
+#                         bounds_min= (0,_nVrows), bounds_max= (_nHcols, 0))
+#     if not dpg.get_item_user_data("frame plot"): # 只有在无 query rect 选区时，才重置 heatmap 的 zoom
+#         dpg.fit_axis_data(yax)
+#         dpg.fit_axis_data("frame xax")
 
-def store_and_plot_frame(frame: np.ndarray, frameStack: FrameStack)-> None:
-    frameStack.append(frame)
-    # if len(frameStack) > 500: frameStack.pop(0)
-    dpg.set_item_user_data("plot previous frame", len(frameStack)-1)
-    dpg.set_value("frame stack count display", f"{len(frameStack)} frames in stack")
-    if dpg.get_value("toggle 积分/单张 map"):
-        plot_frame(frameStack.get_avg_frame())
-    else:
-        plot_frame(frame)
+# def _store_and_plot_frame(frame: np.ndarray, frame_stack: FrameStack)-> None:
+#     frame_stack.append(frame)
+#     # if len(frameStack) > 500: frameStack.pop(0)
+#     dpg.set_item_user_data("plot previous frame", len(frame_stack)-1)
+#     dpg.set_value("frame stack count display", f"{len(frame_stack)} frames in stack")
+#     if dpg.get_value("toggle 积分/单张 map"):
+#         plot_frame(frame_stack.get_avg_frame())
+#     else:
+#         plot_frame(frame)
 
-def _update_hist(hLhRvLvR: tuple, frameStack:list, yax = "hist plot yax")->None:
+def _update_hist(hLhRvLvR: tuple, frame_stack:list, yax = "hist plot yax")->None:
     """
     hLhRvLvR 保存了一个矩形选区所包裹的像素中心点坐标（只能是半整数）h 向最小最大值和 v 向最小最大值。
     这些值确定了所选取的像素集合。然后，在此选择基础上将 frame stack 中的每一张 frame 在该选区中的部分的 counts 求得，
@@ -83,7 +143,7 @@ def _update_hist(hLhRvLvR: tuple, frameStack:list, yax = "hist plot yax")->None:
     vidLo, vidHi = math.floor(vLlim), math.floor(vRlim)
     hidLo, hidHi = math.floor(hLlim), math.floor(hRlim)
     histData = []
-    for frame in frameStack: # make hist data
+    for frame in frame_stack: # make hist data
         frame = ZYLconversion(frame)
         subFrame = frame[vidLo:vidHi+1, hidLo:hidHi+1]
         histData.append(subFrame.sum())
@@ -99,7 +159,7 @@ def _update_hist(hLhRvLvR: tuple, frameStack:list, yax = "hist plot yax")->None:
 def start_acqloop(
         cam: DCAM.DCAM.DCAMCamera,
         event: threading.Event,
-        frameStack: list)-> None:
+        frame_stack: FrameStack)-> None:
     cam.set_trigger_mode("ext")
     cam.start_acquisition(mode="sequence", nframes=100)
     while event.is_set():
@@ -107,12 +167,17 @@ def start_acqloop(
             cam.wait_for_frame(timeout=0.2)
         except DCAM.DCAMTimeoutError:
             continue
-        thisFrame = cam.read_oldest_image()
-        feed_the_awg(thisFrame) # feed original uint16 format to AWG
-        store_and_plot_frame(thisFrame.astype(float), frameStack) # I changed the default uint16 type when I acquire each frame. I need float (not uint16) for robust graphic processing, and batch conversion of many frames to int can be slow (e.g. when plotting the avg frame) for large frame stack.
+        this_frame = cam.read_oldest_image()
+        dummy_feed_awg(this_frame) # feed original uint16 format to AWG
+        frame_stack.append(this_frame)
+        if dpg.get_value("toggle 积分/单张 map"):
+            frame_stack.plot_avg_frame()
+        else:
+            frame_stack.plot_cid_frame()
+        # _store_and_plot_frame(this_frame.astype(float), frame_stack) # I changed the default uint16 type when I acquire each frame. I need float (not uint16) for robust graphic processing, and batch conversion of many frames to int can be slow (e.g. when plotting the avg frame) for large frame stack.
         hLhRvLvR = dpg.get_item_user_data("frame plot")
         if hLhRvLvR:
-            _update_hist(hLhRvLvR, frameStack)
+            _update_hist(hLhRvLvR, frame_stack)
         # print("frame acquired")
 
 
@@ -312,5 +377,5 @@ def extend_dpg_methods(m: ModuleType):
     return m
 
 if __name__ == "__main__":
-    frame = _myRandFrame(240, 240)
+    frame = _my_rand_frame(240, 240)
     notsaved = save_with_timestamp(r"", frame)

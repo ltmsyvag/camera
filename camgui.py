@@ -4,7 +4,7 @@ import threading
 import time
 import math
 from mydpghelper import (
-    _log, gui_open_cam, FrameStack, start_acqloop, plot_frame,
+    _log, gui_open_cam, FrameStack, start_acqloop, 
     save_with_timestamp, _update_hist, extend_dpg_methods)
 dpg = extend_dpg_methods(dpg)
 dpg.create_context()
@@ -38,14 +38,16 @@ with dpg.window(tag="win1", pos=(0,0)):
                                                 "acq loop thread" : None,
                                             })
                 dpg.bind_item_font(dpg.last_item(), bold_font)
-                frameStack = FrameStack()
-                def _toggleAcqLoop(sender, app_data, user_data):
+                from tiff_imports import flist
+                frame_stack = FrameStack(flist[:10])
+                frame_stack._update_float_stack()
+                def _toggle_acqloop_(sender, app_data, user_data):
                     state = app_data
                     eventKeepAcquiring = user_data["keep acquiring thread event"]
                     cam = dpg.get_item_user_data(camSwitch)["camera object"]
                     itemsToToggle = ["expo and roi fields", camSwitch]
                     if state:
-                        threadAcq = threading.Thread(target=start_acqloop, args=(cam, eventKeepAcquiring, frameStack))
+                        threadAcq = threading.Thread(target=start_acqloop, args=(cam, eventKeepAcquiring, frame_stack))
                         user_data["acq loop thread"] = threadAcq
                         eventKeepAcquiring.set()
                         threadAcq.start()
@@ -60,7 +62,7 @@ with dpg.window(tag="win1", pos=(0,0)):
                     for item in itemsToToggle: # userproof: toggle the gray/ungray of some fields
                         dpg.configure_item(item, enabled = not state)
                     dpg.set_item_user_data(sender, user_data)
-            dpg.set_item_callback(acqToggle, _toggleAcqLoop)
+            dpg.set_item_callback(acqToggle, _toggle_acqloop_)
             dpg.add_separator()
             with dpg.group(tag = "expo and roi fields",horizontal=False, enabled=False) as groupExpoRoi:
                 dpg.add_text("exposure time (ms):")
@@ -86,13 +88,13 @@ with dpg.window(tag="win1", pos=(0,0)):
                 fieldsROIv = dpg.add_input_intx(size=2, indent = dpg.get_item_indent(fieldsROIh),width=dpg.get_item_width(fieldsROIh), default_value=[948,240,0,0])
                 dpg.add_text("h binning & v binning")
                 fieldsBinning = dpg.add_input_intx(size=2, indent = dpg.get_item_indent(fieldsROIh),width=dpg.get_item_width(fieldsROIh), default_value=[1,1,0,0])
-                def setCamROIfrom6Fields():
+                def do_set_cam_roi_using_6fields():
                     hstart, hwid, *_ = dpg.get_value(fieldsROIh)
                     vstart, vwid, *_ = dpg.get_value(fieldsROIv)
                     hbin, vbin, *_ = dpg.get_value(fieldsBinning)
                     cam = dpg.get_item_user_data(camSwitch)["camera object"]
                     cam.set_roi(hstart, hstart+hwid, vstart, vstart+vwid, hbin, vbin)
-                def set6FieldsROIfromCAM(): # arg free callback, also indpendently used (not as callback) in cam switch initialization
+                def do_set_6fields_roi_using_cam(): # arg free callback, also indpendently used (not as callback) in cam switch initialization
                     cam = dpg.get_item_user_data(camSwitch)["camera object"]
                     hstart, hend, vstart, vend, hbin, vbin = cam.get_roi()
                     # print(hstart, hend, vstart, vend, hbin, vbin)
@@ -100,9 +102,9 @@ with dpg.window(tag="win1", pos=(0,0)):
                     dpg.set_value(fieldsROIv,[vstart, vend-vstart,0,0])
                     dpg.set_value(fieldsBinning,[hbin, vbin,0,0])
                 with dpg.item_handler_registry(tag="on leaving 6 ROI fields"):
-                    dpg.add_item_deactivated_after_edit_handler(callback=set6FieldsROIfromCAM)
+                    dpg.add_item_deactivated_after_edit_handler(callback=do_set_6fields_roi_using_cam)
                 for _item in [fieldsROIh, fieldsROIv, fieldsBinning]:
-                    dpg.set_item_callback(_item, setCamROIfrom6Fields)
+                    dpg.set_item_callback(_item, do_set_cam_roi_using_6fields)
                     dpg.bind_item_handler_registry(_item, "on leaving 6 ROI fields")
             
         with dpg.child_window():
@@ -114,7 +116,7 @@ with dpg.window(tag="win1", pos=(0,0)):
                 
                 dpg.add_button(tag = "clear stack button", label="清空 frame stack", width=150, height=35)
                 def _on_confirm():
-                    frameStack.clear()
+                    frame_stack.clear()
                     dpg.set_value(frameStackCnt, "0 frames in stack")
                     dpg.delete_item("confirmation_modal")  # Close the modal after confirming
 
@@ -135,7 +137,7 @@ with dpg.window(tag="win1", pos=(0,0)):
                 btnSaveCurrent = dpg.add_button(label="保存当前 frame", width=150, height=35)
                 def _saveCurrentFrame(*cbargs):
                     id = dpg.get_item_user_data(leftArr)
-                    frame = frameStack[id]
+                    frame = frame_stack[id]
                     dpath = dpg.get_value(fieldSavePath)
                     notsaved = save_with_timestamp(dpath, frame, id)
                     if notsaved:
@@ -145,30 +147,32 @@ with dpg.window(tag="win1", pos=(0,0)):
                 dpg.set_item_callback(btnSaveCurrent, _saveCurrentFrame)
                 def _leftArrCallback(sender, _, user_data):
                     id = user_data
-                    if frameStack:
-                        id -= 1
-                        if id<0: id = 0
-                        plot_frame(frameStack[id])
+                    if frame_stack.cid:
+                        frame_stack.cid -= 1
+                        frame_stack.plot_cid_frame()
+                        # if id<0: id = 0
+                        # plot_frame(frame_stack[id])
                         # print("re-plotted!")
                     dpg.set_item_user_data(sender, id)
                 def _rightArrCallback(*cbargs):
                     id = dpg.get_item_user_data(leftArr)
-                    if frameStack:
-                        id += 1
-                        if id >= len(frameStack): id = len(frameStack)-1
-                        plot_frame(frameStack[id])
+                    if frame_stack and (frame_stack.cid<len(frame_stack)-1):
+                        frame_stack.cid += 1
+                        frame_stack.plot_cid_frame()
+                        # if id >= len(frame_stack): id = len(frame_stack)-1
+                        # plot_frame(frame_stack[id])
                     dpg.set_item_user_data(leftArr, id)
                 dpg.bind_item_font(frameStackCnt, bold_font)
                 def _saveFrame(*cbargs):
                     dpath = dpg.get_value(fieldSavePath)
                     notsaved = None
-                    for id, frame in enumerate(frameStack):
+                    for id, frame in enumerate(frame_stack):
                         notsaved = save_with_timestamp(dpath, frame, id)
                         if notsaved:
                             dpg.set_value(frameStackCnt, "NOT Saved!")
                             break
                     if not notsaved:
-                        frameStack.clear()
+                        frame_stack.clear()
                         dpg.set_value(frameStackCnt, "0 frames in stack")
                 dpg.set_item_callback(saveBtn, _saveFrame)
             # def _printstuff(sender):
@@ -183,19 +187,24 @@ with dpg.window(tag="win1", pos=(0,0)):
                     rightArr = dpg.add_button(tag = "plot next frame", label=">", width=30, height=30, arrow=True, direction=dpg.mvDir_Right)
                     dpg.set_item_callback(leftArr, _leftArrCallback)
                     dpg.set_item_callback(rightArr, _rightArrCallback)
+                    #==========
+                    dpg.set_item_user_data(leftArr, len(frame_stack)-1)
+                    dpg.set_value(frameStackCnt, f"{len(frame_stack)} frames in stack")
                 dpg.add_spacer(width=20)
                 dpg.add_checkbox(label="stack 平均图",tag="toggle 积分/单张 map")
-                def _toggleSingleEtIntegratedMap(_, app_data,__):
-                    if frameStack:
+                def _toggle_cid_and_avg_map_(_, app_data,__):
+                    if frame_stack:
                         if app_data:
                             dpg.configure_item("frame browse arrows", enabled=False)
-                            frameAvg = sum(frameStack)/len(frameStack)
-                            plot_frame(frameAvg)
+                            frame_stack.plot_avg_frame()
+                            # frameAvg = sum(frame_stack)/len(frame_stack)
+                            # plot_frame(frameAvg)
                         else:
                             dpg.configure_item("frame browse arrows", enabled=True)
-                            id = dpg.get_item_user_data(leftArr)
-                            plot_frame(frameStack[id])
-                dpg.set_item_callback("toggle 积分/单张 map", _toggleSingleEtIntegratedMap)
+                            frame_stack.plot_cid_frame()
+                            # id = dpg.get_item_user_data(leftArr)
+                            # plot_frame(frame_stack[id])
+                dpg.set_item_callback("toggle 积分/单张 map", _toggle_cid_and_avg_map_)
             with dpg.group(horizontal=True):
                 _cmap = dpg.mvPlotColormap_Viridis
                 dpg.add_colormap_scale(tag = "frame colorbar", min_scale=0,max_scale=65535, height=400)
@@ -228,7 +237,7 @@ with dpg.window(tag="win1", pos=(0,0)):
                             else:
                                 dpg.set_item_user_data("frame plot", hLhRvLvR)
                                 if hLlim <= hRlim and vLlim <=vRlim: # make sure at least one pixel's geo center falls within the query rect
-                                    _update_hist(hLhRvLvR, frameStack)
+                                    _update_hist(hLhRvLvR, frame_stack)
                         else: # this is only needed for the current query rect solution for hist udpates. actions from other items cannot check app_data of this item directly (usually dpg.get_value(item) can check the app_data of an item, but not for this very special query rect coordinates app_data belonging to the heatmap plot!), so they check the user_data of this item. since I mean to stop any histogram updating when no query rect is present, then this no-rect info is given by user_data = None of the heatmap plot.
                             dpg.set_item_user_data(sender, None)
                     dpg.set_item_callback("frame plot",callback=_updateHistOnQuery)
@@ -260,8 +269,8 @@ def camSwitch_callback(sender, _, user_data):
         expoCamValInS = cam.cav["exposure_time"]
         dpg.set_value(fieldExpo, expoCamValInS*1e3)
         
-        setCamROIfrom6Fields()
-        set6FieldsROIfromCAM()
+        do_set_cam_roi_using_6fields()
+        do_set_6fields_roi_using_cam()
     else:
         # cam.stop_acquisition()
         cam.close(); print("=====cam closed")

@@ -1,7 +1,7 @@
 [project]
 name = "mydpghelper"
 version = "0.1.0"
-description = "a bunch of helper functions and decorators for dpg project"
+description = "a bunch of helper functions and decorators for dpg project. This version mainly features a personal decorator for dpg to extend its methods"
 authors = [{name = "haiteng"}]
 
 [build-system]
