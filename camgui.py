@@ -5,10 +5,12 @@ import time
 import math
 from mydpghelper import (
     _log, gui_open_cam, FrameStack, start_acqloop, 
-    save_with_timestamp, _update_hist, extend_dpg_methods)
+    save_with_timestamp, _update_hist, extend_dpg_methods, MyPath)
 dpg = extend_dpg_methods(dpg)
-from tiff_imports import flist
-frame_stack = FrameStack(flist[:10])
+# from tiff_imports import flist
+# frame_stack = FrameStack(flist[:10])
+frame_stack = FrameStack()
+import tifffile
 
 
 dpg.create_context()
@@ -114,9 +116,21 @@ with dpg.window(tag="win1", pos=(0,0)):
                 fieldSavePath = dpg.add_input_text(hint="path to save tiff, e.g. C:\\Users\\username\\Desktop\\", width=600)
                 btnLoad = dpg.add_button(label="load frames", callback=lambda: dpg.show_item("file dialog"))
                 def _cb_(sender, app_data, user_data):
-                    print(type(app_data))
-                with dpg.file_dialog(directory_selector=False, show=False, callback=_cb_, tag="file dialog", width=700 ,height=400):
+                    # print(type(app_data))
+                    # for key, val in app_data.items():
+                    #     print(key, "||",val)
+                    global frame_stack
+                    fname_dict = app_data["selections"]
+                    if fname_dict:
+                        frame_list = [tifffile.imread(e) for e in fname_dict.values()]
+                        frame_stack = FrameStack(frame_list)
+                        frame_stack._update()
+                            
+                with dpg.file_dialog(directory_selector=False, show=False, 
+                                     callback=_cb_, tag="file dialog",
+                                     width=700 ,height=400):
                     dpg.add_file_extension(".tif")
+                    dpg.add_file_extension(".tiff")
                     pass
             with dpg.group(horizontal=True):        
                 frameStackCnt = dpg.add_text(tag = "frame stack count display", default_value= "0 frames in stack")
@@ -286,7 +300,7 @@ def camSwitch_callback(sender, _, user_data):
         dpg.set_item_user_data(sender, user_data)
 
 @toggle_decor("expo and roi fields", acqToggle)
-def _dummy_camSwitch_callback(sender, _, user_data):
+def _dummy_camSwitch_callback(_, __, user_data):
     state = user_data["is on"]
     next_state = not state # state after toggle
     if next_state:
@@ -300,7 +314,6 @@ camSwitch_callback = _dummy_camSwitch_callback
 
 dpg.set_item_callback(camSwitch,camSwitch_callback)
 
-frame_stack._update_float_stack()
 dpg.setup_dearpygui()
 dpg.show_viewport()
 dpg.start_dearpygui()

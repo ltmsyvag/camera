@@ -11,7 +11,7 @@ import dearpygui.dearpygui as dpg
 import colorsys
 import tifffile
 import os
-import deprecated
+# import deprecated
 
 class FrameStack(list):
     """
@@ -19,13 +19,21 @@ class FrameStack(list):
     """
     cid = None # current heatmap's id in stack
     float_stack = [] # gui 中的操作需要 float frame, 因此与 list (int stack) 对应, 要有一个 float stack
-    def _update_float_stack(self):
+    def _update(self):
         """
         强制 float_stack 和与 list 内容同步, overhead 可能较大, 在需要的时候使用
+        同时执行:
+        - 更新 stack counts 显示
+        - 调整 cid 到 stack 最末
         """
-        self.float_stack = [e.astype(float) for e in self]
-        self.cid = len(self) - 1
-        dpg.set_value("frame stack count display", f"{len(self)} frames in stack")
+        if self:
+            self.float_stack = [e.astype(float) for e in self]
+            self.cid = len(self) - 1
+            dpg.set_value("frame stack count display", f"{len(self)} frames in stack")
+            if dpg.get_value("toggle 积分/单张 map"):
+                self.plot_avg_frame()
+            else:
+                self.plot_cid_frame()
     def append(self, frame: np.ndarray):
         """
         append a new frame to int & float stacks
