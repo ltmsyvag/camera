@@ -3,26 +3,29 @@ import dearpygui.dearpygui as dpg
 import threading
 import time
 import math
-from mydpghelper import (
-    _log, gui_open_cam, FrameStack, start_acqloop, 
-    save_with_timestamp, _update_hist, extend_dpg_methods, MyPath)
-dpg = extend_dpg_methods(dpg)
-# from tiff_imports import flist
-# frame_stack = FrameStack(flist)
-frame_stack = FrameStack()
 import tifffile
-
+from camguihelper import (
+    gui_open_cam, FrameStack, start_acqloop,
+    save_with_timestamp, MyPath)
+from camguihelper.core import _log, _update_hist
+from camguihelper.dpghelper import (
+    bind_custom_theming,
+    initialize_chinese_fonts,
+    initialize_toggle_btn,
+    toggle_checkbox_and_disable)
+from tiff_imports import flist
+frame_stack = FrameStack(flist)
+# frame_stack = FrameStack()
 
 dpg.create_context()
 
-_, bold_font, large_font = dpg.initialize_chinese_fonts()
-toggle_decor = dpg.initialize_toggle_btn()
-dpg.bind_custom_theming()
+_, bold_font, large_font = initialize_chinese_fonts()
+toggle_btn_decor = initialize_toggle_btn()
+bind_custom_theming()
 
 dpg.create_viewport(title='cam-AWG GUI', 
                     width=1000, height=1020, x_pos=0, y_pos=0,
                     vsync=False) # important option to dismiss input lab, see https://github.com/hoffstadt/DearPyGui/issues/1571
-
 
 with dpg.window(tag="win1", pos=(0,0)):
     # with dpg.group():
@@ -242,7 +245,7 @@ with dpg.window(tag="win1", pos=(0,0)):
                         return math.floor(num-0.5) + 0.5
                     def ceilHalfInt(num: float) -> float: # -0.6,-0.5 -> -0.5; 0.4,0.5 ->0.5, 0.6 - > 1.5
                         return math.ceil(num+0.5) - 0.5
-                    def _updateHistOnQuery(sender, app_data, user_data):
+                    def _update_hist_on_query_(sender, app_data, user_data):
                         """
                         log geometric centers of box selected pixels
                             h->
@@ -262,7 +265,7 @@ with dpg.window(tag="win1", pos=(0,0)):
                                     _update_hist(hLhRvLvR, frame_stack)
                         else: # this is only needed for the current query rect solution for hist udpates. actions from other items cannot check app_data of this item directly (usually dpg.get_value(item) can check the app_data of an item, but not for this very special query rect coordinates app_data belonging to the heatmap plot!), so they check the user_data of this item. since I mean to stop any histogram updating when no query rect is present, then this no-rect info is given by user_data = None of the heatmap plot.
                             dpg.set_item_user_data(sender, None)
-                    dpg.set_item_callback("frame plot",callback=_updateHistOnQuery)
+                    dpg.set_item_callback("frame plot",callback=_update_hist_on_query_)
     with dpg.child_window(): # 为了让下面的 hist binning field 可以自然地从一个 window 的左上角开始选取 h，v 坐标，所以这里设置一个 child window
         with dpg.plot(tag="hist plot", label = "hist", height=-1, width=-1, no_mouse_pos=True):
             dpg.add_plot_axis(dpg.mvXAxis, label = "converted counts ((<frame pixel counts>-200)*0.1/0.9)")
@@ -274,7 +277,7 @@ dpg.set_primary_window("win1", True)
 dpg.bind_item_font(camSwitch, large_font)
 
 
-@toggle_decor("expo and roi fields", acqToggle)
+@toggle_btn_decor("expo and roi fields", acqToggle)
 def camSwitch_callback(sender, _, user_data):
     state, cam, = user_data["is on"], user_data["camera object"], 
     next_state = not state # state after toggle
@@ -299,7 +302,7 @@ def camSwitch_callback(sender, _, user_data):
         user_data["camera object"] = None
         dpg.set_item_user_data(sender, user_data)
 
-@toggle_decor("expo and roi fields", acqToggle)
+@toggle_btn_decor("expo and roi fields", acqToggle)
 def _dummy_camSwitch_callback(_, __, user_data):
     state = user_data["is on"]
     next_state = not state # state after toggle
@@ -308,12 +311,10 @@ def _dummy_camSwitch_callback(_, __, user_data):
     else:
         time.sleep(0.5)
  
-# camSwitch_callback = _dummy_camSwitch_callback
-
-
+camSwitch_callback = _dummy_camSwitch_callback
 
 dpg.set_item_callback(camSwitch,camSwitch_callback)
-# frame_stack._update()
+frame_stack._update()
 dpg.setup_dearpygui()
 dpg.show_viewport()
 dpg.start_dearpygui()

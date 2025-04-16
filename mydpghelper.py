@@ -207,8 +207,18 @@ def extend_dpg_methods(m: ModuleType):
                 # m.add_theme_style(m.mvStyleVar_FrameBorderSize, 1, 
                 #                     category=m.mvThemeCat_Core # online docstring paraphrase: you are mvThemeCat_core, if you are not doing plots or nodes. 实际上我发现不加这个 kwarg 也能产生出想要的 theme。但是看到网上都加，也就跟着加吧
                 #                     )
+                # m.add_theme_color(m.mvThemeCol_Text, (255,0,0), category=m.mvThemeCat_Core)
                 m.add_theme_color(m.mvThemeCol_CheckMark, (255,255,0), category=m.mvThemeCat_Core)
                 m.add_theme_style(m.mvStyleVar_FrameRounding, 3, category=m.mvThemeCat_Core)
+            for comp_type in ( # this code is from https://github.com/hoffstadt/DearPyGui/issues/2068. What it does is binding disabled theme colors for texts separately depending on the item type. Because a simple dpg.mvAll does not work (it should) due to bug.
+                m.mvMenuItem, 
+                m.mvButton, 
+                m.mvText
+                ):
+                with m.theme_component(comp_type, enabled_state=False):
+                    m.add_theme_color(m.mvThemeCol_Text, (0.50 * 255, 0.50 * 255, 0.50 * 255, 1.00 * 255), 
+                                    #   category=m.mvThemeCat_Core
+                                      )
         m.bind_theme(global_theme)
     
 
@@ -312,7 +322,7 @@ def extend_dpg_methods(m: ModuleType):
             4. 在 toggle on/off 成功时，enable/disable (若 `on_and_enable=False` 
                则是 disable/enable) 参数 items 中包含的 gui 元素.
             """
-            def middle(cb):
+            def decor(cb):
                 def wrapper(sender, app_data, user_data):
                     assert m.get_item_type(sender) == "mvAppItemType::mvButton", "sender must be a button"
                     assert isinstance(user_data, dict) and ("is on" in user_data), "user_data must be a dict with 'is on' key"
@@ -344,13 +354,31 @@ def extend_dpg_methods(m: ModuleType):
                     user_data["is on"] = state
                     m.set_item_user_data(sender, user_data) # store state
                 return wrapper
-            return middle
+            return decor
         return toggle_btn_state_and_disable_items
     m.initialize_toggle_btn = initialize_toggle_btn
     m.initialize_chinese_fonts = initialize_chinese_fonts
     m.bind_custom_theming = bind_custom_theming
     return m
-
+def toggle_checkbox_and_disable(*items, on_and_enable=False):
+    """
+    这个函数和上面的 toggle_btn_state_and_disable_items 类似,
+    但之所以要独立定义本函数, 是因为 checkbox 的 toggle state boolean
+    是 app_data, 是用户无法介入控制的: 每次点击必然会 flip state,
+    即使 callback 执行报错, 也会 flip state.
+    也就是说这个 app_data boolean 反映的就是 checkbox 在点击后必然会变化的
+    cosmetic change.
+    因此, toggle button (由于可以在报错时即时决定 state boolean 和 button 外观)
+    适合用于 volatile 的仪器状态 toggle. 
+    而 checkbox 适合用于必然可以无意外 toggle 的对象. 
+    """
+    def decor(cb):
+        def wrapper(_, app_data, __):
+            cb(_, app_data, __)
+            for item in items:
+                dpg.configure_item(item, enabled=app_data if on_and_enable else not app_data)
+        return wrapper
+    return decor
 if __name__ == "__main__":
     frame = _my_rand_frame(240, 240)
     notsaved = save_with_timestamp(r"", frame)

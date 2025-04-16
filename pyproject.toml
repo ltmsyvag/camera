@@ -1,12 +1,13 @@
-[project]
-name = "mydpghelper"
-version = "0.1.0"
-description = "a bunch of helper functions and decorators for dpg project. This version mainly features a personal decorator for dpg to extend its methods"
-authors = [{name = "haiteng"}]
-
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools]
-py-modules = ["mydpghelper"]  # <== This is the key
+[tool.setuptools.packages.find]
+include = ["camguihelper"] # 确保只有 lablib102 一个包(folder)会被 pip 安装. repo/ 下的其他 folder 都会被忽略
+
+[project]
+name = "camguihelper" # pip 安装后显示的真实 name
+version = "0.1.0" # pip 安装后显示的真实版本号
+description = "在开发 camgui 过程中发展出来的 lib"
+authors = [{ name = "haiteng" }]
+dependencies = []
