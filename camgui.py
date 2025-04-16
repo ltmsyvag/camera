@@ -7,6 +7,10 @@ from mydpghelper import (
     _log, gui_open_cam, FrameStack, start_acqloop, 
     save_with_timestamp, _update_hist, extend_dpg_methods)
 dpg = extend_dpg_methods(dpg)
+from tiff_imports import flist
+frame_stack = FrameStack(flist[:10])
+
+
 dpg.create_context()
 
 _, bold_font, large_font = dpg.initialize_chinese_fonts()
@@ -38,9 +42,6 @@ with dpg.window(tag="win1", pos=(0,0)):
                                                 "acq loop thread" : None,
                                             })
                 dpg.bind_item_font(dpg.last_item(), bold_font)
-                from tiff_imports import flist
-                frame_stack = FrameStack(flist[:10])
-                frame_stack._update_float_stack()
                 def _toggle_acqloop_(sender, app_data, user_data):
                     state = app_data
                     eventKeepAcquiring = user_data["keep acquiring thread event"]
@@ -109,8 +110,15 @@ with dpg.window(tag="win1", pos=(0,0)):
             
         with dpg.child_window():
             # frame = _myRandFrame()
-            fieldSavePath = dpg.add_input_text(hint="path to save tiff, e.g. C:\\Users\\username\\Desktop\\", width=600)
             with dpg.group(horizontal=True):
+                fieldSavePath = dpg.add_input_text(hint="path to save tiff, e.g. C:\\Users\\username\\Desktop\\", width=600)
+                btnLoad = dpg.add_button(label="load frames", callback=lambda: dpg.show_item("file dialog"))
+                def _cb_(sender, app_data, user_data):
+                    print(type(app_data))
+                with dpg.file_dialog(directory_selector=False, show=False, callback=_cb_, tag="file dialog", width=700 ,height=400):
+                    dpg.add_file_extension(".tif")
+                    pass
+            with dpg.group(horizontal=True):        
                 frameStackCnt = dpg.add_text(tag = "frame stack count display", default_value= "0 frames in stack")
                 saveBtn = dpg.add_button(callback=_log, label="保存 frame stack", width=150, height=35)
                 
@@ -188,8 +196,8 @@ with dpg.window(tag="win1", pos=(0,0)):
                     dpg.set_item_callback(leftArr, _leftArrCallback)
                     dpg.set_item_callback(rightArr, _rightArrCallback)
                     #==========
-                    dpg.set_item_user_data(leftArr, len(frame_stack)-1)
-                    dpg.set_value(frameStackCnt, f"{len(frame_stack)} frames in stack")
+                    # dpg.set_item_user_data(leftArr, len(frame_stack)-1)
+                    # dpg.set_value(frameStackCnt, f"{len(frame_stack)} frames in stack")
                 dpg.add_spacer(width=20)
                 dpg.add_checkbox(label="stack 平均图",tag="toggle 积分/单张 map")
                 def _toggle_cid_and_avg_map_(_, app_data,__):
@@ -292,6 +300,7 @@ camSwitch_callback = _dummy_camSwitch_callback
 
 dpg.set_item_callback(camSwitch,camSwitch_callback)
 
+frame_stack._update_float_stack()
 dpg.setup_dearpygui()
 dpg.show_viewport()
 dpg.start_dearpygui()

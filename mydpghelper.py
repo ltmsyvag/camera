@@ -24,7 +24,8 @@ class FrameStack(list):
         强制 float_stack 和与 list 内容同步, overhead 可能较大, 在需要的时候使用
         """
         self.float_stack = [e.astype(float) for e in self]
-        self.cid = len(self.float_stack) - 1
+        self.cid = len(self) - 1
+        dpg.set_value("frame stack count display", f"{len(self)} frames in stack")
     def append(self, frame: np.ndarray):
         """
         append a new frame to int & float stacks
@@ -34,6 +35,7 @@ class FrameStack(list):
         super().append(frame)
         self.float_stack.append(frame.astype(float))
         self.cid = len(self.float_stack) - 1
+        dpg.set_value("frame stack count display", f"{len(self)} frames in stack")
     def clear(self):
         """
         clear int & float stacks
@@ -41,6 +43,7 @@ class FrameStack(list):
         super().clear()
         self.float_stack.clear()
         self.cid = None
+        # dpg.set_value("frame stack count display", "0 frames in stack")
     # @deprecated(reason = "我觉得我只需要 plot avg frame, 而不需要 get avg frame")
     # def get_avg_frame(self):
     #     """
@@ -51,6 +54,7 @@ class FrameStack(list):
     #     if self.float_stack: # non empty list
     #         return sum(self.float_stack) / len(self.float_stack)
     def _plot_frame(self, frame):
+        # assert np.issubdtype(frame, float), "heatmap frame can only be float!"
         yax = "frame yax"
         colorbar="frame colorbar"
         _fmin, _fmax, (_nVrows, _nHcols) = frame.min(), frame.max(), frame.shape
