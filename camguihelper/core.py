@@ -1,6 +1,7 @@
 """
 camgui 相关的帮助函数
 """
+#%%
 import math
 from datetime import datetime
 from pathlib import Path
@@ -33,6 +34,44 @@ class FrameStack(list):
                 self.plot_avg_frame()
             else:
                 self.plot_cid_frame()
+    
+    def _make_savename_stub(self):
+        """
+        如果想保存的文件时间是
+        "C:\\Users\\username\\Desktop\\2023-10-01-12-00-00_id.tiff",
+        那么在 Desktop 存在并可写入, 且 frame stack 非空的情况下, 返回字符串形式的 stub
+        "C:\\Users\\username\\Desktop\\2023-10-01-12-00-00"
+        """
+        if self:
+            saveroot = MyPath(dpg.get_value("save path input field"))
+            if saveroot.is_dir() and saveroot.is_writable():
+                timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+                fpath_stub = str(saveroot / timestamp)
+                return fpath_stub
+    def save_stack(self):
+        """
+        保存全部 frames, 如果保存成功/失败, 返回 True/False
+        """
+        fpath_stub = self._make_savename_stub()
+        if fpath_stub:
+            for i, self in enumerate(self):
+                fpath = fpath_stub + f"_{i}.tiff"
+                tifffile.imwrite(fpath, self)
+                
+            return True # saved
+        else:
+            return False
+    def save_cid_frame(self):
+        """
+        保存 cid 指向的 frame, 如果保存成功/失败, 返回 True/False
+        """
+        fpath_stub = self._make_savename_stub()
+        if fpath_stub:
+            fpath = fpath_stub + f"_{self.cid}.tiff"
+            tifffile.imwrite(fpath, self[self.cid])
+            return True # saved
+        else:
+            return False # not saved
     def append(self, frame: np.ndarray):
         """
         append a new frame to int & float stacks
@@ -174,16 +213,20 @@ def rgb_opposite(r, g, b):
     r2, g2, b2 = colorsys.hls_to_rgb(h, l, s) # Convert back to RGB
     return int(r2*255), int(g2*255), int(b2*255)
 
-def save_with_timestamp(dpathStr: str, frame: np.ndarray, id: int=0) -> bool:
-    """
-    保存 frame 为 tiff 文件，文件名为 fpath 加上时间戳, 如果保存失败（dir 不存在, permission denied, etc.）则返回 True
-    """
-    try:
-        timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-        dpath = Path(dpathStr)
-        fpath = dpath / (timestamp + f"_{id}.tiff")
-        tifffile.imwrite(fpath, frame.astype(np.uint16))
-        print(f"frame saved as {fpath}")
-    except:
-        return True
+# def save_with_timestamp(dpathStr: str, frame: np.ndarray, id: int=0) -> bool:
+#     """
+#     保存 frame 为 tiff 文件，文件名为 fpath 加上时间戳, 如果保存失败（dir 不存在, permission denied, etc.）则返回 True
+#     """
+#     try:
+#         timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+#         dpath = Path(dpathStr)
+#         fpath = dpath / (timestamp + f"_{id}.tiff")
+#         tifffile.imwrite(fpath, frame.astype(np.uint16))
+#         print(f"frame saved as {fpath}")
+#     except:
+#         return True
 
+if __name__ == "__main__":
+    pass
+    dpath = MyPath("C:\\Users\\username\\Desktop\\")
+    print(dpath.is_dir())

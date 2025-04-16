@@ -5,8 +5,7 @@ import time
 import math
 import tifffile
 from camguihelper import (
-    gui_open_cam, FrameStack, start_acqloop,
-    save_with_timestamp, MyPath)
+    gui_open_cam, FrameStack, start_acqloop)
 from camguihelper.core import _log, _update_hist
 from camguihelper.dpghelper import (
     bind_custom_theming,
@@ -32,15 +31,52 @@ with dpg.window(tag="win1", pos=(0,0)):
     with dpg.group(horizontal=True, height=720):
         with dpg.child_window(width=220):
             with dpg.group(horizontal=False):
-                camSwitch = dpg.add_button(
+                togCam = dpg.add_button(
                     width=150, height=70, user_data={
                         "is on" : False, 
                         "off label" : "相机已关闭",
                         "on label" : "相机已开启",
                         "camera object" : None, 
                         })
+                dpg.bind_item_font(togCam, large_font)
+                @toggle_btn_decor("expo and roi fields", "acquisition toggle")
+                def camSwitch_callback(sender, _, user_data):
+                    state, cam, = user_data["is on"], user_data["camera object"], 
+                    next_state = not state # state after toggle
+                    if next_state:
+                        # dpg.set_item_label(camSwitch,"开启中...")
+                        cam = gui_open_cam()
+                        user_data["camera object"] = cam
+                        dpg.set_item_user_data(sender, user_data) # store cam object
+                        ## make cam trig
 
-                acqToggle = dpg.add_checkbox(label = "采集循环开关", enabled=False,
+                        ## set cam exposure from field value, then refresh field by cam value
+                        expFieldValInMs = dpg.get_value(fldExposure) 
+                        cam.set_exposure(expFieldValInMs*1e-3)
+                        expoCamValInS = cam.cav["exposure_time"]
+                        dpg.set_value(fldExposure, expoCamValInS*1e3)
+                        
+                        do_set_cam_roi_using_6fields()
+                        do_set_6fields_roi_using_cam()
+                    else:
+                        # cam.stop_acquisition()
+                        cam.close(); print("=====cam closed")
+                        user_data["camera object"] = None
+                        dpg.set_item_user_data(sender, user_data)
+                @toggle_btn_decor("expo and roi fields", "acquisition toggle")
+                def _dummy_camSwitch_callback(_, __, user_data):
+                    state = user_data["is on"]
+                    next_state = not state # state after toggle
+                    if next_state:
+                        time.sleep(0.5)
+                    else:
+                        time.sleep(0.5)
+                camSwitch_callback = _dummy_camSwitch_callback
+                dpg.set_item_callback(togCam,camSwitch_callback)
+                
+                cboxAcq = dpg.add_checkbox(label = "采集循环开关", 
+                                             tag = "acquisition toggle",
+                                             enabled=False,
                                             user_data=
                                             {
                                                 "keep acquiring thread event" : threading.Event(),
@@ -50,8 +86,8 @@ with dpg.window(tag="win1", pos=(0,0)):
                 def _toggle_acqloop_(sender, app_data, user_data):
                     state = app_data
                     eventKeepAcquiring = user_data["keep acquiring thread event"]
-                    cam = dpg.get_item_user_data(camSwitch)["camera object"]
-                    itemsToToggle = ["expo and roi fields", camSwitch]
+                    cam = dpg.get_item_user_data(togCam)["camera object"]
+                    itemsToToggle = ["expo and roi fields", togCam]
                     if state:
                         threadAcq = threading.Thread(target=start_acqloop, args=(cam, eventKeepAcquiring, frame_stack))
                         user_data["acq loop thread"] = threadAcq
@@ -68,60 +104,61 @@ with dpg.window(tag="win1", pos=(0,0)):
                     for item in itemsToToggle: # userproof: toggle the gray/ungray of some fields
                         dpg.configure_item(item, enabled = not state)
                     dpg.set_item_user_data(sender, user_data)
-            dpg.set_item_callback(acqToggle, _toggle_acqloop_)
+            dpg.set_item_callback(cboxAcq, _toggle_acqloop_)
             dpg.add_separator()
             with dpg.group(tag = "expo and roi fields",horizontal=False, enabled=False) as groupExpoRoi:
                 dpg.add_text("exposure time (ms):")
-                fieldExpo = dpg.add_input_float(
+                fldExposure = dpg.add_input_float(
                     width = 120, step=0, format="%.4f",
                     default_value= 100)
                 def _setCamExpo(_, app_data, __): # the app_data in this case is the same as dpg.get_value(fieldExpo)
-                    timeInMs, cam = app_data, dpg.get_item_user_data(camSwitch)["camera object"]
-                    cam.set_exposure(timeInMs*1e-3)
-                dpg.set_item_callback(fieldExpo, _setCamExpo)
+                    time_in_ms, cam = app_data, dpg.get_item_user_data(togCam)["camera object"]
+                    cam.set_exposure(time_in_ms*1e-3)
+                dpg.set_item_callback(fldExposure, _setCamExpo)
                 with dpg.item_handler_registry(tag="on Leaving fieldExpo"):
                     def _changeField(*callbackArgs):
-                        cam = dpg.get_item_user_data(camSwitch)["camera object"]
-                        camInternalExpoInMs = cam.cav["exposure_time"] * 1e3
-                        dpg.set_value(fieldExpo, camInternalExpoInMs)
+                        cam = dpg.get_item_user_data(togCam)["camera object"]
+                        cam_internal_expo_in_ms = cam.cav["exposure_time"] * 1e3
+                        dpg.set_value(fldExposure, cam_internal_expo_in_ms)
                     dpg.add_item_deactivated_after_edit_handler(callback= _changeField)
-                dpg.bind_item_handler_registry(fieldExpo, "on Leaving fieldExpo")
+                dpg.bind_item_handler_registry(fldExposure, "on Leaving fieldExpo")
                 dpg.add_spacer(height=10)
                 dpg.add_separator(label="ROI (max h 4096, v 2304)")
                 dpg.add_text("h start & h length:", )
-                fieldsROIh = dpg.add_input_intx(size=2, indent= 20,width=100, default_value=[1352, 240,0,0])
+                
+                fldsROIh = dpg.add_input_intx(size=2, indent= 20,width=100, default_value=[1352, 240,0,0])
                 dpg.add_text("v start & v length:")
-                fieldsROIv = dpg.add_input_intx(size=2, indent = dpg.get_item_indent(fieldsROIh),width=dpg.get_item_width(fieldsROIh), default_value=[948,240,0,0])
+                
+                fldsROIv = dpg.add_input_intx(size=2, indent = dpg.get_item_indent(fldsROIh),width=dpg.get_item_width(fldsROIh), default_value=[948,240,0,0])
                 dpg.add_text("h binning & v binning")
-                fieldsBinning = dpg.add_input_intx(size=2, indent = dpg.get_item_indent(fieldsROIh),width=dpg.get_item_width(fieldsROIh), default_value=[1,1,0,0])
+                
+                fldsBinning = dpg.add_input_intx(size=2, indent = dpg.get_item_indent(fldsROIh),width=dpg.get_item_width(fldsROIh), default_value=[1,1,0,0])
                 def do_set_cam_roi_using_6fields():
-                    hstart, hwid, *_ = dpg.get_value(fieldsROIh)
-                    vstart, vwid, *_ = dpg.get_value(fieldsROIv)
-                    hbin, vbin, *_ = dpg.get_value(fieldsBinning)
-                    cam = dpg.get_item_user_data(camSwitch)["camera object"]
+                    hstart, hwid, *_ = dpg.get_value(fldsROIh)
+                    vstart, vwid, *_ = dpg.get_value(fldsROIv)
+                    hbin, vbin, *_ = dpg.get_value(fldsBinning)
+                    cam = dpg.get_item_user_data(togCam)["camera object"]
                     cam.set_roi(hstart, hstart+hwid, vstart, vstart+vwid, hbin, vbin)
                 def do_set_6fields_roi_using_cam(): # arg free callback, also indpendently used (not as callback) in cam switch initialization
-                    cam = dpg.get_item_user_data(camSwitch)["camera object"]
+                    cam = dpg.get_item_user_data(togCam)["camera object"]
                     hstart, hend, vstart, vend, hbin, vbin = cam.get_roi()
                     # print(hstart, hend, vstart, vend, hbin, vbin)
-                    dpg.set_value(fieldsROIh,[hstart, hend-hstart,0,0])
-                    dpg.set_value(fieldsROIv,[vstart, vend-vstart,0,0])
-                    dpg.set_value(fieldsBinning,[hbin, vbin,0,0])
+                    dpg.set_value(fldsROIh,[hstart, hend-hstart,0,0])
+                    dpg.set_value(fldsROIv,[vstart, vend-vstart,0,0])
+                    dpg.set_value(fldsBinning,[hbin, vbin,0,0])
                 with dpg.item_handler_registry(tag="on leaving 6 ROI fields"):
                     dpg.add_item_deactivated_after_edit_handler(callback=do_set_6fields_roi_using_cam)
-                for _item in [fieldsROIh, fieldsROIv, fieldsBinning]:
+                for _item in [fldsROIh, fldsROIv, fldsBinning]:
                     dpg.set_item_callback(_item, do_set_cam_roi_using_6fields)
                     dpg.bind_item_handler_registry(_item, "on leaving 6 ROI fields")
             
         with dpg.child_window():
             # frame = _myRandFrame()
             with dpg.group(horizontal=True):
-                fieldSavePath = dpg.add_input_text(hint="path to save tiff, e.g. C:\\Users\\username\\Desktop\\", width=600)
+                fldSavePath = dpg.add_input_text(tag="save path input field ",
+                    hint="path to save tiff, e.g. C:\\Users\\username\\Desktop\\", width=600)
                 btnLoad = dpg.add_button(label="load frames", callback=lambda: dpg.show_item("file dialog"))
-                def _cb_(sender, app_data, user_data):
-                    # print(type(app_data))
-                    # for key, val in app_data.items():
-                    #     print(key, "||",val)
+                def _cb_(_, app_data, __):
                     global frame_stack
                     fname_dict = app_data["selections"]
                     if fname_dict:
@@ -134,22 +171,28 @@ with dpg.window(tag="win1", pos=(0,0)):
                                      width=700 ,height=400):
                     dpg.add_file_extension(".tif")
                     dpg.add_file_extension(".tiff")
-                    pass
             with dpg.group(horizontal=True):        
                 frameStackCnt = dpg.add_text(tag = "frame stack count display", default_value= "0 frames in stack")
-                saveBtn = dpg.add_button(callback=_log, label="保存 frame stack", width=150, height=35)
+                btnSaveAll = dpg.add_button(label="保存 frame stack", width=150, height=35)
+                def _save_all_frames_(*cbargs):
+                    saved = frame_stack.save_stack()
+                    if saved:
+                        frame_stack.clear()
+                        msg = "0 frames in stack"
+                    else:
+                        msg = "NOT Saved!"
+                    dpg.set_value(frameStackCnt, msg)
+                dpg.set_item_callback(btnSaveAll, _save_all_frames_)
                 
                 dpg.add_button(tag = "clear stack button", label="清空 frame stack", width=150, height=35)
                 def _on_confirm():
                     frame_stack.clear()
                     dpg.set_value(frameStackCnt, "0 frames in stack")
                     dpg.delete_item("confirmation_modal")  # Close the modal after confirming
-
                 def _on_cancel():
-                    # print("Cancelled!")
                     dpg.delete_item("confirmation_modal")  # Close the modal after cancelling
 
-                def _open_confirmation():
+                def _open_confirmation_():
                     if not dpg.does_item_exist("confirmation_modal"):
                         with dpg.window(label="Confirm Action", pos=(200, 200),
                                         modal=True, tag="confirmation_modal", 
@@ -158,78 +201,43 @@ with dpg.window(tag="win1", pos=(0,0)):
                             with dpg.group(horizontal=True):
                                 dpg.add_button(label="Yes", width=75, callback=_on_confirm)
                                 dpg.add_button(label="No", width=75, callback=_on_cancel)
-                dpg.set_item_callback("clear stack button", _open_confirmation)
+                dpg.set_item_callback("clear stack button", _open_confirmation_)
                 btnSaveCurrent = dpg.add_button(label="保存当前 frame", width=150, height=35)
-                def _saveCurrentFrame(*cbargs):
-                    id = dpg.get_item_user_data(leftArr)
-                    frame = frame_stack[id]
-                    dpath = dpg.get_value(fieldSavePath)
-                    notsaved = save_with_timestamp(dpath, frame, id)
-                    if notsaved:
-                        dpg.set_value(frameStackCnt, "NOT Saved!")
-                    else:
+                def _save_current_frame_(*cbargs):
+                    saved = frame_stack.save_cid_frame()
+                    if saved:
                         dpg.set_value(frameStackCnt, "Saved!")
-                dpg.set_item_callback(btnSaveCurrent, _saveCurrentFrame)
-                def _leftArrCallback(sender, _, user_data):
-                    id = user_data
-                    if frame_stack.cid:
-                        frame_stack.cid -= 1
-                        frame_stack.plot_cid_frame()
-                        # if id<0: id = 0
-                        # plot_frame(frame_stack[id])
-                        # print("re-plotted!")
-                    dpg.set_item_user_data(sender, id)
-                def _rightArrCallback(*cbargs):
-                    id = dpg.get_item_user_data(leftArr)
-                    if frame_stack and (frame_stack.cid<len(frame_stack)-1):
-                        frame_stack.cid += 1
-                        frame_stack.plot_cid_frame()
-                        # if id >= len(frame_stack): id = len(frame_stack)-1
-                        # plot_frame(frame_stack[id])
-                    dpg.set_item_user_data(leftArr, id)
+                    else:
+                        dpg.set_value(frameStackCnt, "NOT Saved!")
+                dpg.set_item_callback(btnSaveCurrent, _save_current_frame_)
                 dpg.bind_item_font(frameStackCnt, bold_font)
-                def _saveFrame(*cbargs):
-                    dpath = dpg.get_value(fieldSavePath)
-                    notsaved = None
-                    for id, frame in enumerate(frame_stack):
-                        notsaved = save_with_timestamp(dpath, frame, id)
-                        if notsaved:
-                            dpg.set_value(frameStackCnt, "NOT Saved!")
-                            break
-                    if not notsaved:
-                        frame_stack.clear()
-                        dpg.set_value(frameStackCnt, "0 frames in stack")
-                dpg.set_item_callback(saveBtn, _saveFrame)
-            # def _printstuff(sender):
-            #     print(dpg.get_value(sender))
             dpg.add_separator()
             with dpg.group(horizontal=True):
                 dpg.add_checkbox(label = "manual scale", tag = "manual scale checkbox")
                 dpg.add_input_intx(tag = "color scale lims",label = "color scale min & max (0-65535)", size = 2, width=120, default_value=[0,65535,0,0])
                 dpg.add_spacer(width=10)
-                with dpg.group(tag="frame browse arrows",horizontal=True):
+                with dpg.group(horizontal=True):
+                    def _left_arrow_cb_(*cbargs):
+                        if frame_stack.cid:
+                            frame_stack.cid -= 1
+                            frame_stack.plot_cid_frame()
+                    def _right_arrow_cb_(*cbargs):
+                        if frame_stack and (frame_stack.cid<len(frame_stack)-1):
+                            frame_stack.cid += 1
+                            frame_stack.plot_cid_frame()
                     leftArr = dpg.add_button(tag = "plot previous frame", label="<", width=30, height=30, arrow=True)
                     rightArr = dpg.add_button(tag = "plot next frame", label=">", width=30, height=30, arrow=True, direction=dpg.mvDir_Right)
-                    dpg.set_item_callback(leftArr, _leftArrCallback)
-                    dpg.set_item_callback(rightArr, _rightArrCallback)
-                    #==========
-                    # dpg.set_item_user_data(leftArr, len(frame_stack)-1)
-                    # dpg.set_value(frameStackCnt, f"{len(frame_stack)} frames in stack")
+                    dpg.set_item_callback(leftArr, _left_arrow_cb_)
+                    dpg.set_item_callback(rightArr, _right_arrow_cb_)
                 dpg.add_spacer(width=20)
-                dpg.add_checkbox(label="stack 平均图",tag="toggle 积分/单张 map")
+                cboxTogAvgMap = dpg.add_checkbox(label="stack 平均图",tag="toggle 积分/单张 map")
+                @toggle_checkbox_and_disable(leftArr, rightArr)
                 def _toggle_cid_and_avg_map_(_, app_data,__):
-                    if frame_stack:
-                        if app_data:
-                            dpg.configure_item("frame browse arrows", enabled=False)
-                            frame_stack.plot_avg_frame()
-                            # frameAvg = sum(frame_stack)/len(frame_stack)
-                            # plot_frame(frameAvg)
-                        else:
-                            dpg.configure_item("frame browse arrows", enabled=True)
-                            frame_stack.plot_cid_frame()
-                            # id = dpg.get_item_user_data(leftArr)
-                            # plot_frame(frame_stack[id])
-                dpg.set_item_callback("toggle 积分/单张 map", _toggle_cid_and_avg_map_)
+                    if app_data:
+                        frame_stack.plot_avg_frame()
+                    else:
+                        frame_stack.plot_cid_frame()
+                dpg.set_item_callback(cboxTogAvgMap, _toggle_cid_and_avg_map_)
             with dpg.group(horizontal=True):
                 _cmap = dpg.mvPlotColormap_Viridis
                 dpg.add_colormap_scale(tag = "frame colorbar", min_scale=0,max_scale=65535, height=400)
@@ -272,48 +280,9 @@ with dpg.window(tag="win1", pos=(0,0)):
             dpg.add_plot_axis(dpg.mvYAxis, label = "frequency", tag = "hist plot yax")
         dpg.add_input_int(pos=(80,10), tag = "hist binning input",label="hist binning", width=80,
                           min_value=1, default_value=1, min_clamped=True)
+
 dpg.set_primary_window("win1", True)
-#==== camSwitch: camera power switch button
-dpg.bind_item_font(camSwitch, large_font)
 
-
-@toggle_btn_decor("expo and roi fields", acqToggle)
-def camSwitch_callback(sender, _, user_data):
-    state, cam, = user_data["is on"], user_data["camera object"], 
-    next_state = not state # state after toggle
-    if next_state:
-        # dpg.set_item_label(camSwitch,"开启中...")
-        cam = gui_open_cam()
-        user_data["camera object"] = cam
-        dpg.set_item_user_data(sender, user_data) # store cam object
-        ## make cam trig
-
-        ## set cam exposure from field value, then refresh field by cam value
-        expFieldValInMs = dpg.get_value(fieldExpo) 
-        cam.set_exposure(expFieldValInMs*1e-3)
-        expoCamValInS = cam.cav["exposure_time"]
-        dpg.set_value(fieldExpo, expoCamValInS*1e3)
-        
-        do_set_cam_roi_using_6fields()
-        do_set_6fields_roi_using_cam()
-    else:
-        # cam.stop_acquisition()
-        cam.close(); print("=====cam closed")
-        user_data["camera object"] = None
-        dpg.set_item_user_data(sender, user_data)
-
-@toggle_btn_decor("expo and roi fields", acqToggle)
-def _dummy_camSwitch_callback(_, __, user_data):
-    state = user_data["is on"]
-    next_state = not state # state after toggle
-    if next_state:
-        time.sleep(0.5)
-    else:
-        time.sleep(0.5)
- 
-camSwitch_callback = _dummy_camSwitch_callback
-
-dpg.set_item_callback(camSwitch,camSwitch_callback)
 frame_stack._update()
 dpg.setup_dearpygui()
 dpg.show_viewport()
