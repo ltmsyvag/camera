@@ -51,18 +51,9 @@ class FrameStack(list):
         super().clear()
         self.float_stack.clear()
         self.cid = None
-        # dpg.set_value("frame stack count display", "0 frames in stack")
-    # @deprecated(reason = "我觉得我只需要 plot avg frame, 而不需要 get avg frame")
-    # def get_avg_frame(self):
-    #     """
-    #     why don't I simply use `sum(mylist)`? becaue `sum(<empty list []>)` returns 0, 
-    #     whereas in the case of a frame stack list, it should return None when there's no frame.
-    #     So this method is better!
-    #     """
-    #     if self.float_stack: # non empty list
-    #         return sum(self.float_stack) / len(self.float_stack)
-    def _plot_frame(self, frame):
-        # assert np.issubdtype(frame, float), "heatmap frame can only be float!"
+
+    def _plot_frame(self, frame: np.ndarray):
+        assert np.issubdtype(frame.dtype, float), "heatmap frame can only be float!"
         yax = "frame yax"
         colorbar="frame colorbar"
         _fmin, _fmax, (_nVrows, _nHcols) = frame.min(), frame.max(), frame.shape
@@ -115,37 +106,9 @@ def ZYLconversion(frame: np.ndarray)->np.ndarray:
     """
     frame = (frame -200) * 0.1/0.9
     return frame
-# def plot_frame(frame: np.ndarray,
-#               yax = "frame yax",
-#               colorbar="frame colorbar",
-#               ) -> None:
-#     print(type(frame[0,0]))
-#     _fmin, _fmax, (_nVrows, _nHcols) = frame.min(), frame.max(), frame.shape
-#     if dpg.get_value("manual scale checkbox"):
-#         _fmin, _fmax, *_ = dpg.get_value("color scale lims")
-#     dpg.configure_item(
-#         colorbar, 
-#         min_scale = _fmin, 
-#         max_scale = _fmax)
-#     dpg.delete_item(yax, children_only=True) # this is necessary!
-#     dpg.add_heat_series(frame, _nVrows, _nHcols, parent=yax, 
-#                         scale_min=_fmin, scale_max=_fmax,format="",
-#                         bounds_min= (0,_nVrows), bounds_max= (_nHcols, 0))
-#     if not dpg.get_item_user_data("frame plot"): # 只有在无 query rect 选区时，才重置 heatmap 的 zoom
-#         dpg.fit_axis_data(yax)
-#         dpg.fit_axis_data("frame xax")
 
-# def _store_and_plot_frame(frame: np.ndarray, frame_stack: FrameStack)-> None:
-#     frame_stack.append(frame)
-#     # if len(frameStack) > 500: frameStack.pop(0)
-#     dpg.set_item_user_data("plot previous frame", len(frame_stack)-1)
-#     dpg.set_value("frame stack count display", f"{len(frame_stack)} frames in stack")
-#     if dpg.get_value("toggle 积分/单张 map"):
-#         plot_frame(frame_stack.get_avg_frame())
-#     else:
-#         plot_frame(frame)
 
-def _update_hist(hLhRvLvR: tuple, frame_stack:list, yax = "hist plot yax")->None:
+def _update_hist(hLhRvLvR: tuple, frame_stack: FrameStack, yax = "hist plot yax")->None:
     """
     hLhRvLvR 保存了一个矩形选区所包裹的像素中心点坐标（只能是半整数）h 向最小最大值和 v 向最小最大值。
     这些值确定了所选取的像素集合。然后，在此选择基础上将 frame stack 中的每一张 frame 在该选区中的部分的 counts 求得，
@@ -155,7 +118,7 @@ def _update_hist(hLhRvLvR: tuple, frame_stack:list, yax = "hist plot yax")->None
     vidLo, vidHi = math.floor(vLlim), math.floor(vRlim)
     hidLo, hidHi = math.floor(hLlim), math.floor(hRlim)
     histData = []
-    for frame in frame_stack: # make hist data
+    for frame in frame_stack.float_stack: # make hist data
         frame = ZYLconversion(frame)
         subFrame = frame[vidLo:vidHi+1, hidLo:hidHi+1]
         histData.append(subFrame.sum())

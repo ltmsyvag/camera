@@ -8,7 +8,7 @@ from mydpghelper import (
     save_with_timestamp, _update_hist, extend_dpg_methods, MyPath)
 dpg = extend_dpg_methods(dpg)
 # from tiff_imports import flist
-# frame_stack = FrameStack(flist[:10])
+# frame_stack = FrameStack(flist)
 frame_stack = FrameStack()
 import tifffile
 
@@ -313,7 +313,7 @@ def _dummy_camSwitch_callback(_, __, user_data):
 
 
 dpg.set_item_callback(camSwitch,camSwitch_callback)
-
+# frame_stack._update()
 dpg.setup_dearpygui()
 dpg.show_viewport()
 dpg.start_dearpygui()
