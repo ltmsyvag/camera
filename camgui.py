@@ -265,7 +265,7 @@ with dpg.window(tag="win1", pos=(0,0)):
                     dpg.set_item_callback("frame plot",callback=_updateHistOnQuery)
     with dpg.child_window(): # 为了让下面的 hist binning field 可以自然地从一个 window 的左上角开始选取 h，v 坐标，所以这里设置一个 child window
         with dpg.plot(tag="hist plot", label = "hist", height=-1, width=-1, no_mouse_pos=True):
-            dpg.add_plot_axis(dpg.mvXAxis, label = "converted counts ((<frame pixel counts>)-200*0.1/0.9)")
+            dpg.add_plot_axis(dpg.mvXAxis, label = "converted counts ((<frame pixel counts>-200)*0.1/0.9)")
             dpg.add_plot_axis(dpg.mvYAxis, label = "frequency", tag = "hist plot yax")
         dpg.add_input_int(pos=(80,10), tag = "hist binning input",label="hist binning", width=80,
                           min_value=1, default_value=1, min_clamped=True)
@@ -308,7 +308,7 @@ def _dummy_camSwitch_callback(_, __, user_data):
     else:
         time.sleep(0.5)
  
-camSwitch_callback = _dummy_camSwitch_callback
+# camSwitch_callback = _dummy_camSwitch_callback
 
 
 
