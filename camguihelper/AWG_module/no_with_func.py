@@ -6,9 +6,9 @@ from spcm import units
 import psutil
 import os
 import numpy as np
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import random
-import time
+# import time
 # Set the highest process priority to the Python process, to enable highest possible command streaming
 p = psutil.Process(os.getpid())
 p.nice(psutil.REALTIME_PRIORITY_CLASS)

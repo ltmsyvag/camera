@@ -1,12 +1,13 @@
 #%%
 import dearpygui.dearpygui as dpg
 from pylablib.devices import DCAM
+
 import threading
 import time
 import math
 import tifffile
 from camguihelper import (
-    # gui_open_cam, 
+    gui_open_awg, 
     FrameStack, start_acqloop)
 from camguihelper.core import _log, _update_hist
 from camguihelper.dpghelper import (
@@ -91,6 +92,11 @@ with dpg.window(tag="win1", pos=(0,0)):
                         "on label" : "AWG 已开启",
                         })
                 dpg.bind_item_font(togAwg, large_font)
+                def _awg_toggle_cb_(_,__,user_data):
+                    state = user_data["is on"]
+                    next_state = not state
+                    if next_state:
+                        global raw_card
                 togAcq = dpg.add_button(tag="acquisition toggle", enabled=False,
                     width=_wid, height=_hi, user_data={
                         "is on" : False, 

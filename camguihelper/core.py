@@ -12,6 +12,8 @@ import colorsys
 import tifffile
 import os
 import dearpygui.dearpygui as dpg
+import spcm
+from .AWG_module.no_with_func import DDSRampController
 
 class FrameStack(list):
     """
@@ -226,6 +228,12 @@ def rgb_opposite(r, g, b):
 #     except:
 #         return True
 
+def gui_open_awg():
+    raw_card = spcm.Card(card_type = spcm.SPCM_TYPE_AO)
+    raw_card.open()
+    controller = DDSRampController(raw_card)
+    print("AWG is opened")
+    return raw_card, controller
 if __name__ == "__main__":
     pass
     dpath = MyPath("C:\\Users\\username\\Desktop\\")
