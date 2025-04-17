@@ -16,13 +16,10 @@ def bind_custom_theming():
             dpg.add_theme_color(dpg.mvThemeCol_CheckMark, (255,255,0), category=dpg.mvThemeCat_Core)
             dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 3, category=dpg.mvThemeCat_Core)
         for comp_type in ( # this code is from https://github.com/hoffstadt/DearPyGui/issues/2068. What it does is binding disabled theme colors for texts separately depending on the item type. Because a simple dpg.mvAll does not work (it should) due to bug.
-            dpg.mvMenuItem, 
-            dpg.mvButton, 
-            dpg.mvText
-            ):
+            dpg.mvMenuItem, dpg.mvButton, dpg.mvText):
             with dpg.theme_component(comp_type, enabled_state=False):
                 dpg.add_theme_color(dpg.mvThemeCol_Text, (0.50 * 255, 0.50 * 255, 0.50 * 255, 1.00 * 255), 
-                                #   category=dpg.mvThemeCat_Core
+                                  category=dpg.mvThemeCat_Core
                                     )
     dpg.bind_theme(global_theme)
     
@@ -85,6 +82,11 @@ def initialize_toggle_btn()->callable:
             dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, _offhov_rgb, category=dpg.mvThemeCat_Core)
             # dpg.add_theme_color(dpg.mvThemeCol_Text, rgbOppositeTo(*_off_rgb), category=dpg.mvThemeCat_Core) 
             dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, _1, category=dpg.mvThemeCat_Core)
+        for comp_type in ( # this code is from https://github.com/hoffstadt/DearPyGui/issues/2068. What it does is binding disabled theme colors for texts separately depending on the item type. Because a simple dpg.mvAll does not work (it should) due to bug.
+            dpg.mvMenuItem, dpg.mvButton, dpg.mvText):
+            with dpg.theme_component(comp_type, enabled_state=False):
+                dpg.add_theme_color(dpg.mvThemeCol_Text, (0.50 * 255, 0.50 * 255, 0.50 * 255, 1.00 * 255), category=dpg.mvThemeCat_Core)
+                dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, _1, category=dpg.mvThemeCat_Core)
     with dpg.theme() as theme_btnon:
         with dpg.theme_component(dpg.mvAll):
             dpg.add_theme_color(dpg.mvThemeCol_Button, _on_rgb, category=dpg.mvThemeCat_Core)
@@ -92,6 +94,11 @@ def initialize_toggle_btn()->callable:
             dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, _onhov_rgb, category=dpg.mvThemeCat_Core)
             dpg.add_theme_color(dpg.mvThemeCol_Text, rgb_opposite(*_on_rgb), category=dpg.mvThemeCat_Core) 
             dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, _1, category=dpg.mvThemeCat_Core)
+        for comp_type in ( # this code is from https://github.com/hoffstadt/DearPyGui/issues/2068. What it does is binding disabled theme colors for texts separately depending on the item type. Because a simple dpg.mvAll does not work (it should) due to bug.
+            dpg.mvMenuItem, dpg.mvButton, dpg.mvText):
+            with dpg.theme_component(comp_type, enabled_state=False):
+                dpg.add_theme_color(dpg.mvThemeCol_Text, (0.50 * 255, 0.50 * 255, 0.50 * 255, 1.00 * 255), category=dpg.mvThemeCat_Core)
+                dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, _1, category=dpg.mvThemeCat_Core)
 
     def _provide_toggle_btn_mechanism(func):
         """

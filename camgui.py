@@ -1,11 +1,13 @@
 #%%
 import dearpygui.dearpygui as dpg
+from pylablib.devices import DCAM
 import threading
 import time
 import math
 import tifffile
 from camguihelper import (
-    gui_open_cam, FrameStack, start_acqloop)
+    # gui_open_cam, 
+    FrameStack, start_acqloop)
 from camguihelper.core import _log, _update_hist
 from camguihelper.dpghelper import (
     bind_custom_theming,
@@ -19,10 +21,10 @@ frame_stack = FrameStack(flist)
 dpg.create_context()
 
 _, bold_font, large_font = initialize_chinese_fonts()
-toggle_btn_decor = initialize_toggle_btn()
+toggle_theming_and_enable = initialize_toggle_btn()
 bind_custom_theming()
 
-dpg.create_viewport(title='cam-AWG GUI', 
+dpg.create_viewport(title='camera', 
                     width=1000, height=1020, x_pos=0, y_pos=0,
                     vsync=False) # important option to dismiss input lab, see https://github.com/hoffstadt/DearPyGui/issues/1571
 
@@ -31,25 +33,32 @@ with dpg.window(tag="win1", pos=(0,0)):
     with dpg.group(horizontal=True, height=720):
         with dpg.child_window(width=220):
             with dpg.group(horizontal=False):
+                _wid, _hi = 160, 40
                 togCam = dpg.add_button(
-                    width=150, height=70, user_data={
+                    width=_wid, height=_hi, user_data={
                         "is on" : False, 
                         "off label" : "相机已关闭",
                         "on label" : "相机已开启",
-                        "camera object" : None, 
+                        # "camera object" : None, 
                         })
                 dpg.bind_item_font(togCam, large_font)
-                @toggle_btn_decor("expo and roi fields", "acquisition toggle")
-                def camSwitch_callback(sender, _, user_data):
-                    state, cam, = user_data["is on"], user_data["camera object"], 
+                @toggle_theming_and_enable("expo and roi fields", 
+                                           "acquisition toggle")
+                def _cam_toggle_cb_(__, _, user_data):
+                    state = user_data["is on"] 
                     next_state = not state # state after toggle
                     if next_state:
                         # dpg.set_item_label(camSwitch,"开启中...")
-                        cam = gui_open_cam()
-                        user_data["camera object"] = cam
-                        dpg.set_item_user_data(sender, user_data) # store cam object
+                        global cam
+                        cam = DCAM.DCAMCamera()
+                        # cam = gui_open_cam()
+                        if cam.is_opened():
+                            cam.close()
+                        cam.open()
+                        print("cam is opened")
+                        # user_data["camera object"] = cam
+                        # dpg.set_item_user_data(sender, user_data) # store cam object
                         ## make cam trig
-
                         ## set cam exposure from field value, then refresh field by cam value
                         expFieldValInMs = dpg.get_value(fldExposure) 
                         cam.set_exposure(expFieldValInMs*1e-3)
@@ -61,50 +70,91 @@ with dpg.window(tag="win1", pos=(0,0)):
                     else:
                         # cam.stop_acquisition()
                         cam.close(); print("=====cam closed")
-                        user_data["camera object"] = None
-                        dpg.set_item_user_data(sender, user_data)
-                @toggle_btn_decor("expo and roi fields", "acquisition toggle")
-                def _dummy_camSwitch_callback(_, __, user_data):
+                        cam = None
+                        # user_data["camera object"] = None
+                        # dpg.set_item_user_data(sender, user_data)
+                @toggle_theming_and_enable("expo and roi fields", "acquisition toggle")
+                def _dummy_cam_toggle_cb_(_, __, user_data):
                     state = user_data["is on"]
                     next_state = not state # state after toggle
                     if next_state:
                         time.sleep(0.5)
                     else:
                         time.sleep(0.5)
-                camSwitch_callback = _dummy_camSwitch_callback
-                dpg.set_item_callback(togCam,camSwitch_callback)
-                
-                cboxAcq = dpg.add_checkbox(label = "采集循环开关", 
-                                             tag = "acquisition toggle",
-                                             enabled=False,
-                                            user_data=
-                                            {
-                                                "keep acquiring thread event" : threading.Event(),
-                                                "acq loop thread" : None,
-                                            })
-                dpg.bind_item_font(dpg.last_item(), bold_font)
-                def _toggle_acqloop_(sender, app_data, user_data):
-                    state = app_data
-                    eventKeepAcquiring = user_data["keep acquiring thread event"]
-                    cam = dpg.get_item_user_data(togCam)["camera object"]
-                    itemsToToggle = ["expo and roi fields", togCam]
-                    if state:
-                        threadAcq = threading.Thread(target=start_acqloop, args=(cam, eventKeepAcquiring, frame_stack))
-                        user_data["acq loop thread"] = threadAcq
-                        eventKeepAcquiring.set()
-                        threadAcq.start()
+                _cam_toggle_cb_ = _dummy_cam_toggle_cb_
+                dpg.set_item_callback(togCam,_cam_toggle_cb_)
+                # @tog_theming_and_enable()
+                togAwg = dpg.add_button(
+                    width=_wid, height=_hi, user_data={
+                        "is on" : False, 
+                        "off label" : "AWG 已关闭",
+                        "on label" : "AWG 已开启",
+                        })
+                dpg.bind_item_font(togAwg, large_font)
+                togAcq = dpg.add_button(tag="acquisition toggle", enabled=False,
+                    width=_wid, height=_hi, user_data={
+                        "is on" : False, 
+                        "off label" : "触发采集已停止",
+                        "on label" : "触发采集进行中",
+                        "acq thread flag": threading.Event(),
+                        "acq thread": None,
+                        })
+                @toggle_theming_and_enable(
+                        "expo and roi fields", togCam, togAwg, on_and_enable= False)
+                def _toggle_acq_cb_(sender, _, user_data):
+                    state = user_data["is on"]
+                    next_state = not state
+                    flag = user_data["acq thread flag"]
+                    # cam = dpg.get_item_user_data(togCam)["camera object"]
+                    # itemsToToggle = ["expo and roi fields", togCam]
+                    if next_state:
+                        thread_acq = threading.Thread(target=start_acqloop, args=(cam, flag, frame_stack))
+                        user_data["acq thread"] = thread_acq
+                        flag.set()
+                        thread_acq.start()
                     else:
-                        threadAcq = user_data["acq loop thread"]
-                        eventKeepAcquiring.clear()
-                        threadAcq.join()
-                        user_data["acq loop thread"] = None
+                        thread_acq = user_data["acq thread"]
+                        flag.clear()
+                        thread_acq.join()
+                        user_data["acq thread"] = None
                         cam.stop_acquisition()
                         cam.set_trigger_mode("int")
                         print("acq loop stopped")
-                    for item in itemsToToggle: # userproof: toggle the gray/ungray of some fields
-                        dpg.configure_item(item, enabled = not state)
                     dpg.set_item_user_data(sender, user_data)
-            dpg.set_item_callback(cboxAcq, _toggle_acqloop_)
+                dpg.bind_item_font(togAcq, large_font)
+                dpg.set_item_callback(togAcq, _toggle_acq_cb_)
+            #     cboxAcq = dpg.add_checkbox(label = "采集循环开关", 
+            #                                  tag = "acquisition checkbox",
+            #                                  enabled=False,
+            #                                 user_data=
+            #                                 {
+            #                                     "acq thread flag" : threading.Event(),
+            #                                     "acq thread" : None,
+            #                                 })
+            #     dpg.bind_item_font(dpg.last_item(), bold_font)
+            #     @toggle_checkbox_and_disable("expo and roi fields", togCam)
+            #     def _toggle_acqloop_(sender, app_data, user_data):
+            #         state = app_data
+            #         eventKeepAcquiring = user_data["acq thread flag"]
+            #         # cam = dpg.get_item_user_data(togCam)["camera object"]
+            #         # itemsToToggle = ["expo and roi fields", togCam]
+            #         if state:
+            #             thread_acq = threading.Thread(target=start_acqloop, args=(cam, eventKeepAcquiring, frame_stack))
+            #             user_data["acq thread"] = thread_acq
+            #             eventKeepAcquiring.set()
+            #             thread_acq.start()
+            #         else:
+            #             thread_acq = user_data["acq thread"]
+            #             eventKeepAcquiring.clear()
+            #             thread_acq.join()
+            #             user_data["acq thread"] = None
+            #             cam.stop_acquisition()
+            #             cam.set_trigger_mode("int")
+            #             print("acq loop stopped")
+            #         # for item in itemsToToggle: # userproof: toggle the gray/ungray of some fields
+            #         #     dpg.configure_item(item, enabled = not state)
+            #         dpg.set_item_user_data(sender, user_data)
+            # dpg.set_item_callback(cboxAcq, _toggle_acqloop_)
             dpg.add_separator()
             with dpg.group(tag = "expo and roi fields",horizontal=False, enabled=False) as groupExpoRoi:
                 dpg.add_text("exposure time (ms):")
@@ -137,10 +187,10 @@ with dpg.window(tag="win1", pos=(0,0)):
                     hstart, hwid, *_ = dpg.get_value(fldsROIh)
                     vstart, vwid, *_ = dpg.get_value(fldsROIv)
                     hbin, vbin, *_ = dpg.get_value(fldsBinning)
-                    cam = dpg.get_item_user_data(togCam)["camera object"]
+                    # cam = dpg.get_item_user_data(togCam)["camera object"]
                     cam.set_roi(hstart, hstart+hwid, vstart, vstart+vwid, hbin, vbin)
                 def do_set_6fields_roi_using_cam(): # arg free callback, also indpendently used (not as callback) in cam switch initialization
-                    cam = dpg.get_item_user_data(togCam)["camera object"]
+                    # cam = dpg.get_item_user_data(togCam)["camera object"]
                     hstart, hend, vstart, vend, hbin, vbin = cam.get_roi()
                     # print(hstart, hend, vstart, vend, hbin, vbin)
                     dpg.set_value(fldsROIh,[hstart, hend-hstart,0,0])
@@ -151,7 +201,7 @@ with dpg.window(tag="win1", pos=(0,0)):
                 for _item in [fldsROIh, fldsROIv, fldsBinning]:
                     dpg.set_item_callback(_item, do_set_cam_roi_using_6fields)
                     dpg.bind_item_handler_registry(_item, "on leaving 6 ROI fields")
-            
+        
         with dpg.child_window():
             # frame = _myRandFrame()
             with dpg.group(horizontal=True):

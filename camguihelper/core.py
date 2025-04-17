@@ -131,12 +131,12 @@ def _my_rand_frame(v=2304,h=4096, max=65535)-> np.ndarray:
     myarr = np.random.randint(0,max, size = v*h, dtype=np.uint16)
     return myarr.reshape((v,-1))
 
-def gui_open_cam() -> DCAM.DCAM.DCAMCamera:
-    cam = DCAM.DCAMCamera()
-    if cam.is_opened(): cam.close()
-    cam.open()
-    print("cam is opened")
-    return cam
+# def gui_open_cam() -> DCAM.DCAM.DCAMCamera:
+#     cam = DCAM.DCAMCamera()
+#     if cam.is_opened(): cam.close()
+#     cam.open()
+#     print("cam is opened")
+#     return cam
 
 def ZYLconversion(frame: np.ndarray)->np.ndarray:
     """
