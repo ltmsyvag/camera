@@ -12,8 +12,12 @@ import colorsys
 import tifffile
 import os
 import dearpygui.dearpygui as dpg
-import spcm
-from .AWG_module.no_with_func import DDSRampController
+import platform
+system = platform.system()
+if system == "Windows":
+    import spcm
+    from .AWG_module.no_with_func import DDSRampController
+    from .AWG_module.unified import feed_AWG
 
 class FrameStack(list):
     """
@@ -170,19 +174,24 @@ def _update_hist(hLhRvLvR: tuple, frame_stack: FrameStack, yax = "hist plot yax"
         histData, parent = yax, bins =nBins, 
         min_range=theMinInt,max_range=max_range)
     
-def start_acqloop(
+def start_flag_watching_acq(
     cam: DCAM.DCAM.DCAMCamera,
-    event: threading.Event,
-    frame_stack: FrameStack)-> None:
+    flag: threading.Event,
+    frame_stack: FrameStack,
+    controller # type is DDSRampController, not hinted because it acts funny on macOS
+    )-> None:
     cam.set_trigger_mode("ext")
     cam.start_acquisition(mode="sequence", nframes=100)
-    while event.is_set():
+    awg_is_on = dpg.get_item_user_data("AWG toggle")["is on"]
+    while flag.is_set():
         try:
             cam.wait_for_frame(timeout=0.2)
         except DCAM.DCAMTimeoutError:
             continue
         this_frame = cam.read_oldest_image()
-        dummy_feed_awg(this_frame) # feed original uint16 format to AWG
+        if awg_is_on:
+        # dummy_feed_awg(this_frame) # feed original uint16 format to AWG
+            feed_AWG(this_frame, controller) # feed original uint16 format to AWG
         frame_stack.append(this_frame)
         if dpg.get_value("toggle 积分/单张 map"):
             frame_stack.plot_avg_frame()
@@ -215,18 +224,6 @@ def rgb_opposite(r, g, b):
     r2, g2, b2 = colorsys.hls_to_rgb(h, l, s) # Convert back to RGB
     return int(r2*255), int(g2*255), int(b2*255)
 
-# def save_with_timestamp(dpathStr: str, frame: np.ndarray, id: int=0) -> bool:
-#     """
-#     保存 frame 为 tiff 文件，文件名为 fpath 加上时间戳, 如果保存失败（dir 不存在, permission denied, etc.）则返回 True
-#     """
-#     try:
-#         timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-#         dpath = Path(dpathStr)
-#         fpath = dpath / (timestamp + f"_{id}.tiff")
-#         tifffile.imwrite(fpath, frame.astype(np.uint16))
-#         print(f"frame saved as {fpath}")
-#     except:
-#         return True
 
 def gui_open_awg():
     raw_card = spcm.Card(card_type = spcm.SPCM_TYPE_AO)

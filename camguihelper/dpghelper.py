@@ -67,7 +67,7 @@ def initialize_toggle_btn()->callable:
     """
     因为准备 toggle button 一定有两个条件: 1. 装饰 pdg.add_button. 2. 装饰 toggle button 的 callback.
     因此本方法内部执行第一步, 同时返回第二步所需的 decor, 非常合理. 在执行上表示这两个 explicit 的步骤缺一不可.
-    另一方面, 如果我在某个项目中完全不打算使用 toggle button. 那么本方法不会被 call, 也就不会创造出第二步的 decor,
+    另一方面, 如果我在某个项目中完全不打算使用 toggle button. 那么函数不会被 call, 也就不会创造出第二步的 decor,
     满足"如无必要, 勿增实体"的逻辑.
     """
     _off_rgb = (202, 33, 33) # off rgb 
