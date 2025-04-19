@@ -6,7 +6,7 @@ import platform
 from .core import rgb_opposite
 import dearpygui.dearpygui as dpg
 
-def bind_custom_theming():
+def do_bind_custom_theme():
     with dpg.theme() as global_theme:
         with dpg.theme_component(dpg.mvAll): # online doc: theme components must have a specified item type. This can either be `mvAll` for all items or a specific item type
             # dpg.add_theme_style(dpg.mvStyleVar_FrameBorderSize, 1, 
@@ -14,17 +14,25 @@ def bind_custom_theming():
             #                     )
             # dpg.add_theme_color(dpg.mvThemeCol_Text, (255,0,0), category=dpg.mvThemeCat_Core)
             dpg.add_theme_color(dpg.mvThemeCol_CheckMark, (255,255,0), category=dpg.mvThemeCat_Core)
-            dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 3, category=dpg.mvThemeCat_Core)
+            # dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 3, category=dpg.mvThemeCat_Core)
         for comp_type in ( # this code is from https://github.com/hoffstadt/DearPyGui/issues/2068. What it does is binding disabled theme colors for texts separately depending on the item type. Because a simple dpg.mvAll does not work (it should) due to bug.
             dpg.mvMenuItem, dpg.mvButton, dpg.mvText):
             with dpg.theme_component(comp_type, enabled_state=False):
                 dpg.add_theme_color(dpg.mvThemeCol_Text, (0.50 * 255, 0.50 * 255, 0.50 * 255, 1.00 * 255), 
                                   category=dpg.mvThemeCat_Core
                                     )
+        # for comp_type in (dpg.mvInputInt, dpg.mvButton):
+        with dpg.theme_component(dpg.mvButton):
+            # _active_enhancement = 1
+            dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 5, category=dpg.mvThemeCat_Core)
+            dpg.add_theme_style(dpg.mvStyleVar_FrameBorderSize, 1, category=dpg.mvThemeCat_Core)
+            dpg.add_theme_style(dpg.mvStyleVar_FramePadding,10, 10, category=dpg.mvThemeCat_Core)
+            dpg.add_theme_color(dpg.mvThemeCol_Border, (255,0,255,200), category=dpg.mvThemeCat_Core)
+            dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, (0,119,200), category=dpg.mvThemeCat_Core)
     dpg.bind_theme(global_theme)
     
 
-def initialize_chinese_fonts(default_fontsize: int=19, 
+def do_initialize_chinese_fonts(default_fontsize: int=19, 
                     bold_fontsize: int=21, 
                     large_fontsize: int=30) -> tuple[int, int, int]:
     """
@@ -63,8 +71,9 @@ def initialize_chinese_fonts(default_fontsize: int=19,
     dpg.bind_font(default_font)
     return default_font, bold_font, large_font
 
-def initialize_toggle_btn()->callable:
+def do_extend_add_button()->callable:
     """
+    装饰 dpg.add_button 命令. 不止一个装饰, 下面仅讲解一下做出 toggle button 的相关装饰.
     因为准备 toggle button 一定有两个条件: 1. 装饰 pdg.add_button. 2. 装饰 toggle button 的 callback.
     因此本方法内部执行第一步, 同时返回第二步所需的 decor, 非常合理. 在执行上表示这两个 explicit 的步骤缺一不可.
     另一方面, 如果我在某个项目中完全不打算使用 toggle button. 那么函数不会被 call, 也就不会创造出第二步的 decor,
@@ -79,49 +88,70 @@ def initialize_toggle_btn()->callable:
         with dpg.theme_component(dpg.mvAll):
             dpg.add_theme_color(dpg.mvThemeCol_Button, _off_rgb, category=dpg.mvThemeCat_Core)
             dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered, _offhov_rgb, category=dpg.mvThemeCat_Core)
-            dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, _offhov_rgb, category=dpg.mvThemeCat_Core)
+            dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, _off_rgb, category=dpg.mvThemeCat_Core)
             # dpg.add_theme_color(dpg.mvThemeCol_Text, rgbOppositeTo(*_off_rgb), category=dpg.mvThemeCat_Core) 
             dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, _1, category=dpg.mvThemeCat_Core)
+            dpg.add_theme_style(dpg.mvStyleVar_FrameBorderSize, 0, category=dpg.mvThemeCat_Core) # 全局按钮设置了 border, 但是 toggle 按钮我不想要, 因此进行 local override
         for comp_type in ( # this code is from https://github.com/hoffstadt/DearPyGui/issues/2068. What it does is binding disabled theme colors for texts separately depending on the item type. Because a simple dpg.mvAll does not work (it should) due to bug.
             dpg.mvMenuItem, dpg.mvButton, dpg.mvText):
             with dpg.theme_component(comp_type, enabled_state=False):
                 dpg.add_theme_color(dpg.mvThemeCol_Text, (0.50 * 255, 0.50 * 255, 0.50 * 255, 1.00 * 255), category=dpg.mvThemeCat_Core)
                 dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, _1, category=dpg.mvThemeCat_Core)
+                dpg.add_theme_style(dpg.mvStyleVar_FrameBorderSize, 0, category=dpg.mvThemeCat_Core)
     with dpg.theme() as theme_btnon:
         with dpg.theme_component(dpg.mvAll):
             dpg.add_theme_color(dpg.mvThemeCol_Button, _on_rgb, category=dpg.mvThemeCat_Core)
             dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered, _onhov_rgb, category=dpg.mvThemeCat_Core)
-            dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, _onhov_rgb, category=dpg.mvThemeCat_Core)
+            dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, _on_rgb, category=dpg.mvThemeCat_Core)
             dpg.add_theme_color(dpg.mvThemeCol_Text, rgb_opposite(*_on_rgb), category=dpg.mvThemeCat_Core) 
             dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, _1, category=dpg.mvThemeCat_Core)
+            dpg.add_theme_style(dpg.mvStyleVar_FrameBorderSize, 0, category=dpg.mvThemeCat_Core) # 全局按钮设置了 border, 但是 toggle 按钮我不想要, 因此进行 local override
         for comp_type in ( # this code is from https://github.com/hoffstadt/DearPyGui/issues/2068. What it does is binding disabled theme colors for texts separately depending on the item type. Because a simple dpg.mvAll does not work (it should) due to bug.
             dpg.mvMenuItem, dpg.mvButton, dpg.mvText):
             with dpg.theme_component(comp_type, enabled_state=False):
                 dpg.add_theme_color(dpg.mvThemeCol_Text, (0.50 * 255, 0.50 * 255, 0.50 * 255, 1.00 * 255), category=dpg.mvThemeCat_Core)
                 dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, _1, category=dpg.mvThemeCat_Core)
-
-    def _provide_toggle_btn_mechanism(func):
+                dpg.add_theme_style(dpg.mvStyleVar_FrameBorderSize, 0, category=dpg.mvThemeCat_Core)
+    ## 以下定义在本 do 函数之内的 decor 都不用 explicitly 命名为 decor_add_button, 因为它们装饰 dpg.add_button 的行为是固定在 do 函数定义中的, 不会在外部使用
+    def _decor_bind_zero_frame_padding_upon_wid_hite_kwargs(func):
+        """
+        手动设置 width, height 的按钮中的 label 文字的周围留白大小不是按照 dpg.mvStyleVar_FramePadding 来的, 
+        如果此时还保有全局默认的 frame padding, 则会让按钮 label 的 justifucation 变得不居中, 看起来很奇怪
+        """
+        def wrapper(*args, **kwargs):
+            btn = func(*args, **kwargs)
+            if ("width" in kwargs) or ("height" in kwargs):
+                with dpg.theme() as theme_no_framepadding:
+                    with dpg.theme_component(dpg.mvAll):
+                        dpg.add_theme_style(dpg.mvStyleVar_FramePadding,0, 0, category=dpg.mvThemeCat_Core)
+                    with dpg.theme_component(dpg.mvAll, enabled_state=False):
+                        dpg.add_theme_style(dpg.mvStyleVar_FramePadding,0, 0, category=dpg.mvThemeCat_Core)
+                dpg.bind_item_theme(btn, theme_no_framepadding)
+        return wrapper
+    def _decor_bind_toggle_theme_upon_ison_usritem(func):
         """
         dpg.add_button 的装饰器, 使该命令可以创造初始化的 themed toggle button
         """
-        assert func is dpg.add_button, "decoratee must be dearpygui.dearpygui.add_button"
+        # assert func is dpg.add_button, "decoratee must be dearpygui.dearpygui.add_button"
         def wrapper(*args, **kwargs):
-            btn = func(*args, **kwargs)
+            tagBtn = func(*args, **kwargs)
             if "user_data" in kwargs:
                 if isinstance(kwargs["user_data"], dict):
                     _dict = kwargs["user_data"]
                     if "is on" in _dict:
                         if _dict["is on"]:
-                            dpg.bind_item_theme(btn, theme_btnon)
+                            dpg.bind_item_theme(tagBtn, theme_btnon)
                             if "on label" in _dict:
-                                dpg.set_item_label(btn, _dict["on label"])
+                                dpg.set_item_label(tagBtn, _dict["on label"])
                         else:
-                            dpg.bind_item_theme(btn, theme_btnoff)
+                            dpg.bind_item_theme(tagBtn, theme_btnoff)
                             if "off label" in _dict:
-                                dpg.set_item_label(btn, _dict["off label"])
-            return btn
+                                dpg.set_item_label(tagBtn, _dict["off label"])
+            return tagBtn
         return wrapper
-    dpg.add_button = _provide_toggle_btn_mechanism(dpg.add_button) # 装饰 add_button 命令
+    # dpg.add_button = _decor_bind_zero_frame_padding_upon_wid_hite_kwargs(dpg.add_button)
+    dpg.add_button = _decor_bind_toggle_theme_upon_ison_usritem(dpg.add_button) # 装饰 add_button 命令
+
     def toggle_btn_state_and_disable_items(*items, on_and_enable=True):
         """
         搭配 toggle button 使用的装饰器. 本函数是母函数 initialize_toggle_btn 的返回.
@@ -189,6 +219,20 @@ def toggle_checkbox_and_disable(*items, on_and_enable=False):
                 dpg.configure_item(item, enabled=app_data if on_and_enable else not app_data)
         return wrapper
     return decor
+
+
+def _return_func_if_not_wrapped(func, wrapper):
+    """
+    decor 定义专用函数. 可以避免 rerun script 时的二次 wrapping (否则只能一次次重启 kernel)
+    用法: 删掉 decor 定义尾部的 `return wrapper`, 改为 `_return_func_if_not_wrapped(func, wrapper)`.
+    # 本函数在未 `func` 和 `wrapper` 来命名形参和返回值. 最终让本函数决定返回哪一个.
+    # 本函数
+    """
+    if not getattr(func, "_is_decorated", False):
+        wrapper._is_decorated = True
+        return wrapper
+    else:
+        return func
 # dpg.initialize_toggle_btn = initialize_toggle_btn
 # dpg.initialize_chinese_fonts = initialize_chinese_fonts
 # dpg.bind_custom_theming = bind_custom_theming

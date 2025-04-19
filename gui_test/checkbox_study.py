@@ -5,8 +5,8 @@ from camguihelper.dpghelper import *
 # from camguihelper.core import _log
 # dpg = extend_dpg_methods(dpg)
 dpg.create_context()
-_,_, large_font = initialize_chinese_fonts(20,20,40)
-bind_custom_theming()
+_,_, large_font = do_initialize_chinese_fonts(20,20,40)
+do_bind_custom_theme()
 dpg.create_viewport(title='Custom Title', 
                     width=600, height=600,
                     vsync=True) # important option to dismiss input lab, see https://github.com/hoffstadt/DearPyGui/issues/1571

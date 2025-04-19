@@ -10,19 +10,19 @@ from camguihelper import (
     FrameStack, start_flag_watching_acq)
 from camguihelper.core import _log, _update_hist
 from camguihelper.dpghelper import (
-    bind_custom_theming,
-    initialize_chinese_fonts,
-    initialize_toggle_btn,
+    do_bind_custom_theme,
+    do_initialize_chinese_fonts,
+    do_extend_add_button,
     toggle_checkbox_and_disable)
 from tiff_imports import flist
 frame_stack = FrameStack(flist)
 # frame_stack = FrameStack()
 
 dpg.create_context()
+do_bind_custom_theme()
 
-_, bold_font, large_font = initialize_chinese_fonts(20)
-toggle_theming_and_enable = initialize_toggle_btn()
-bind_custom_theming()
+_, bold_font, large_font = do_initialize_chinese_fonts(20)
+toggle_theming_and_enable = do_extend_add_button()
 
 dpg.create_viewport(title='camera', 
                     width=1200, height=1020, x_pos=0, y_pos=0,
@@ -339,10 +339,12 @@ with dpg.window(tag="win1", pos=(0,0)):
             dpg.add_text("percentage_total_power_for_list")
             dpg.add_input_float(step=0, width=_width/2)
             dpg.add_input_text(label = "5th-order", width=_width/2)
+            dpg.add_spacer(height=_spcheight)
             dpg.add_button(label="设置目标阵列")
-dpg.set_primary_window("win1", True)
 
+dpg.set_primary_window("win1", True)
 frame_stack._update()
+dpg.show_style_editor()
 dpg.setup_dearpygui()
 dpg.show_viewport()
 dpg.start_dearpygui()
