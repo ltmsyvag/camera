@@ -6,6 +6,21 @@ import platform
 from .core import rgb_opposite
 import dearpygui.dearpygui as dpg
 
+def _do_custom_disabled_components_fix():
+    """
+    used under a `with dpg.theme()` context.
+
+    this code is from https://github.com/hoffstadt/DearPyGui/issues/2068. 
+    What it does is binding disabled theme colors for texts separately depending on the item type. 
+    Because a simple dpg.mvAll does not work (it should) due to bug.
+    """
+    for comp_type in ( # 
+        dpg.mvMenuItem, dpg.mvButton, dpg.mvText):
+        with dpg.theme_component(comp_type, enabled_state=False):
+            dpg.add_theme_color(dpg.mvThemeCol_Text, (0.50 * 255, 0.50 * 255, 0.50 * 255, 1.00 * 255), 
+                                category=dpg.mvThemeCat_Core
+                                )
+
 def do_bind_custom_theme():
     with dpg.theme() as global_theme:
         with dpg.theme_component(dpg.mvAll): # online doc: theme components must have a specified item type. This can either be `mvAll` for all items or a specific item type
@@ -15,12 +30,7 @@ def do_bind_custom_theme():
             # dpg.add_theme_color(dpg.mvThemeCol_Text, (255,0,0), category=dpg.mvThemeCat_Core)
             dpg.add_theme_color(dpg.mvThemeCol_CheckMark, (255,255,0), category=dpg.mvThemeCat_Core)
             # dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 3, category=dpg.mvThemeCat_Core)
-        for comp_type in ( # this code is from https://github.com/hoffstadt/DearPyGui/issues/2068. What it does is binding disabled theme colors for texts separately depending on the item type. Because a simple dpg.mvAll does not work (it should) due to bug.
-            dpg.mvMenuItem, dpg.mvButton, dpg.mvText):
-            with dpg.theme_component(comp_type, enabled_state=False):
-                dpg.add_theme_color(dpg.mvThemeCol_Text, (0.50 * 255, 0.50 * 255, 0.50 * 255, 1.00 * 255), 
-                                  category=dpg.mvThemeCat_Core
-                                    )
+        _do_custom_disabled_components_fix()
         # for comp_type in (dpg.mvInputInt, dpg.mvButton):
         with dpg.theme_component(dpg.mvButton):
             # _active_enhancement = 1
@@ -29,6 +39,7 @@ def do_bind_custom_theme():
             dpg.add_theme_style(dpg.mvStyleVar_FramePadding,10, 10, category=dpg.mvThemeCat_Core)
             dpg.add_theme_color(dpg.mvThemeCol_Border, (255,0,255,200), category=dpg.mvThemeCat_Core)
             dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, (0,119,200), category=dpg.mvThemeCat_Core)
+            # dpg.add_theme_color(dpg.mvThemeCol_Button, (255,0,0), category=dpg.mvThemeCat_Core)
     dpg.bind_theme(global_theme)
     
 
@@ -119,15 +130,16 @@ def do_extend_add_button()->callable:
         如果此时还保有全局默认的 frame padding, 则会让按钮 label 的 justifucation 变得不居中, 看起来很奇怪
         """
         def wrapper(*args, **kwargs):
-            btn = func(*args, **kwargs)
+            tagBtn = func(*args, **kwargs)
             if ("width" in kwargs) or ("height" in kwargs):
                 with dpg.theme() as theme_no_framepadding:
-                    with dpg.theme_component(dpg.mvAll):
-                        dpg.add_theme_style(dpg.mvStyleVar_FramePadding,0, 0, category=dpg.mvThemeCat_Core)
-                    with dpg.theme_component(dpg.mvAll, enabled_state=False):
-                        dpg.add_theme_style(dpg.mvStyleVar_FramePadding,0, 0, category=dpg.mvThemeCat_Core)
-                dpg.bind_item_theme(btn, theme_no_framepadding)
-        return wrapper
+                    with dpg.theme_component(dpg.mvButton):
+                        dpg.add_theme_style(dpg.mvStyleVar_FramePadding,-1, -1, category=dpg.mvThemeCat_Core)
+                    with dpg.theme_component(dpg.mvButton, enabled_state=False):
+                        dpg.add_theme_style(dpg.mvStyleVar_FramePadding,-1, -1, category=dpg.mvThemeCat_Core)
+                dpg.bind_item_theme(tagBtn, theme_no_framepadding)
+            return tagBtn
+        return wrapper # _return_func_if_not_wrapped(func,wrapper)
     def _decor_bind_toggle_theme_upon_ison_usritem(func):
         """
         dpg.add_button 的装饰器, 使该命令可以创造初始化的 themed toggle button
@@ -148,7 +160,7 @@ def do_extend_add_button()->callable:
                             if "off label" in _dict:
                                 dpg.set_item_label(tagBtn, _dict["off label"])
             return tagBtn
-        return wrapper
+        return wrapper # _return_func_if_not_wrapped(func,wrapper)
     # dpg.add_button = _decor_bind_zero_frame_padding_upon_wid_hite_kwargs(dpg.add_button)
     dpg.add_button = _decor_bind_toggle_theme_upon_ison_usritem(dpg.add_button) # 装饰 add_button 命令
 
@@ -226,7 +238,6 @@ def _return_func_if_not_wrapped(func, wrapper):
     decor 定义专用函数. 可以避免 rerun script 时的二次 wrapping (否则只能一次次重启 kernel)
     用法: 删掉 decor 定义尾部的 `return wrapper`, 改为 `_return_func_if_not_wrapped(func, wrapper)`.
     # 本函数在未 `func` 和 `wrapper` 来命名形参和返回值. 最终让本函数决定返回哪一个.
-    # 本函数
     """
     if not getattr(func, "_is_decorated", False):
         wrapper._is_decorated = True
