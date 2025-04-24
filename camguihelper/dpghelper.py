@@ -6,7 +6,7 @@ import platform
 from .core import rgb_opposite
 import dearpygui.dearpygui as dpg
 
-def _do_custom_disabled_components_fix():
+def _do_fix_disabled_components():
     """
     used under a `with dpg.theme()` context.
 
@@ -30,7 +30,7 @@ def do_bind_custom_theme():
             # dpg.add_theme_color(dpg.mvThemeCol_Text, (255,0,0), category=dpg.mvThemeCat_Core)
             dpg.add_theme_color(dpg.mvThemeCol_CheckMark, (255,255,0), category=dpg.mvThemeCat_Core)
             # dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 3, category=dpg.mvThemeCat_Core)
-        _do_custom_disabled_components_fix()
+        _do_fix_disabled_components()
         # for comp_type in (dpg.mvInputInt, dpg.mvButton):
         with dpg.theme_component(dpg.mvButton):
             # _active_enhancement = 1
@@ -95,6 +95,13 @@ def do_extend_add_button()->callable:
     _on_rgb = (25,219,72) # on rgb 
     _onhov_rgb = (0,255,0) # on hovered rgb 
     _1 = 15 # frame rounding
+    def _do_config_disabled_components():
+        """
+        used under `with dpg.theme()` context
+        """
+        with dpg.theme_component(dpg.mvAll, enabled_state=False):
+            dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, _1, category=dpg.mvThemeCat_Core)
+            dpg.add_theme_style(dpg.mvStyleVar_FrameBorderSize, 0, category=dpg.mvThemeCat_Core)
     with dpg.theme() as theme_btnoff:
         with dpg.theme_component(dpg.mvAll):
             dpg.add_theme_color(dpg.mvThemeCol_Button, _off_rgb, category=dpg.mvThemeCat_Core)
@@ -103,12 +110,7 @@ def do_extend_add_button()->callable:
             # dpg.add_theme_color(dpg.mvThemeCol_Text, rgbOppositeTo(*_off_rgb), category=dpg.mvThemeCat_Core) 
             dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, _1, category=dpg.mvThemeCat_Core)
             dpg.add_theme_style(dpg.mvStyleVar_FrameBorderSize, 0, category=dpg.mvThemeCat_Core) # 全局按钮设置了 border, 但是 toggle 按钮我不想要, 因此进行 local override
-        for comp_type in ( # this code is from https://github.com/hoffstadt/DearPyGui/issues/2068. What it does is binding disabled theme colors for texts separately depending on the item type. Because a simple dpg.mvAll does not work (it should) due to bug.
-            dpg.mvMenuItem, dpg.mvButton, dpg.mvText):
-            with dpg.theme_component(comp_type, enabled_state=False):
-                dpg.add_theme_color(dpg.mvThemeCol_Text, (0.50 * 255, 0.50 * 255, 0.50 * 255, 1.00 * 255), category=dpg.mvThemeCat_Core)
-                dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, _1, category=dpg.mvThemeCat_Core)
-                dpg.add_theme_style(dpg.mvStyleVar_FrameBorderSize, 0, category=dpg.mvThemeCat_Core)
+        _do_config_disabled_components()
     with dpg.theme() as theme_btnon:
         with dpg.theme_component(dpg.mvAll):
             dpg.add_theme_color(dpg.mvThemeCol_Button, _on_rgb, category=dpg.mvThemeCat_Core)
@@ -117,12 +119,7 @@ def do_extend_add_button()->callable:
             dpg.add_theme_color(dpg.mvThemeCol_Text, rgb_opposite(*_on_rgb), category=dpg.mvThemeCat_Core) 
             dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, _1, category=dpg.mvThemeCat_Core)
             dpg.add_theme_style(dpg.mvStyleVar_FrameBorderSize, 0, category=dpg.mvThemeCat_Core) # 全局按钮设置了 border, 但是 toggle 按钮我不想要, 因此进行 local override
-        for comp_type in ( # this code is from https://github.com/hoffstadt/DearPyGui/issues/2068. What it does is binding disabled theme colors for texts separately depending on the item type. Because a simple dpg.mvAll does not work (it should) due to bug.
-            dpg.mvMenuItem, dpg.mvButton, dpg.mvText):
-            with dpg.theme_component(comp_type, enabled_state=False):
-                dpg.add_theme_color(dpg.mvThemeCol_Text, (0.50 * 255, 0.50 * 255, 0.50 * 255, 1.00 * 255), category=dpg.mvThemeCat_Core)
-                dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, _1, category=dpg.mvThemeCat_Core)
-                dpg.add_theme_style(dpg.mvStyleVar_FrameBorderSize, 0, category=dpg.mvThemeCat_Core)
+        _do_config_disabled_components()
     ## 以下定义在本 do 函数之内的 decor 都不用 explicitly 命名为 decor_add_button, 因为它们装饰 dpg.add_button 的行为是固定在 do 函数定义中的, 不会在外部使用
     def _decor_bind_zero_frame_padding_upon_wid_hite_kwargs(func):
         """
