@@ -25,7 +25,7 @@ _, bold_font, large_font = do_initialize_chinese_fonts(20)
 toggle_theming_and_enable = do_extend_add_button()
 
 dpg.create_viewport(title='camera', 
-                    width=1200, height=1020, x_pos=0, y_pos=0,
+                    width=1260, height=1020, x_pos=0, y_pos=0,
                     vsync=False) # important option to dismiss input lab, see https://github.com/hoffstadt/DearPyGui/issues/1571
 
 with dpg.window(tag="win1", pos=(0,0)):
@@ -34,7 +34,7 @@ with dpg.window(tag="win1", pos=(0,0)):
             with dpg.group(horizontal=True, height=720):
                 with dpg.child_window(width=210):
                     # with dpg.group(horizontal=False):
-                    _wid, _hi = 160, 40
+                    _wid, _hi = 175, 40
                     togCam = dpg.add_button(
                         width=_wid, height=_hi, user_data={
                             "is on" : False, 
@@ -164,7 +164,7 @@ with dpg.window(tag="win1", pos=(0,0)):
                             dpg.set_item_callback(_item, do_set_cam_roi_using_6fields)
                             dpg.bind_item_handler_registry(_item, "on leaving 6 ROI fields")
                 
-                with dpg.child_window(width=710):
+                with dpg.child_window(width=760):
                     # frame = _myRandFrame()
                     with dpg.group(horizontal=True):
                         fldSavePath = dpg.add_input_text(tag="save path input field ",
@@ -237,11 +237,19 @@ with dpg.window(tag="win1", pos=(0,0)):
                                 if frame_stack and (frame_stack.cid<len(frame_stack)-1):
                                     frame_stack.cid += 1
                                     frame_stack.plot_cid_frame()
-                            leftArr = dpg.add_button(tag = "plot previous frame", label="<", width=30, height=30, arrow=True)
-                            rightArr = dpg.add_button(tag = "plot next frame", label=">", width=30, height=30, arrow=True, direction=dpg.mvDir_Right)
+                            leftArr = dpg.add_button(tag = "plot previous frame", label="<", arrow=True)
+                            rightArr = dpg.add_button(tag = "plot next frame", label=">", arrow=True, direction=dpg.mvDir_Right)
                             dpg.set_item_callback(leftArr, _left_arrow_cb_)
                             dpg.set_item_callback(rightArr, _right_arrow_cb_)
-                        dpg.add_spacer(width=20)
+                            with dpg.theme() as arr_btn_repad_theme:
+                                """
+                                temp theme to fix funny arrow button behavior
+                                """
+                                with dpg.theme_component(dpg.mvAll):
+                                    dpg.add_theme_style(dpg.mvStyleVar_FramePadding, 5,5, category=dpg.mvThemeCat_Core)
+                            dpg.bind_item_theme(leftArr, arr_btn_repad_theme)
+                            dpg.bind_item_theme(rightArr, arr_btn_repad_theme)
+                        dpg.add_spacer(width=10)
                         cboxTogAvgMap = dpg.add_checkbox(label="stack 平均图",tag="toggle 积分/单张 map")
                         @toggle_checkbox_and_disable(leftArr, rightArr)
                         def _toggle_cid_and_avg_map_(_, app_data,__):
@@ -295,7 +303,7 @@ with dpg.window(tag="win1", pos=(0,0)):
         
         with dpg.child_window():
             togAwg = dpg.add_button(tag = "AWG toggle",
-                width=140, height=40, user_data={
+                width=150, height=40, user_data={
                     "is on" : False, 
                     "off label" : "AWG 已关闭",
                     "on label" : "AWG 已开启",
@@ -344,7 +352,7 @@ with dpg.window(tag="win1", pos=(0,0)):
 
 dpg.set_primary_window("win1", True)
 frame_stack._update()
-dpg.show_style_editor()
+# dpg.show_style_editor()
 dpg.setup_dearpygui()
 dpg.show_viewport()
 dpg.start_dearpygui()

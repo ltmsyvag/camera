@@ -12,9 +12,9 @@ import colorsys
 import tifffile
 import os
 import dearpygui.dearpygui as dpg
-import platform
+import platform, uuid
 system = platform.system()
-if system == "Windows":
+if (system == "Windows") and (hex(uuid.getnode()) != '0xf4ce2305b4c7'): # the code stands for A402 computer
     import spcm
     from .AWG_module.no_with_func import DDSRampController
     from .AWG_module.unified import feed_AWG
@@ -137,12 +137,7 @@ def _my_rand_frame(v=2304,h=4096, max=65535)-> np.ndarray:
     myarr = np.random.randint(0,max, size = v*h, dtype=np.uint16)
     return myarr.reshape((v,-1))
 
-# def gui_open_cam() -> DCAM.DCAM.DCAMCamera:
-#     cam = DCAM.DCAMCamera()
-#     if cam.is_opened(): cam.close()
-#     cam.open()
-#     print("cam is opened")
-#     return cam
+
 
 def ZYLconversion(frame: np.ndarray)->np.ndarray:
     """
