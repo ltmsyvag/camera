@@ -24,23 +24,22 @@ def _do_fix_disabled_components():
 def do_bind_my_global_theme():
     with dpg.theme() as global_theme:
         _do_fix_disabled_components()
-        with dpg.theme_component(dpg.mvCheckbox): # online doc: theme components must have a specified item type. This can either be `mvAll` for all items or a specific item type
-            # dpg.add_theme_style(dpg.mvStyleVar_FrameBorderSize, 1, 
-            #                     category=dpg.mvThemeCat_Core # online docstring paraphrase: you are mvThemeCat_core, if you are not doing plots or nodes. 实际上我发现不加这个 kwarg 也能产生出想要的 theme。但是看到网上都加，也就跟着加吧
-            #                     )
-            # dpg.add_theme_color(dpg.mvThemeCol_Text, (255,255,255), category=dpg.mvThemeCat_Core)
+        with dpg.theme_component(dpg.mvCheckbox): # check mark is distinc yellow
             dpg.add_theme_color(dpg.mvThemeCol_CheckMark, (255,255,0), category=dpg.mvThemeCat_Core)
-            # dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 3, category=dpg.mvThemeCat_Core)
-        # for comp_type in (dpg.mvInputInt, dpg.mvButton):
-        with dpg.theme_component(dpg.mvButton):
-            # _active_enhancement = 1
-            # dpg.add_theme_color(dpg.mvThemeCol_Text, (255,255,255), category=dpg.mvThemeCat_Core)
+        with dpg.theme_component(dpg.mvButton): # my button style, a bit roundish with magenta border, with distinct blueish color when pressed down
             dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 5, category=dpg.mvThemeCat_Core)
             dpg.add_theme_style(dpg.mvStyleVar_FrameBorderSize, 1, category=dpg.mvThemeCat_Core)
-            # dpg.add_theme_style(dpg.mvStyleVar_FramePadding,10, 10, category=dpg.mvThemeCat_Core)
             dpg.add_theme_color(dpg.mvThemeCol_Border, (255,0,255,200), category=dpg.mvThemeCat_Core)
             dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, (0,119,200), category=dpg.mvThemeCat_Core)
-            # dpg.add_theme_color(dpg.mvThemeCol_Button, (255,0,0), category=dpg.mvThemeCat_Core)
+        with dpg.theme_component(dpg.mvInputInt): # input field 带有 +/- 按钮时, 也希望点击的时候按钮的 active 状态能更有辨识度. 由于 input field 自带的按钮不属于 mvButton, 需要单独设置一次
+            dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, (0,119,200), category=dpg.mvThemeCat_Core) 
+        for comp in (dpg.mvInputInt, dpg.mvInputIntMulti, 
+                     dpg.mvInputDouble, dpg.mvInputDoubleMulti,
+                     dpg.mvInputFloat, dpg.mvInputFloatMulti,
+                     dpg.mvInputText, dpg.mvCheckbox): # give frame borders in all kinds of input fields
+            with dpg.theme_component(comp):
+                dpg.add_theme_style(dpg.mvStyleVar_FrameBorderSize, 0.5, category=dpg.mvThemeCat_Core)
+                dpg.add_theme_color(dpg.mvThemeCol_Border, (255,255,255,25), category=dpg.mvThemeCat_Core)
     dpg.bind_theme(global_theme)
     
 
@@ -64,11 +63,10 @@ def do_initialize_chinese_fonts(default_fontsize: int=19,
                 r"C:/Windows/Fonts/msyhbd.ttc", # 微软雅黑 bold
                     ) # 微软雅黑 bold
         # elif system == "Darwin": return r"/System/Library/Fonts/Supplemental/Arial Unicode.ttf"
-        elif system == "Darwin": return (
-            r"/Users/haiteng/Library/Fonts/NotoSansSC-Medium.ttf", # 没有中文字体, 但是读文档舒服
-            r"/Users/haiteng/Library/Fonts/NotoSansSC-Bold.ttf", # 没有中文字体, 但是读文档舒服
+        elif system == "Darwin": return ( # google noto
+            r"/Users/haiteng/Library/Fonts/NotoSansSC-Medium.ttf",
+            r"/Users/haiteng/Library/Fonts/NotoSansSC-Bold.ttf", 
             ) 
-        # elif system == "Darwin": return r"/Users/haiteng/Library/Fonts/sarasa-term-sc-nerd.ttc"
         else: raise NameError("没有定义本操作系统的中文字体地址")
     normal_font_path, large_font_path = _chinese_font_path()
     bold_font_path = large_font_path

@@ -263,7 +263,7 @@ with dpg.window(tag="win1", pos=(0,0)):
                         dpg.add_colormap_scale(tag = "frame colorbar", min_scale=0,max_scale=65535, height=400)
                         dpg.bind_colormap(dpg.last_item(), _cmap)
                         _side = 600
-                        with dpg.plot(tag="frame plot",label = "frame", no_mouse_pos=False, height=_side, width=_side,
+                        with dpg.plot(tag="frame plot", no_mouse_pos=False, height=_side, width=_side,
                                     query=True, query_color=(255,0,0), max_query_rects=1, min_query_rects=0):
                             dpg.bind_colormap(dpg.last_item(), _cmap)
                             _xyaxeskwargs = dict(no_gridlines = True, no_tick_marks = True)
@@ -352,7 +352,7 @@ with dpg.window(tag="win1", pos=(0,0)):
 
 dpg.set_primary_window("win1", True)
 frame_stack._update()
-# dpg.show_style_editor()
+dpg.show_style_editor()
 dpg.setup_dearpygui()
 dpg.show_viewport()
 dpg.start_dearpygui()
