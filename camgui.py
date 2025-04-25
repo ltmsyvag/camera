@@ -10,7 +10,7 @@ from camguihelper import (
     FrameStack, start_flag_watching_acq)
 from camguihelper.core import _log, _update_hist
 from camguihelper.dpghelper import (
-    do_bind_custom_theme,
+    do_bind_my_global_theme,
     do_initialize_chinese_fonts,
     do_extend_add_button,
     toggle_checkbox_and_disable)
@@ -19,9 +19,9 @@ frame_stack = FrameStack(flist)
 # frame_stack = FrameStack()
 
 dpg.create_context()
-do_bind_custom_theme()
+do_bind_my_global_theme()
 
-_, bold_font, large_font = do_initialize_chinese_fonts(20)
+_, bold_font, large_font = do_initialize_chinese_fonts()
 toggle_theming_and_enable = do_extend_add_button()
 
 dpg.create_viewport(title='camera', 
@@ -185,7 +185,7 @@ with dpg.window(tag="win1", pos=(0,0)):
                             dpg.add_file_extension(".tiff")
                     with dpg.group(horizontal=True):        
                         frameStackCnt = dpg.add_text(tag = "frame stack count display", default_value= "0 frames in stack")
-                        btnSaveAll = dpg.add_button(label="保存 frame stack", width=150, height=35)
+                        btnSaveAll = dpg.add_button(label="保存 frame stack")
                         def _save_all_frames_(*cbargs):
                             saved = frame_stack.save_stack()
                             if saved:
@@ -196,7 +196,7 @@ with dpg.window(tag="win1", pos=(0,0)):
                             dpg.set_value(frameStackCnt, msg)
                         dpg.set_item_callback(btnSaveAll, _save_all_frames_)
                         
-                        dpg.add_button(tag = "clear stack button", label="清空 frame stack", width=150, height=35)
+                        dpg.add_button(tag = "clear stack button", label="清空 frame stack")
                         def _on_confirm():
                             frame_stack.clear()
                             dpg.set_value(frameStackCnt, "0 frames in stack")
@@ -214,7 +214,7 @@ with dpg.window(tag="win1", pos=(0,0)):
                                         dpg.add_button(label="Yes", width=75, callback=_on_confirm)
                                         dpg.add_button(label="No", width=75, callback=_on_cancel)
                         dpg.set_item_callback("clear stack button", _open_confirmation_)
-                        btnSaveCurrent = dpg.add_button(label="保存当前 frame", width=150, height=35)
+                        btnSaveCurrent = dpg.add_button(label="保存当前 frame")
                         def _save_current_frame_(*cbargs):
                             saved = frame_stack.save_cid_frame()
                             if saved:
@@ -241,14 +241,14 @@ with dpg.window(tag="win1", pos=(0,0)):
                             rightArr = dpg.add_button(tag = "plot next frame", label=">", arrow=True, direction=dpg.mvDir_Right)
                             dpg.set_item_callback(leftArr, _left_arrow_cb_)
                             dpg.set_item_callback(rightArr, _right_arrow_cb_)
-                            with dpg.theme() as arr_btn_repad_theme:
-                                """
-                                temp theme to fix funny arrow button behavior
-                                """
-                                with dpg.theme_component(dpg.mvAll):
-                                    dpg.add_theme_style(dpg.mvStyleVar_FramePadding, 5,5, category=dpg.mvThemeCat_Core)
-                            dpg.bind_item_theme(leftArr, arr_btn_repad_theme)
-                            dpg.bind_item_theme(rightArr, arr_btn_repad_theme)
+                            # with dpg.theme() as arr_btn_repad_theme:
+                            #     """
+                            #     temp theme to fix funny arrow button behavior
+                            #     """
+                            #     with dpg.theme_component(dpg.mvAll):
+                            #         dpg.add_theme_style(dpg.mvStyleVar_FramePadding, 5,5, category=dpg.mvThemeCat_Core)
+                            # dpg.bind_item_theme(leftArr, arr_btn_repad_theme)
+                            # dpg.bind_item_theme(rightArr, arr_btn_repad_theme)
                         dpg.add_spacer(width=10)
                         cboxTogAvgMap = dpg.add_checkbox(label="stack 平均图",tag="toggle 积分/单张 map")
                         @toggle_checkbox_and_disable(leftArr, rightArr)

@@ -21,23 +21,23 @@ def _do_fix_disabled_components():
                                 category=dpg.mvThemeCat_Core
                                 )
 
-def do_bind_custom_theme():
+def do_bind_my_global_theme():
     with dpg.theme() as global_theme:
-        with dpg.theme_component(dpg.mvAll): # online doc: theme components must have a specified item type. This can either be `mvAll` for all items or a specific item type
+        _do_fix_disabled_components()
+        with dpg.theme_component(dpg.mvCheckbox): # online doc: theme components must have a specified item type. This can either be `mvAll` for all items or a specific item type
             # dpg.add_theme_style(dpg.mvStyleVar_FrameBorderSize, 1, 
             #                     category=dpg.mvThemeCat_Core # online docstring paraphrase: you are mvThemeCat_core, if you are not doing plots or nodes. 实际上我发现不加这个 kwarg 也能产生出想要的 theme。但是看到网上都加，也就跟着加吧
             #                     )
             # dpg.add_theme_color(dpg.mvThemeCol_Text, (255,255,255), category=dpg.mvThemeCat_Core)
             dpg.add_theme_color(dpg.mvThemeCol_CheckMark, (255,255,0), category=dpg.mvThemeCat_Core)
             # dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 3, category=dpg.mvThemeCat_Core)
-        _do_fix_disabled_components()
         # for comp_type in (dpg.mvInputInt, dpg.mvButton):
         with dpg.theme_component(dpg.mvButton):
             # _active_enhancement = 1
             # dpg.add_theme_color(dpg.mvThemeCol_Text, (255,255,255), category=dpg.mvThemeCat_Core)
             dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 5, category=dpg.mvThemeCat_Core)
             dpg.add_theme_style(dpg.mvStyleVar_FrameBorderSize, 1, category=dpg.mvThemeCat_Core)
-            dpg.add_theme_style(dpg.mvStyleVar_FramePadding,10, 10, category=dpg.mvThemeCat_Core)
+            # dpg.add_theme_style(dpg.mvStyleVar_FramePadding,10, 10, category=dpg.mvThemeCat_Core)
             dpg.add_theme_color(dpg.mvThemeCol_Border, (255,0,255,200), category=dpg.mvThemeCat_Core)
             dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, (0,119,200), category=dpg.mvThemeCat_Core)
             # dpg.add_theme_color(dpg.mvThemeCol_Button, (255,0,0), category=dpg.mvThemeCat_Core)
@@ -91,10 +91,10 @@ def do_extend_add_button()->callable:
     另一方面, 如果我在某个项目中完全不打算使用 toggle button. 那么函数不会被 call, 也就不会创造出第二步的 decor,
     满足"如无必要, 勿增实体"的逻辑.
     """
-    _off_rgb = (202, 33, 33) # off rgb 
-    _offhov_rgb = (255, 0, 0) # off hovered rgb
-    _on_rgb = (25,219,72) # on rgb 
-    _onhov_rgb = (0,255,0) # on hovered rgb 
+    _tog_off_rgb = (202, 33, 33) # off rgb 
+    _tog_offhov_rgb = (255, 0, 0) # off hovered rgb
+    _tog_on_rgb = (25,219,72) # on rgb 
+    _tog_onhov_rgb = (0,255,0) # on hovered rgb 
     _1 = 15 # frame rounding
     def _do_add_invar_toggle_styles():
         """
@@ -103,43 +103,44 @@ def do_extend_add_button()->callable:
         """
         dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, _1, category=dpg.mvThemeCat_Core)
         dpg.add_theme_style(dpg.mvStyleVar_FrameBorderSize, 0, category=dpg.mvThemeCat_Core) # 全局按钮设置了 border, 但是 toggle 按钮我不想要, 因此进行 local override
-        dpg.add_theme_style(dpg.mvStyleVar_FramePadding,-1, -1, category=dpg.mvThemeCat_Core)
-    def _do_config_disabled_components():
+        # dpg.add_theme_style(dpg.mvStyleVar_FramePadding,-1, -1, category=dpg.mvThemeCat_Core)
+    def _do_config_disabled_toggle_components():
         """
         used under `with dpg.theme()` context
         """
-        with dpg.theme_component(dpg.mvAll, enabled_state=False):
+        with dpg.theme_component(dpg.mvButton, enabled_state=False):
             _do_add_invar_toggle_styles()
     with dpg.theme() as theme_toggle_off:
-        with dpg.theme_component(dpg.mvAll):
-            dpg.add_theme_color(dpg.mvThemeCol_Button, _off_rgb, category=dpg.mvThemeCat_Core)
-            dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered, _offhov_rgb, category=dpg.mvThemeCat_Core)
-            dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, _off_rgb, category=dpg.mvThemeCat_Core)
+        _do_config_disabled_toggle_components()
+        with dpg.theme_component(dpg.mvButton):
+            dpg.add_theme_color(dpg.mvThemeCol_Button, _tog_off_rgb, category=dpg.mvThemeCat_Core)
+            dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered, _tog_offhov_rgb, category=dpg.mvThemeCat_Core)
+            dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, _tog_off_rgb, category=dpg.mvThemeCat_Core)
             # dpg.add_theme_color(dpg.mvThemeCol_Text, rgbOppositeTo(*_off_rgb), category=dpg.mvThemeCat_Core) 
             _do_add_invar_toggle_styles()
-        _do_config_disabled_components()
     with dpg.theme() as theme_toggle_on:
-        with dpg.theme_component(dpg.mvAll):
-            dpg.add_theme_color(dpg.mvThemeCol_Button, _on_rgb, category=dpg.mvThemeCat_Core)
-            dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered, _onhov_rgb, category=dpg.mvThemeCat_Core)
-            dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, _on_rgb, category=dpg.mvThemeCat_Core)
-            dpg.add_theme_color(dpg.mvThemeCol_Text, rgb_opposite(*_on_rgb), category=dpg.mvThemeCat_Core) 
+        _do_config_disabled_toggle_components()
+        with dpg.theme_component(dpg.mvButton):
+            dpg.add_theme_color(dpg.mvThemeCol_Button, _tog_on_rgb, category=dpg.mvThemeCat_Core)
+            dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered, _tog_onhov_rgb, category=dpg.mvThemeCat_Core)
+            dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, _tog_on_rgb, category=dpg.mvThemeCat_Core)
+            dpg.add_theme_color(dpg.mvThemeCol_Text, rgb_opposite(*_tog_on_rgb), category=dpg.mvThemeCat_Core) 
             _do_add_invar_toggle_styles()
-        _do_config_disabled_components()
     ## 以下定义在本 do 函数之内的 decor 都不用 explicitly 命名为 decor_add_button, 因为它们装饰 dpg.add_button 的行为是固定在 do 函数定义中的, 不会在外部使用
-    def _decor_bind_zero_frame_padding_upon_wid_hite_kwargs(func):
+    def _decor_bind_comfy_btn_framepadding_wo_widhite_kwargs(func):
         """
         手动设置 width, height 的按钮中的 label 文字的周围留白大小不是按照 dpg.mvStyleVar_FramePadding 来的, 
         如果此时还保有全局默认的 frame padding, 则会让按钮 label 的 justifucation 变得不居中, 看起来很奇怪
         """
         def wrapper(*args, **kwargs):
             tagBtn = func(*args, **kwargs)
-            if ("width" in kwargs) or ("height" in kwargs):
+            if ("width" not in kwargs) and ("height" not in kwargs):
                 with dpg.theme() as theme_no_framepadding:
+                    _pad_comfy_x, _pad_comfy_y = 10, 5
                     with dpg.theme_component(dpg.mvButton):
-                        dpg.add_theme_style(dpg.mvStyleVar_FramePadding,-1, -1, category=dpg.mvThemeCat_Core)
+                        dpg.add_theme_style(dpg.mvStyleVar_FramePadding, _pad_comfy_x, _pad_comfy_y, category=dpg.mvThemeCat_Core)
                     with dpg.theme_component(dpg.mvButton, enabled_state=False):
-                        dpg.add_theme_style(dpg.mvStyleVar_FramePadding,-1, -1, category=dpg.mvThemeCat_Core)
+                        dpg.add_theme_style(dpg.mvStyleVar_FramePadding, _pad_comfy_x, _pad_comfy_y, category=dpg.mvThemeCat_Core)
                 dpg.bind_item_theme(tagBtn, theme_no_framepadding)
             return tagBtn
         return wrapper # _return_func_if_not_wrapped(func,wrapper)
@@ -164,7 +165,7 @@ def do_extend_add_button()->callable:
                                 dpg.set_item_label(tagBtn, _dict["off label"])
             return tagBtn
         return wrapper # _return_func_if_not_wrapped(func,wrapper)
-    dpg.add_button = _decor_bind_zero_frame_padding_upon_wid_hite_kwargs(dpg.add_button)
+    dpg.add_button = _decor_bind_comfy_btn_framepadding_wo_widhite_kwargs(dpg.add_button)
     dpg.add_button = _decor_bind_toggle_theme_upon_ison_usritem(dpg.add_button) # 装饰 add_button 命令
 
     def toggle_btn_state_and_disable_items(*items, on_and_enable=True):
