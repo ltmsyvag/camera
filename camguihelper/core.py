@@ -226,7 +226,3 @@ def gui_open_awg():
     controller = DDSRampController(raw_card)
     print("AWG is opened")
     return raw_card, controller
-if __name__ == "__main__":
-    pass
-    dpath = MyPath("C:\\Users\\username\\Desktop\\")
-    print(dpath.is_dir())

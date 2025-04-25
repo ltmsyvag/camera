@@ -5,8 +5,8 @@ dpg 相关的帮助函数, 主要用于个人初始化和 batch processing
 import platform
 from .core import rgb_opposite
 import dearpygui.dearpygui as dpg
-
-def _do_fix_disabled_components():
+from typing import Callable
+def _do_fix_disabled_components()->None:
     """
     used under a `with dpg.theme()` context.
 
@@ -21,7 +21,7 @@ def _do_fix_disabled_components():
                                 category=dpg.mvThemeCat_Core
                                 )
 
-def do_bind_my_global_theme():
+def do_bind_my_global_theme()->None:
     with dpg.theme() as global_theme:
         _do_fix_disabled_components()
         with dpg.theme_component(dpg.mvCheckbox): # check mark is distinc yellow
@@ -81,20 +81,21 @@ def do_initialize_chinese_fonts(default_fontsize: int=19,
     dpg.bind_font(default_font)
     return default_font, bold_font, large_font
 
-def do_extend_add_button()->callable:
+def do_extend_add_button() -> Callable:
     """
-    装饰 dpg.add_button 命令. 不止一个装饰, 下面仅讲解一下做出 toggle button 的相关装饰.
+    implicit decoration for dpg.add_button
+    不止一个装饰, 下面仅讲解一下做出 toggle button 的相关装饰.
     因为准备 toggle button 一定有两个条件: 1. 装饰 pdg.add_button. 2. 装饰 toggle button 的 callback.
     因此本方法内部执行第一步, 同时返回第二步所需的 decor, 非常合理. 在执行上表示这两个 explicit 的步骤缺一不可.
     另一方面, 如果我在某个项目中完全不打算使用 toggle button. 那么函数不会被 call, 也就不会创造出第二步的 decor,
     满足"如无必要, 勿增实体"的逻辑.
     """
-    _tog_off_rgb = (202, 33, 33) # off rgb 
-    _tog_offhov_rgb = (255, 0, 0) # off hovered rgb
-    _tog_on_rgb = (25,219,72) # on rgb 
-    _tog_onhov_rgb = (0,255,0) # on hovered rgb 
+    _rgb_tog_off = (202, 33, 33) # off rgb 
+    _rgb_tog_offhov = (255, 0, 0) # off hovered rgb
+    _rgb_tog_on = (25,219,72) # on rgb 
+    _rgb_tog_onhov = (0,255,0) # on hovered rgb 
     _1 = 15 # frame rounding
-    def _do_add_invar_toggle_styles():
+    def _do_add_invar_toggle_styles()->None:
         """
         userd under `with dpg.theme_component()` context
         invariant button styles/colors independent from toggle states or active states
@@ -102,7 +103,7 @@ def do_extend_add_button()->callable:
         dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, _1, category=dpg.mvThemeCat_Core)
         dpg.add_theme_style(dpg.mvStyleVar_FrameBorderSize, 0, category=dpg.mvThemeCat_Core) # 全局按钮设置了 border, 但是 toggle 按钮我不想要, 因此进行 local override
         # dpg.add_theme_style(dpg.mvStyleVar_FramePadding,-1, -1, category=dpg.mvThemeCat_Core)
-    def _do_config_disabled_toggle_components():
+    def _do_config_disabled_toggle_components()->None:
         """
         used under `with dpg.theme()` context
         """
@@ -111,24 +112,25 @@ def do_extend_add_button()->callable:
     with dpg.theme() as theme_toggle_off:
         _do_config_disabled_toggle_components()
         with dpg.theme_component(dpg.mvButton):
-            dpg.add_theme_color(dpg.mvThemeCol_Button, _tog_off_rgb, category=dpg.mvThemeCat_Core)
-            dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered, _tog_offhov_rgb, category=dpg.mvThemeCat_Core)
-            dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, _tog_off_rgb, category=dpg.mvThemeCat_Core)
+            dpg.add_theme_color(dpg.mvThemeCol_Button, _rgb_tog_off, category=dpg.mvThemeCat_Core)
+            dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered, _rgb_tog_offhov, category=dpg.mvThemeCat_Core)
+            dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, _rgb_tog_off, category=dpg.mvThemeCat_Core)
             # dpg.add_theme_color(dpg.mvThemeCol_Text, rgbOppositeTo(*_off_rgb), category=dpg.mvThemeCat_Core) 
             _do_add_invar_toggle_styles()
     with dpg.theme() as theme_toggle_on:
         _do_config_disabled_toggle_components()
         with dpg.theme_component(dpg.mvButton):
-            dpg.add_theme_color(dpg.mvThemeCol_Button, _tog_on_rgb, category=dpg.mvThemeCat_Core)
-            dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered, _tog_onhov_rgb, category=dpg.mvThemeCat_Core)
-            dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, _tog_on_rgb, category=dpg.mvThemeCat_Core)
-            dpg.add_theme_color(dpg.mvThemeCol_Text, rgb_opposite(*_tog_on_rgb), category=dpg.mvThemeCat_Core) 
+            dpg.add_theme_color(dpg.mvThemeCol_Button, _rgb_tog_on, category=dpg.mvThemeCat_Core)
+            dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered, _rgb_tog_onhov, category=dpg.mvThemeCat_Core)
+            dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, _rgb_tog_on, category=dpg.mvThemeCat_Core)
+            dpg.add_theme_color(dpg.mvThemeCol_Text, rgb_opposite(*_rgb_tog_on), category=dpg.mvThemeCat_Core) 
             _do_add_invar_toggle_styles()
     ## 以下定义在本 do 函数之内的 decor 都不用 explicitly 命名为 decor_add_button, 因为它们装饰 dpg.add_button 的行为是固定在 do 函数定义中的, 不会在外部使用
-    def _decor_bind_comfy_btn_framepadding_wo_widhite_kwargs(func):
+    def _decor_bind_comfy_btn_framepadding_wo_widhite_kwargs(func: Callable)->Callable:
         """
-        手动设置 width, height 的按钮中的 label 文字的周围留白大小不是按照 dpg.mvStyleVar_FramePadding 来的, 
-        如果此时还保有全局默认的 frame padding, 则会让按钮 label 的 justifucation 变得不居中, 看起来很奇怪
+        dpg.add_button 的装饰器
+        在运行 dpg.add_button 但是不指定 kwargs `width` 和 `height` 时, 使用比默认值大一些的 frame padding. 默认值太小了
+        这个设置原则上可以放在 global theme 里, 但是实验发现放在 dpg.add_button 的 decor 里是最好的
         """
         def wrapper(*args, **kwargs):
             tagBtn = func(*args, **kwargs)
@@ -141,13 +143,12 @@ def do_extend_add_button()->callable:
                         dpg.add_theme_style(dpg.mvStyleVar_FramePadding, _pad_comfy_x, _pad_comfy_y, category=dpg.mvThemeCat_Core)
                 dpg.bind_item_theme(tagBtn, theme_no_framepadding)
             return tagBtn
-        return wrapper # _return_func_if_not_wrapped(func,wrapper)
-    def _decor_bind_toggle_theme_upon_ison_usritem(func):
+        return wrapper
+    def _decor_bind_toggle_theme_upon_ison_usritem(func: Callable)->Callable:
         """
         dpg.add_button 的装饰器, 使该命令可以创造初始化的 themed toggle button
         """
-        # assert func is dpg.add_button, "decoratee must be dearpygui.dearpygui.add_button"
-        def wrapper(*args, **kwargs):
+        def wrapper(*args, **kwargs) -> int:
             tagBtn = func(*args, **kwargs)
             if "user_data" in kwargs:
                 if isinstance(kwargs["user_data"], dict):
@@ -166,7 +167,7 @@ def do_extend_add_button()->callable:
     dpg.add_button = _decor_bind_comfy_btn_framepadding_wo_widhite_kwargs(dpg.add_button)
     dpg.add_button = _decor_bind_toggle_theme_upon_ison_usritem(dpg.add_button) # 装饰 add_button 命令
 
-    def toggle_btn_state_and_disable_items(*items, on_and_enable=True):
+    def toggle_btn_state_and_disable_items(*items, on_and_enable=True)->Callable:
         """
         搭配 toggle button 使用的装饰器. 本函数是母函数 initialize_toggle_btn 的返回.
         也就是说, 如果在一个不用 toggle button 的项目中, initialize_toggle_btn 不会被 call, 
@@ -179,7 +180,7 @@ def do_extend_add_button()->callable:
         4. 在 toggle on/off 成功时，enable/disable (若 `on_and_enable=False` 
             则是 disable/enable) 参数 items 中包含的 gui 元素.
         """
-        def decor(cb):
+        def decor(cb)->None:
             def wrapper(sender, app_data, user_data):
                 assert dpg.get_item_type(sender) == "mvAppItemType::mvButton", "sender must be a button"
                 assert isinstance(user_data, dict) and ("is on" in user_data), "user_data must be a dict with 'is on' key"
@@ -237,6 +238,7 @@ def toggle_checkbox_and_disable(*items, on_and_enable=False):
 
 def _return_func_if_not_wrapped(func, wrapper):
     """
+    update1: 貌似没啥卵用
     decor 定义专用函数. 可以避免 rerun script 时的二次 wrapping (否则只能一次次重启 kernel)
     用法: 删掉 decor 定义尾部的 `return wrapper`, 改为 `_return_func_if_not_wrapped(func, wrapper)`.
     # 本函数在未 `func` 和 `wrapper` 来命名形参和返回值. 最终让本函数决定返回哪一个.
@@ -246,8 +248,24 @@ def _return_func_if_not_wrapped(func, wrapper):
         return wrapper
     else:
         return func
-# dpg.initialize_toggle_btn = initialize_toggle_btn
-# dpg.initialize_chinese_fonts = initialize_chinese_fonts
-# dpg.bind_custom_theming = bind_custom_theming
 
-
+def factory_cb_yn_modal_dialog(*, cb_on_confirm: Callable, 
+                               cb_on_cancel: Callable = None, 
+                               dialog_text: str = "确认吗?",
+                               win_label: str = "确认操作") -> Callable:
+    """
+    factory generating a callback producing a yes/no modal dialog window
+    """
+    tagModalWin = dpg.generate_uuid()
+    def _cb_on_cancel():
+        dpg.delete_item(tagModalWin)  # Close the modal after cancelling
+    def pop_yn_modal_win():
+        with dpg.window(label = win_label, modal = True, tag = tagModalWin,
+                        pos = (200,200), width = 300, height= 150):
+            dpg.add_text(dialog_text)
+            dpg.add_spacer(height=20)
+            with dpg.group(horizontal=True):
+                dpg.add_spacer(width=50)
+                dpg.add_button(label = "Yes", callback = cb_on_confirm)
+                dpg.add_button(label = "No", callback = cb_on_cancel if cb_on_cancel else _cb_on_cancel)
+    return pop_yn_modal_win
