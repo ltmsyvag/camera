@@ -261,11 +261,15 @@ def factory_cb_yn_modal_dialog(*, cb_on_confirm: Callable,
         dpg.delete_item(tagModalWin)  # Close the modal after cancelling
     def pop_yn_modal_win():
         with dpg.window(label = win_label, modal = True, tag = tagModalWin,
-                        pos = (200,200), width = 300, height= 150):
+        # with dpg.popup(label = win_label, modal = True, tag = tagModalWin,
+                        pos = (200,200), 
+                        # width = 300, height= 150, 
+                        # popup=True
+                        ):
             dpg.add_text(dialog_text)
-            dpg.add_spacer(height=20)
+            dpg.add_spacer(height=10)
             with dpg.group(horizontal=True):
-                dpg.add_spacer(width=50)
+                dpg.add_spacer(width=30)
                 dpg.add_button(label = "Yes", callback = cb_on_confirm)
                 dpg.add_button(label = "No", callback = cb_on_cancel if cb_on_cancel else _cb_on_cancel)
     return pop_yn_modal_win

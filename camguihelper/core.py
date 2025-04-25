@@ -138,7 +138,6 @@ def _my_rand_frame(v=2304,h=4096, max=65535)-> np.ndarray:
     return myarr.reshape((v,-1))
 
 
-
 def ZYLconversion(frame: np.ndarray)->np.ndarray:
     """
     ZYL formula to infer photon counts
@@ -186,7 +185,7 @@ def start_flag_watching_acq(
         this_frame = cam.read_oldest_image()
         if awg_is_on:
         # dummy_feed_awg(this_frame) # feed original uint16 format to AWG
-            feed_AWG(this_frame, controller) # feed original uint16 format to AWG
+            feed_AWG(this_frame, controller, _collect_awg_params()) # feed original uint16 format to AWG
         frame_stack.append(this_frame)
         if dpg.get_value("toggle 积分/单张 map"):
             frame_stack.plot_avg_frame()
@@ -226,3 +225,57 @@ def gui_open_awg():
     controller = DDSRampController(raw_card)
     print("AWG is opened")
     return raw_card, controller
+
+def _collect_awg_params() -> tuple:
+    x1, y1, *_ = dpg.get_value("x1 y1")
+    x2, y2, *_ = dpg.get_value("x2 y2")
+    x3, y3, *_ = dpg.get_value("x3 y3")
+    nx, ny, *_ = dpg.get_value("nx ny")
+    x0, y0, *_ = dpg.get_value("x0 y0")
+    rec_x, rec_y, *_ = dpg.get_value("rec_x rec_y")
+    count_threshold = dpg.get_value("count_threshold")
+    n_packed = dpg.get_value("n_packed")
+    start_frequency_on_row, start_frequency_on_col, *_ = dpg.get_value("start_frequency_on_row(col)")
+    start_frequency_on_row*= 1e6
+    start_frequency_on_col*= 1e6
+    end_frequency_on_row, end_frequency_on_col, *_ = dpg.get_value("end_frequency_on_row(col)")
+    end_frequency_on_row*=1e6
+    end_frequency_on_col*=1e6
+    start_site_on_row, start_site_on_col, *_ = dpg.get_value("start_site_on_row(col)")
+    end_site_on_row, end_site_on_col, *_ = dpg.get_value("end_site_on_row(col)")
+    num_segments = dpg.get_value("num_segments")
+    power_ramp_time = dpg.get_value("power_ramp_time (ms)")
+    power_ramp_time*=1e-3
+    move_time = dpg.get_value("move_time (ms)")
+    move_time *= 1e-3
+    percentage_total_power_for_list = dpg.get_value("percentage_total_power_for_list")
+    ramp_type = dpg.get_value("ramp_type")
+    user_tgt_arr_input = dpg.get_value("binary target array")
+    lines = user_tgt_arr_input.replace(" ", "").strip().splitlines()
+    tgt2darr = np.array([[int(ch) for ch in line] for line in lines], dtype=int)
+    return (x1,y1, x2, y2, x3, y3, nx, ny, x0, y0, rec_x, rec_y, count_threshold,
+            n_packed, start_frequency_on_row, start_frequency_on_col,
+            end_frequency_on_row, end_frequency_on_col,
+            start_site_on_row, start_site_on_col,
+            end_site_on_row, end_site_on_col,
+            num_segments, power_ramp_time, move_time,
+            percentage_total_power_for_list, ramp_type, tgt2darr)
+    # print(x1,y1)
+    # print(x2,y2)
+    # print(x3,y3)
+    # print(nx,ny)
+    # print(x0,y0)
+    # print(rec_x, rec_y)
+    # print(count_threshold)
+    # print(n_packed)
+    # print(start_frequency_on_row, start_frequency_on_col)
+    # print(end_frequency_on_row, end_frequency_on_col)
+    # print(start_site_on_row, start_site_on_col)
+    # print(num_segments)
+    # print(power_ramp_time)
+    # print(move_time)
+    # print(percentage_total_power_for_list)
+    # print(ramp_type)
+    # print(tgt_2darr)
+
+

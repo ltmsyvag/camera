@@ -5,8 +5,8 @@ import threading
 import time
 import math
 import tifffile
-from camguihelper import (gui_open_awg, FrameStack, start_flag_watching_acq)
-from camguihelper.core import _log, _update_hist
+from camguihelper import gui_open_awg, FrameStack, start_flag_watching_acq
+from camguihelper.core import _log, _update_hist, _collect_awg_params
 from camguihelper.dpghelper import (
     do_bind_my_global_theme,
     do_initialize_chinese_fonts,
@@ -261,7 +261,7 @@ with dpg.window(tag="win1", pos=(0,0)):
                 dpg.add_input_int(pos=(80,10), tag = "hist binning input",label="hist binning", width=80,
                                 min_value=1, default_value=1, min_clamped=True)
         
-        with dpg.child_window(label = "1"):
+        with dpg.child_window(label = "1", tag = "1"):
             togAwg = dpg.add_button(tag = "AWG toggle",
                 width=150, height=40, user_data={
                     "is on" : False, 
@@ -283,32 +283,67 @@ with dpg.window(tag="win1", pos=(0,0)):
             dpg.add_separator()
             _width=100
             _spcheight=10
-            dpg.add_input_intx(label= "x1 y1", size=2, width=_width)
-            dpg.add_input_intx(label= "x2 y2", size=2, width=_width)
-            dpg.add_input_intx(label= "x3 y3", size=2, width=_width)
-            dpg.add_input_intx(label= "nx ny", size=2, width=_width)
-            dpg.add_input_intx(label= "x0 y0", size=2, width=_width)
-            dpg.add_input_intx(label= "rec_x rec_y", size=2, width=_width)
-            dpg.add_input_int(label="count_threshold",step=0, width=_width/2)
-            dpg.add_input_int(label="n_packed",step=0, width=_width/2)
+            dpg.add_input_intx(label= "x1 y1", tag= "x1 y1", size=2, width=_width, default_value = [36,23,0,0])
+            dpg.add_input_intx(label= "x2 y2", tag= "x2 y2", size=2, width=_width, default_value = [124,25,0,0])
+            dpg.add_input_intx(label= "x3 y3", tag= "x3 y3", size=2, width=_width, default_value = [34,112,0,0])
+            dpg.add_input_intx(label= "nx ny", tag= "nx ny", size=2, width=_width, default_value = [16,16,0,0])
+            dpg.add_input_intx(label= "x0 y0", tag= "x0 y0", size=2, width=_width, default_value = [34,21,0,0])
+            dpg.add_input_intx(label= "rec_x rec_y", tag= "rec_x rec_y", size=2, width=_width, default_value=[4,4,0,0])
+            dpg.add_input_int(label="count_threshold",tag="count_threshold",step=0, width=_width/2, default_value=30)
+            dpg.add_input_int(label="n_packed",tag="n_packed",step=0, width=_width/2, default_value=3)
             dpg.add_spacer(height=_spcheight)
             dpg.add_text("start_frequency_on_row(col)")
-            dpg.add_input_floatx(size=2, width=_width)
+            dpg.add_input_floatx(tag = "start_frequency_on_row(col)", size=2, width=_width*1.2, default_value=[90.8,111.4,0,0], label="MHz")
             dpg.add_text("end_frequency_on_row(col)")
-            dpg.add_input_floatx(size=2, width=_width)
+            dpg.add_input_floatx(tag = "end_frequency_on_row(col)", size=2, width=_width*1.2, default_value=[111.3,90.8,0,0], label= "MHz")
             dpg.add_text("start_site_on_row(col)")
-            dpg.add_input_intx(size=2, width=_width)
+            dpg.add_input_intx(tag = "start_site_on_row(col)", size=2, width=_width, default_value=[0,0,0,0])
+            dpg.add_text("end_site_on_row(col)")
+            dpg.add_input_intx(tag = "end_site_on_row(col)", size=2, width=_width, default_value=[15,15,0,0])
             dpg.add_spacer(height=_spcheight)
-            dpg.add_input_int(label="num_setments",step=0, width=_width/2)
-            dpg.add_input_float(label="power_ramp_time",step=0, width=_width/2)
-            dpg.add_input_float(label="move_time",step=0, width=_width/2)
+            dpg.add_input_int(label="num_segments", tag="num_segments",step=0, width=_width/2, default_value=16)
+            dpg.add_input_float(label="power_ramp_time (ms)", tag="power_ramp_time (ms)",step=0, width=_width/2, default_value=4)
+            dpg.add_input_float(label="move_time (ms)", tag="move_time (ms)", step=0, width=_width/2, default_value=2)
             dpg.add_spacer(height=_spcheight)
             dpg.add_text("percentage_total_power_for_list")
-            dpg.add_input_float(step=0, width=_width/2)
-            dpg.add_input_text(label = "5th-order", width=_width/2)
+            dpg.add_input_float(tag = "percentage_total_power_for_list", step=0, width=_width/2, default_value=0.5)
+            dpg.add_input_text(label = "ramp_type", tag = "ramp_type", width=_width, default_value="5th-order")
             dpg.add_spacer(height=_spcheight)
-            dpg.add_button(label="设置目标阵列")
-
+            btnTgtArr = dpg.add_button(label="设置目标阵列")
+            # def _pop_target_array_win():
+            #     # winTgtArr = dpg.add_window(label =)
+            with dpg.window(label = "设置目标阵列", tag = "target array window",
+                            pos = (200,200), width = 450, height=450,
+                            show=False) as winTgtArr:
+                dpg.add_input_text(tag = "binary target array",
+                    multiline= True, width=-1,height=-1,
+                    default_value="""\
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0""")
+            dpg.set_item_callback(btnTgtArr, lambda : dpg.configure_item(winTgtArr, show = True))
+            # dpg.add_button(label="hello", tag = "hello", 
+            #                callback= 
+            #                _collect_awg_params
+            #                )
+# _collect_awg_params()
 dpg.set_primary_window("win1", True)
 frame_stack._update()
 # dpg.show_style_editor()
