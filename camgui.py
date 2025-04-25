@@ -6,7 +6,7 @@ import time
 import math
 import tifffile
 from camguihelper import gui_open_awg, FrameStack, start_flag_watching_acq
-from camguihelper.core import _log, _update_hist, _collect_awg_params
+from camguihelper.core import _log, _update_hist
 from camguihelper.dpghelper import (
     do_bind_my_global_theme,
     do_initialize_chinese_fonts,
@@ -182,14 +182,14 @@ with dpg.window(tag="win1", pos=(0,0)):
                             dpg.delete_item("confirmation_modal")  # Close the modal after confirming
                         dpg.set_item_callback(_btnClearStack,
                                               factory_cb_yn_modal_dialog(cb_on_confirm=_on_confirm, dialog_text="确认要清空内存中的所有帧吗?"))
-                        btnSaveCurrent = dpg.add_button(label="保存当前帧")
+                        _btnSaveCurrent = dpg.add_button(label="保存当前帧")
                         def _save_current_frame_(*cbargs):
                             saved_p = frame_stack.save_cid_frame()
                             if saved_p:
                                 dpg.set_value(frameStackCnt, "Saved!")
                             else:
                                 dpg.set_value(frameStackCnt, "NOT Saved!")
-                        dpg.set_item_callback(btnSaveCurrent, _save_current_frame_)
+                        dpg.set_item_callback(_btnSaveCurrent, _save_current_frame_)
                         dpg.bind_item_font(frameStackCnt, bold_font)
                     dpg.add_separator()
                     with dpg.group(horizontal=True):

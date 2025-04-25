@@ -131,7 +131,7 @@ class MyPath(Path):
     def is_executable(self):
         return os.access(self, os.X_OK)
 
-def dummy_feed_awg(frame):
+def _dummy_feed_awg(frame):
     pass
 def _my_rand_frame(v=2304,h=4096, max=65535)-> np.ndarray:
     myarr = np.random.randint(0,max, size = v*h, dtype=np.uint16)
@@ -184,7 +184,7 @@ def start_flag_watching_acq(
             continue
         this_frame = cam.read_oldest_image()
         if awg_is_on:
-        # dummy_feed_awg(this_frame) # feed original uint16 format to AWG
+        # _dummy_feed_awg(this_frame) # feed original uint16 format to AWG
             feed_AWG(this_frame, controller, _collect_awg_params()) # feed original uint16 format to AWG
         frame_stack.append(this_frame)
         if dpg.get_value("toggle 积分/单张 map"):

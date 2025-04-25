@@ -24,7 +24,7 @@ def _do_fix_disabled_components()->None:
 def do_bind_my_global_theme()->None:
     with dpg.theme() as global_theme:
         _do_fix_disabled_components()
-        with dpg.theme_component(dpg.mvCheckbox): # check mark is distinc yellow
+        with dpg.theme_component(dpg.mvAll): # check mark is distinc yellow. dpg.mvCheckbox doesn't work, don't know why
             dpg.add_theme_color(dpg.mvThemeCol_CheckMark, (255,255,0), category=dpg.mvThemeCat_Core)
         with dpg.theme_component(dpg.mvButton): # my button style, a bit roundish with magenta border, with distinct blueish color when pressed down
             dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 5, category=dpg.mvThemeCat_Core)
