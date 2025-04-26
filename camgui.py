@@ -13,6 +13,7 @@ from camguihelper.dpghelper import (
     do_extend_add_button,
     toggle_checkbox_and_disable,
     factory_cb_yn_modal_dialog)
+controller = None # controller always has to exist, since its the argument of the func start_acqloop that runs in the thread thread_acq
 from tiff_imports import flist
 frame_stack = FrameStack() # the normal empty frame_stack creation
 frame_stack = FrameStack(flist) # the override to import fake data
@@ -82,7 +83,8 @@ with dpg.window(tag="win1", pos=(0,0)):
                             "acq thread": None,
                             })
                     @toggle_theming_and_enable(
-                            "expo and roi fields", togCam, "AWG toggle", on_and_enable= False)
+                            "expo and roi fields", togCam, "awg panel",
+                            "target array window", on_and_enable= False)
                     def _toggle_acq_cb_(sender, _, user_data):
                         state = user_data["is on"]
                         next_state = not state
@@ -261,7 +263,7 @@ with dpg.window(tag="win1", pos=(0,0)):
                 dpg.add_input_int(pos=(80,10), tag = "hist binning input",label="hist binning", width=80,
                                 min_value=1, default_value=1, min_clamped=True)
         
-        with dpg.child_window(label = "1", tag = "1"):
+        with dpg.child_window(tag = "awg panel"):
             togAwg = dpg.add_button(tag = "AWG toggle",
                 width=150, height=40, user_data={
                     "is on" : False, 

@@ -177,6 +177,7 @@ def start_flag_watching_acq(
     cam.set_trigger_mode("ext")
     cam.start_acquisition(mode="sequence", nframes=100)
     awg_is_on = dpg.get_item_user_data("AWG toggle")["is on"]
+    awg_params = _collect_awg_params()
     while flag.is_set():
         try:
             cam.wait_for_frame(timeout=0.2)
@@ -184,14 +185,12 @@ def start_flag_watching_acq(
             continue
         this_frame = cam.read_oldest_image()
         if awg_is_on:
-        # _dummy_feed_awg(this_frame) # feed original uint16 format to AWG
-            feed_AWG(this_frame, controller, _collect_awg_params()) # feed original uint16 format to AWG
+            feed_AWG(this_frame, controller, awg_params) # feed original uint16 format to AWG
         frame_stack.append(this_frame)
         if dpg.get_value("toggle 积分/单张 map"):
             frame_stack.plot_avg_frame()
         else:
             frame_stack.plot_cid_frame()
-        # _store_and_plot_frame(this_frame.astype(float), frame_stack) # I changed the default uint16 type when I acquire each frame. I need float (not uint16) for robust graphic processing, and batch conversion of many frames to int can be slow (e.g. when plotting the avg frame) for large frame stack.
         hLhRvLvR = dpg.get_item_user_data("frame plot")
         if hLhRvLvR:
             _update_hist(hLhRvLvR, frame_stack)
