@@ -19,23 +19,23 @@ if (system == "Windows") and (hex(uuid.getnode()) != '0xf4ce2305b4c7'): # the co
     from .AWG_module.no_with_func import DDSRampController
     from .AWG_module.unified import feed_AWG
 
-class FrameStack(list):
+class FrameDeck(list):
     """
     class of a special list with my own methods for manipulating the frames it stores
     """
-    cid = None # current heatmap's id in stack
-    float_stack = [] # gui 中的操作需要 float frame, 因此与 list (int stack) 对应, 要有一个 float stack
+    cid = None # current heatmap's id in deck
+    float_deck = [] # gui 中的操作需要 float frame, 因此与 list (int deck) 对应, 要有一个 float deck
     def _update(self):
         """
-        强制 float_stack 和与 list 内容同步, overhead 可能较大, 在需要的时候使用
+        强制 float_deck 和与 list 内容同步, overhead 可能较大, 在需要的时候使用
         同时执行:
-        - 更新 stack counts 显示
-        - 调整 cid 到 stack 最末
+        - 更新 deck counts 显示
+        - 调整 cid 到 deck 最末
         """
         if self:
-            self.float_stack = [e.astype(float) for e in self]
+            self.float_deck = [e.astype(float) for e in self]
             self.cid = len(self) - 1
-            dpg.set_value("frame stack count display", f"{len(self)} frames in stack")
+            dpg.set_value("frame deck display", f"{len(self)} frames in deck")
             if dpg.get_value("toggle 积分/单张 map"):
                 self.plot_avg_frame()
             else:
@@ -45,7 +45,7 @@ class FrameStack(list):
         """
         如果想保存的文件时间是
         "C:\\Users\\username\\Desktop\\2023-10-01-12-00-00_id.tiff",
-        那么在 Desktop 存在并可写入, 且 frame stack 非空的情况下, 返回字符串形式的 stub
+        那么在 Desktop 存在并可写入, 且 frame deck 非空的情况下, 返回字符串形式的 stub
         "C:\\Users\\username\\Desktop\\2023-10-01-12-00-00"
         """
         if self:
@@ -54,7 +54,7 @@ class FrameStack(list):
                 timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
                 fpath_stub = str(saveroot / timestamp)
                 return fpath_stub
-    def save_stack(self):
+    def save_deck(self):
         """
         保存全部 frames, 如果保存成功/失败, 返回 True/False
         """
@@ -80,20 +80,20 @@ class FrameStack(list):
             return False # not saved
     def append(self, frame: np.ndarray):
         """
-        append a new frame to int & float stacks
+        append a new frame to int & float decks
         """
         assert np.issubdtype(frame, np.uint16), "frame should be uint16, something's off?!"
 
         super().append(frame)
-        self.float_stack.append(frame.astype(float))
-        self.cid = len(self.float_stack) - 1
-        dpg.set_value("frame stack count display", f"{len(self)} frames in stack")
+        self.float_deck.append(frame.astype(float))
+        self.cid = len(self.float_deck) - 1
+        dpg.set_value("frame deck display", f"{len(self)} frames in deck")
     def clear(self):
         """
-        clear int & float stacks
+        clear int & float decks
         """
         super().clear()
-        self.float_stack.clear()
+        self.float_deck.clear()
         self.cid = None
 
     def _plot_frame(self, frame: np.ndarray):
@@ -115,12 +115,12 @@ class FrameStack(list):
             dpg.fit_axis_data(yax)
             dpg.fit_axis_data("frame xax")
     def plot_avg_frame(self):
-        if  self.float_stack:
-            avg_frame = sum(self.float_stack) / len(self.float_stack)
+        if  self.float_deck:
+            avg_frame = sum(self.float_deck) / len(self.float_deck)
             self._plot_frame(avg_frame)
     def plot_cid_frame(self):
         if self.cid is not None:
-            frame = self.float_stack[self.cid]
+            frame = self.float_deck[self.cid]
             self._plot_frame(frame)
 
 class MyPath(Path):
@@ -145,17 +145,17 @@ def ZYLconversion(frame: np.ndarray)->np.ndarray:
     frame = (frame -300) * 0.1/0.9
     return frame
 
-def _update_hist(hLhRvLvR: tuple, frame_stack: FrameStack, yax = "hist plot yax")->None:
+def _update_hist(hLhRvLvR: tuple, frame_deck: FrameDeck, yax = "hist plot yax")->None:
     """
     hLhRvLvR 保存了一个矩形选区所包裹的像素中心点坐标（只能是半整数）h 向最小最大值和 v 向最小最大值。
-    这些值确定了所选取的像素集合。然后，在此选择基础上将 frame stack 中的每一张 frame 在该选区中的部分的 counts 求得，
+    这些值确定了所选取的像素集合。然后，在此选择基础上将 frame deck 中的每一张 frame 在该选区中的部分的 counts 求得，
     加入 histdata 数据列表
     """
     hLlim, hRlim, vLlim, vRlim = hLhRvLvR
     vidLo, vidHi = math.floor(vLlim), math.floor(vRlim)
     hidLo, hidHi = math.floor(hLlim), math.floor(hRlim)
     histData = []
-    for frame in frame_stack.float_stack: # make hist data
+    for frame in frame_deck.float_deck: # make hist data
         frame = ZYLconversion(frame)
         subFrame = frame[vidLo:vidHi+1, hidLo:hidHi+1]
         histData.append(subFrame.sum())
@@ -171,7 +171,7 @@ def _update_hist(hLhRvLvR: tuple, frame_stack: FrameStack, yax = "hist plot yax"
 def start_flag_watching_acq(
     cam: DCAM.DCAM.DCAMCamera,
     flag: threading.Event,
-    frame_stack: FrameStack,
+    frame_deck: FrameDeck,
     controller # type is DDSRampController, not hinted because it acts funny on macOS
     )-> None:
     cam.set_trigger_mode("ext")
@@ -186,14 +186,14 @@ def start_flag_watching_acq(
         this_frame = cam.read_oldest_image()
         if awg_is_on:
             feed_AWG(this_frame, controller, awg_params) # feed original uint16 format to AWG
-        frame_stack.append(this_frame)
+        frame_deck.append(this_frame)
         if dpg.get_value("toggle 积分/单张 map"):
-            frame_stack.plot_avg_frame()
+            frame_deck.plot_avg_frame()
         else:
-            frame_stack.plot_cid_frame()
+            frame_deck.plot_cid_frame()
         hLhRvLvR = dpg.get_item_user_data("frame plot")
         if hLhRvLvR:
-            _update_hist(hLhRvLvR, frame_stack)
+            _update_hist(hLhRvLvR, frame_deck)
         # print("frame acquired")
 
 def _log(sender, app_data, user_data):
@@ -259,22 +259,3 @@ def _collect_awg_params() -> tuple:
             end_site_on_row, end_site_on_col,
             num_segments, power_ramp_time, move_time,
             percentage_total_power_for_list, ramp_type, tgt2darr)
-    # print(x1,y1)
-    # print(x2,y2)
-    # print(x3,y3)
-    # print(nx,ny)
-    # print(x0,y0)
-    # print(rec_x, rec_y)
-    # print(count_threshold)
-    # print(n_packed)
-    # print(start_frequency_on_row, start_frequency_on_col)
-    # print(end_frequency_on_row, end_frequency_on_col)
-    # print(start_site_on_row, start_site_on_col)
-    # print(num_segments)
-    # print(power_ramp_time)
-    # print(move_time)
-    # print(percentage_total_power_for_list)
-    # print(ramp_type)
-    # print(tgt_2darr)
-
-
