@@ -251,7 +251,7 @@ def _collect_awg_params() -> tuple:
     ramp_type = dpg.get_value("ramp_type")
     user_tgt_arr_input = dpg.get_value("binary target array")
     lines = user_tgt_arr_input.replace(" ", "").strip().splitlines()
-    tgt2darr = np.array([[int(ch) for ch in line] for line in lines], dtype=int)
+    tgt2darr = np.array([[int(ch) for ch in line] for line in lines if line != ""], dtype=int)
     return (x1,y1, x2, y2, x3, y3, nx, ny, x0, y0, rec_x, rec_y, count_threshold,
             n_packed, start_frequency_on_row, start_frequency_on_col,
             end_frequency_on_row, end_frequency_on_col,
