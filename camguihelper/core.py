@@ -67,7 +67,7 @@ class FrameDeck(list):
             return True # saved
         else:
             return False
-    def save_cid_frame(self):
+    def save_cid_frame(self)->bool:
         """
         保存 cid 指向的 frame, 如果保存成功/失败, 返回 True/False
         """

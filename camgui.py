@@ -1,4 +1,12 @@
 #%%
+"""
+在代码顺序上, 永远先创建 item (e.g. dpg.add_button()), 再配置 item (def callback, bind callback, etc.)
+不同 item 设置的区块之间用 `#====` 分隔, 保证特定 item 的所有设置永远集中于一个区块之内, 不要分散在四处
+context manager 之间不用 `#====` 分隔, 因为有自然的缩进保证了识别度
+item 和 (创建 containter item 的) context manager 之间用 `#====` 分隔
+item 常数用首字母小写的驼峰命名 e.g. myItem. 其他任何变量都不能用此驼峰命名 (类用首字母大写的驼峰命名, e.g. MyClass)
+cam 将会是全局变量, 由 callback 创建
+"""
 import dearpygui.dearpygui as dpg
 from pylablib.devices import DCAM
 import threading
@@ -13,7 +21,8 @@ from camguihelper.dpghelper import (
     do_extend_add_button,
     toggle_checkbox_and_disable,
     factory_cb_yn_modal_dialog)
-controller = None # controller always has to exist, since its the argument of the func start_acqloop that runs in the thread thread_acq
+
+controller = None # controller always has to exist, we can't wait for it to be created by a callback (like `cam`), since it is the argument of the func `start_flag_watching_acq` (and ultimately, the required arg of ZYL func `feed_AWG`) that runs in the thread thread_acq. When awg is off, `controller` won't be used and won't be created either, but the `controller` var still has to exist (as a global variable because I deem `controller` suitable to be a global var) as a formal argument (or placeholder) of `start_flag_watching_acq`. This is more or less an awkward situation because I want to put `start_flag_watching_acq` in a module file (where the functions do not have access to working script global vars), not in the working script. Essentailly, the func in a module py file has no closure access to the global varibles in the working script, unless I choose to explicitly pass the working script global var as an argument to the imported func
 from tiff_imports import flist
 frame_deck = FrameDeck() # the normal empty frame_deck creation
 frame_deck = FrameDeck(flist) # the override to import fake data
@@ -27,270 +36,124 @@ dpg.create_viewport(title='camera',
                     width=1260, height=1020, x_pos=0, y_pos=0,
                     vsync=False) # important option to dismiss input lab, see https://github.com/hoffstadt/DearPyGui/issues/1571
 
-with dpg.window(tag="win1", pos=(0,0)):
-    with dpg.group(horizontal=True):
-        with dpg.group():
-            with dpg.group(horizontal=True, height=720):
-                with dpg.child_window(width=210):
-                    _wid, _hi = 175, 40
-                    togCam = dpg.add_button(
-                        width=_wid, height=_hi, user_data={
-                            "is on" : False, 
-                            "off label" : "相机已关闭",
-                            "on label" : "相机已开启",
-                            })
-                    dpg.bind_item_font(togCam, large_font)
-                    @toggle_theming_and_enable("expo and roi fields", 
-                                            "acquisition toggle")
-                    def _cam_toggle_cb_(__, _, user_data):
-                        state = user_data["is on"] 
-                        next_state = not state # state after toggle
-                        global cam
-                        if next_state:
-                            if "cam" not in globals():
-                                cam = DCAM.DCAMCamera()
-                            if cam.is_opened():
-                                cam.close()
-                            cam.open()
-                            print("cam is opened")
-                            expFieldValInMs = dpg.get_value(fldExposure) 
-                            cam.set_exposure(expFieldValInMs*1e-3)
-                            expoCamValInS = cam.cav["exposure_time"]
-                            dpg.set_value(fldExposure, expoCamValInS*1e3)
-                            
-                            do_set_cam_roi_using_6fields_roi()
-                            do_set_6fields_roi_using_cam_roi()
-                        else:
-                            cam.close(); print("=====cam closed")
-                            # cam = None # I actually want to retain a closed cam object after toggling off the cam, for cam checks that might be useful
-                    @toggle_theming_and_enable("expo and roi fields", "acquisition toggle")
-                    def _dummy_cam_toggle_cb_(_, __, user_data):
-                        state = user_data["is on"]
-                        next_state = not state # state after toggle
-                        if next_state:
-                            time.sleep(0.5)
-                        else:
-                            time.sleep(0.5)
-                    _cam_toggle_cb_ = _dummy_cam_toggle_cb_
-                    dpg.set_item_callback(togCam,_cam_toggle_cb_)
-
-                    togAcq = dpg.add_button(tag="acquisition toggle", enabled=False,
-                        width=_wid, height=_hi, user_data={
-                            "is on" : False, 
-                            "off label" : "触发采集已停止",
-                            "on label" : "触发采集进行中",
-                            "acq thread flag": threading.Event(),
-                            "acq thread": None,
-                            })
-                    @toggle_theming_and_enable(
-                            "expo and roi fields", togCam, "awg panel",
-                            "target array window", on_and_enable= False)
-                    def _toggle_acq_cb_(sender, _, user_data):
-                        state = user_data["is on"]
-                        next_state = not state
-                        flag = user_data["acq thread flag"]
-                        if next_state:
-                            thread_watching_a_flag = threading.Thread(target=start_flag_watching_acq, args=(cam, flag, frame_deck, controller))
-                            user_data["acq thread"] = thread_watching_a_flag
-                            flag.set()
-                            thread_watching_a_flag.start()
-                        else:
-                            thread_watching_a_flag = user_data["acq thread"]
-                            flag.clear()
-                            thread_watching_a_flag.join()
-                            user_data["acq thread"] = None
-                            cam.stop_acquisition()
-                            cam.set_trigger_mode("int")
-                            print("acq stopped")
-                        dpg.set_item_user_data(sender, user_data)
-                    dpg.bind_item_font(togAcq, large_font)
-                    dpg.set_item_callback(togAcq, _toggle_acq_cb_)
-                    dpg.add_separator()
-                    with dpg.group(tag = "expo and roi fields",horizontal=False, enabled=False) as groupExpoRoi:
-                        dpg.add_text("exposure time (ms):")
-                        fldExposure = dpg.add_input_float(
-                            width = 120, step=0, format="%.4f",
-                            default_value= 100)
-                        def _set_cam_exposure(_, app_data, __): # the app_data in this case is the same as dpg.get_value(fldExposure)
-                            time_in_ms, cam = app_data, dpg.get_item_user_data(togCam)["camera object"]
-                            cam.set_exposure(time_in_ms*1e-3)
-                        dpg.set_item_callback(fldExposure, _set_cam_exposure)
-                        with dpg.item_handler_registry() as _ihrUpdateFldExposureOnLeave:
-                            def _cam_updates_fldExposure(*cbargs):
-                                cam_internal_expo_in_ms = cam.cav["exposure_time"] * 1e3
-                                dpg.set_value(fldExposure, cam_internal_expo_in_ms)
-                            dpg.add_item_deactivated_after_edit_handler(callback= _cam_updates_fldExposure)
-                        dpg.bind_item_handler_registry(fldExposure, _ihrUpdateFldExposureOnLeave)
-                        dpg.add_spacer(height=10)
-                        dpg.add_separator(label="ROI (max h 4096, v 2304)")
-                        dpg.add_text("h start & h length:")
-                        _indent = 20
-                        fldsROIh = dpg.add_input_intx(size=2, indent= _indent,width=100, default_value=[1352, 240,0,0])
-                        dpg.add_text("v start & v length:")
-                        fldsROIv = dpg.add_input_intx(size=2, indent = _indent ,width=dpg.get_item_width(fldsROIh), default_value=[948,240,0,0])
-                        dpg.add_text("h binning & v binning")
-                        fldsBinning = dpg.add_input_intx(size=2, indent = _indent ,width=dpg.get_item_width(fldsROIh), default_value=[1,1,0,0])
-                        def do_set_cam_roi_using_6fields_roi():
-                            hstart, hwid, *_ = dpg.get_value(fldsROIh)
-                            vstart, vwid, *_ = dpg.get_value(fldsROIv)
-                            hbin, vbin, *_ = dpg.get_value(fldsBinning)
-                            cam.set_roi(hstart, hstart+hwid, vstart, vstart+vwid, hbin, vbin)
-                        def do_set_6fields_roi_using_cam_roi():
-                            hstart, hend, vstart, vend, hbin, vbin = cam.get_roi()
-                            dpg.set_value(fldsROIh,[hstart, hend-hstart,0,0])
-                            dpg.set_value(fldsROIv,[vstart, vend-vstart,0,0])
-                            dpg.set_value(fldsBinning,[hbin, vbin,0,0])
-                        with dpg.item_handler_registry(tag="on leaving 6 ROI fields") as _irhUpdate6FlsOnLeave:
-                            dpg.add_item_deactivated_after_edit_handler(callback=do_set_6fields_roi_using_cam_roi)
-                        for _item in [fldsROIh, fldsROIv, fldsBinning]:
-                            dpg.set_item_callback(_item, do_set_cam_roi_using_6fields_roi)
-                            dpg.bind_item_handler_registry(_item, _irhUpdate6FlsOnLeave)
-                
-                with dpg.child_window(width=760, label="012"):
-                    with dpg.group(horizontal=True):
-                        fldSavePath = dpg.add_input_text(tag="save path input field ",
-                            hint="path to save tiff, e.g. C:\\Users\\username\\Desktop\\", width=600)
-                        btnLoad = dpg.add_button(label="载入帧", callback=lambda: dpg.show_item("file dialog"))
-                        def _cb_(_, app_data, __):
-                            """
-                            选择 4 个 tif 文件时的 app_data: {
-                            'file_path_name': 'c:\\Users\\DELL\\Desktop\\baslercam\\20by20 images\\4 files Selected.tif', 
-                            'file_name': '4 files Selected.tif', 
-                            'current_path': 'c:\\Users\\DELL\\Desktop\\baslercam\\20by20 images', 
-                            'current_filter': '.tif', 
-                            'min_size': [100.0, 100.0], 
-                            'max_size': [30000.0, 30000.0], 
-                            'selections': {
-                                'Image_0093.tif': 'c:\\Users\\DELL\\Desktop\\baslercam\\20by20 images\\Image_0093.tif', 
-                                'Image_0094.tif': 'c:\\Users\\DELL\\Desktop\\baslercam\\20by20 images\\Image_0094.tif',
-                                'Image_0095.tif': 'c:\\Users\\DELL\\Desktop\\baslercam\\20by20 images\\Image_0095.tif',
-                                'Image_0096.tif': 'c:\\Users\\DELL\\Desktop\\baslercam\\20by20 images\\Image_0096.tif'}}, 
-                            
-                            选择 1 个文件时的 app_data: {
-                            'file_path_name': 'c:\\Users\\DELL\\Desktop\\baslercam\\20by20 images\\Image_00101.tif',
-                            'file_name': 'Image_00101.tif', 
-                            'current_path': 'c:\\Users\\DELL\\Desktop\\baslercam\\20by20 images', 
-                            'current_filter': '.tif', 
-                            'min_size': [100.0, 100.0],
-                            'max_size': [30000.0, 30000.0], 
-                            'selections': {'Image_00101.tif': 'c:\\Users\\DELL\\Desktop\\baslercam\\20by20 images\\Image_00101.tif'}}
-                            """
-                            global frame_deck
-                            fname_dict = app_data["selections"]
-                            if fname_dict:
-                                frame_list = [tifffile.imread(e) for e in fname_dict.values()]
-                                frame_deck = FrameDeck(frame_list)
-                                frame_deck._update()
-                                    
-                        with dpg.file_dialog(directory_selector=False, show=False, 
-                                            callback= _log, #_cb_, 
-                                            tag="file dialog",
-                                            width=700 ,height=400):
-                            dpg.add_file_extension("", color = (150,255,150,255)) # 让无后缀的项目(比如文件夹显示为绿色)
-                            dpg.add_file_extension(".tif")
-                            dpg.add_file_extension(".tiff")
-                    with dpg.group(horizontal=True):
-                        frameDeckCnt = dpg.add_text(tag = "frame deck display", default_value= "0 frames in deck")
-                        btnSaveAll = dpg.add_button(label="保存所有帧")
-                        def _save_all_frames_(*cbargs):
-                            saved_p = frame_deck.save_deck()
-                            if saved_p:
-                                frame_deck.clear()
-                                msg = "0 frames in deck"
-                            else:
-                                msg = "NOT Saved!"
-                            dpg.set_value(frameDeckCnt, msg)
-                        dpg.set_item_callback(btnSaveAll, _save_all_frames_)
-                        
-                        _btnClearDeck = dpg.add_button(label="清空所有帧")
-                        def _on_confirm(sender):
-                            frame_deck.clear()
-                            dpg.set_value(frameDeckCnt, "0 frames in deck")
-                            dpg.delete_item(
-                                dpg.get_item_parent(dpg.get_item_parent(sender))
-                                )  # Close the modal after confirming
-                        dpg.set_item_callback(_btnClearDeck,
-                                              factory_cb_yn_modal_dialog(cb_on_confirm=_on_confirm, dialog_text="确认要清空内存中的所有帧吗?"))
-                        _btnSaveCurrent = dpg.add_button(label="保存当前帧")
-                        def _save_current_frame_(*cbargs):
-                            saved_p = frame_deck.save_cid_frame()
-                            if saved_p:
-                                dpg.set_value(frameDeckCnt, "Saved!")
-                            else:
-                                dpg.set_value(frameDeckCnt, "NOT Saved!")
-                        dpg.set_item_callback(_btnSaveCurrent, _save_current_frame_)
-                        dpg.bind_item_font(frameDeckCnt, bold_font)
-                    dpg.add_separator()
-                    with dpg.group(horizontal=True):
-                        dpg.add_checkbox(tag = "manual scale checkbox", label = "自定义热图上下限")
-                        dpg.add_input_intx(tag = "color scale lims",label = "热图上下限 (最多 0-65535)", size = 2, width=120, default_value=[0,65535,0,0])
-                        dpg.add_spacer(width=10)
-                        with dpg.group(horizontal=True):
-                            def _left_arrow_cb_(*cbargs):
-                                if frame_deck.cid:
-                                    frame_deck.cid -= 1
-                                    frame_deck.plot_cid_frame()
-                            def _right_arrow_cb_(*cbargs):
-                                if frame_deck and (frame_deck.cid<len(frame_deck)-1):
-                                    frame_deck.cid += 1
-                                    frame_deck.plot_cid_frame()
-                            leftArr = dpg.add_button(tag = "plot previous frame", label="<", arrow=True)
-                            rightArr = dpg.add_button(tag = "plot next frame", label=">", arrow=True, direction=dpg.mvDir_Right)
-                            dpg.set_item_callback(leftArr, _left_arrow_cb_)
-                            dpg.set_item_callback(rightArr, _right_arrow_cb_)
-                        dpg.add_spacer(width=10)
-                        cboxTogAvgMap = dpg.add_checkbox(label="deck 平均图",tag="toggle 积分/单张 map")
-                        @toggle_checkbox_and_disable(leftArr, rightArr)
-                        def _toggle_cid_and_avg_map_(_, app_data,__):
-                            if app_data:
-                                frame_deck.plot_avg_frame()
-                            else:
-                                frame_deck.plot_cid_frame()
-                        dpg.set_item_callback(cboxTogAvgMap, _toggle_cid_and_avg_map_)
-                    with dpg.group(horizontal=True):
-                        _cmap = dpg.mvPlotColormap_Viridis
-                        dpg.add_colormap_scale(tag = "frame colorbar", min_scale=0,max_scale=65535, height=400)
-                        dpg.bind_colormap(dpg.last_item(), _cmap)
-                        _side = 600
-                        with dpg.plot(tag="frame plot", no_mouse_pos=False, height=_side, width=_side,
-                                    query=True, query_color=(255,0,0), max_query_rects=1, min_query_rects=0):
-                            dpg.bind_colormap(dpg.last_item(), _cmap)
-                            _xyaxeskwargs = dict(no_gridlines = True, no_tick_marks = True)
-                            dpg.add_plot_axis(dpg.mvXAxis, tag = "frame xax", label= "h", opposite=True, **_xyaxeskwargs)
-                            dpg.add_plot_axis(dpg.mvYAxis, tag= "frame yax", label= "v", invert=True, **_xyaxeskwargs)
-                            def floorHalfInt(num: float) -> float: # 0.6, 0.5 -> 0.5; 0.4 -> -0.5
-                                return math.floor(num-0.5) + 0.5
-                            def ceilHalfInt(num: float) -> float: # -0.6,-0.5 -> -0.5; 0.4,0.5 ->0.5, 0.6 - > 1.5
-                                return math.ceil(num+0.5) - 0.5
-                            def _update_hist_on_query_(sender, app_data, user_data):
-                                """
-                                log geometric centers of box selected pixels
-                                    h->
-                                #1------+
-                                v  |      |
-                                ↓  +-----#2
-                                app_data: (h1, v1, h2, v2)
-                                """
-                                if app_data:
-                                    h1, v1, h2, v2 = app_data[0]
-                                    hLhRvLvR = hLlim, hRlim, vLlim, vRlim = ceilHalfInt(h1), floorHalfInt(h2), ceilHalfInt(v1), floorHalfInt(v2)
-                                    if user_data and hLhRvLvR == user_data:
-                                        pass
-                                    else:
-                                        dpg.set_item_user_data("frame plot", hLhRvLvR)
-                                        if hLlim <= hRlim and vLlim <=vRlim: # make sure at least one pixel's geo center falls within the query rect
-                                            _update_hist(hLhRvLvR, frame_deck)
-                                else: # this is only needed for the current query rect solution for hist udpates. actions from other items cannot check app_data of this item directly (usually dpg.get_value(item) can check the app_data of an item, but not for this very special query rect coordinates app_data belonging to the heatmap plot!), so they check the user_data of this item. since I mean to stop any histogram updating when no query rect is present, then this no-rect info is given by user_data = None of the heatmap plot.
-                                    dpg.set_item_user_data(sender, None)
-                            dpg.set_item_callback("frame plot",callback=_update_hist_on_query_)
-            with dpg.child_window(width = 928): # 为了让下面的 hist binning field 可以自然地从一个 window 的左上角开始选取 h，v 坐标，所以这里设置一个 child window
-                with dpg.plot(tag="hist plot", label = "hist", height=-1, width=-1, no_mouse_pos=True):
-                    dpg.add_plot_axis(dpg.mvXAxis, label = "converted counts ((<frame pixel counts>-200)*0.1/0.9)")
-                    dpg.add_plot_axis(dpg.mvYAxis, label = "frequency", tag = "hist plot yax")
-                dpg.add_input_int(pos=(80,10), tag = "hist binning input",label="hist binning", width=80,
-                                min_value=1, default_value=1, min_clamped=True)
-        
-        with dpg.child_window(tag = "awg panel"):
+with dpg.window(label= "控制面板"):
+    with dpg.group(label = "col panels", horizontal=True):
+        with dpg.group(label = "cam panel"):
+            _wid, _hi = 175, 40
+            togCam = dpg.add_button(
+                width=_wid, height=_hi, user_data={
+                    "is on" : False, 
+                    "off label" : "相机已关闭",
+                    "on label" : "相机已开启",
+                    })
+            dpg.bind_item_font(togCam, large_font)
+            @toggle_theming_and_enable("expo and roi fields", "acquisition toggle")
+            def _cam_toggle_cb_(__, _, user_data):
+                state = user_data["is on"] 
+                next_state = not state # state after toggle
+                global cam
+                if next_state:
+                    if "cam" not in globals():
+                        cam = DCAM.DCAMCamera()
+                    if cam.is_opened():
+                        cam.close()
+                    cam.open()
+                    print("cam is opened")
+                    expFieldValInMs = dpg.get_value(fldExposure) 
+                    cam.set_exposure(expFieldValInMs*1e-3)
+                    expoCamValInS = cam.cav["exposure_time"]
+                    dpg.set_value(fldExposure, expoCamValInS*1e3)
+                    
+                    do_set_cam_roi_using_6fields_roi()
+                    do_set_6fields_roi_using_cam_roi()
+                else:
+                    cam.close()
+                    # cam = None # commented, because I actually want to retain a closed cam object after toggling off the cam, for cam checks that might be useful
+            @toggle_theming_and_enable("expo and roi fields", "acquisition toggle")
+            def _dummy_cam_toggle_cb_(_, __, user_data):
+                state = user_data["is on"]
+                next_state = not state # state after toggle
+                if next_state:
+                    time.sleep(0.5)
+                else:
+                    time.sleep(0.5)
+            _cam_toggle_cb_ = _dummy_cam_toggle_cb_
+            dpg.set_item_callback(togCam,_cam_toggle_cb_)
+            #===============================================================
+            togAcq = dpg.add_button(tag="acquisition toggle", enabled=False,
+                width=_wid, height=_hi, user_data={
+                    "is on" : False, 
+                    "off label" : "触发采集已停止",
+                    "on label" : "触发采集进行中",
+                    "acq thread flag": threading.Event(),
+                    "acq thread": None,
+                    })
+            @toggle_theming_and_enable(
+                    "expo and roi fields", togCam, "awg panel",
+                    "target array window", on_and_enable= False)
+            def _toggle_acq_cb_(sender, _, user_data):
+                state = user_data["is on"]
+                next_state = not state
+                flag = user_data["acq thread flag"]
+                if next_state:
+                    thread_watching_a_flag = threading.Thread(target=start_flag_watching_acq, args=(cam, flag, frame_deck, controller))
+                    user_data["acq thread"] = thread_watching_a_flag
+                    flag.set()
+                    thread_watching_a_flag.start()
+                else:
+                    thread_watching_a_flag = user_data["acq thread"]
+                    flag.clear()
+                    thread_watching_a_flag.join()
+                    user_data["acq thread"] = None
+                    cam.stop_acquisition()
+                    cam.set_trigger_mode("int")
+                    print("acq stopped")
+                dpg.set_item_user_data(sender, user_data)
+            dpg.bind_item_font(togAcq, large_font)
+            dpg.set_item_callback(togAcq, _toggle_acq_cb_)    
+            dpg.add_separator()
+            #==============================================================
+            with dpg.group(tag = "expo and roi fields",horizontal=False, enabled=False):
+                dpg.add_text("exposure time (ms):")
+                fldExposure = dpg.add_input_float(
+                    width = 120, step=0, format="%.4f",
+                    default_value= 100)
+                def _set_cam_exposure(_, app_data, __): # the app_data in this case is the same as dpg.get_value(fldExposure)
+                    time_in_ms = app_data
+                    cam.set_exposure(time_in_ms*1e-3)
+                dpg.set_item_callback(fldExposure, _set_cam_exposure)
+                with dpg.item_handler_registry() as _ihrUpdateFldExposureOnLeave:
+                    def _cam_updates_fldExposure(*cbargs):
+                        cam_internal_expo_in_ms = cam.cav["exposure_time"] * 1e3
+                        dpg.set_value(fldExposure, cam_internal_expo_in_ms)
+                    dpg.add_item_deactivated_after_edit_handler(callback= _cam_updates_fldExposure)
+                dpg.bind_item_handler_registry(fldExposure, _ihrUpdateFldExposureOnLeave)
+                #==下面的 6 roi fields 由于在 cam 中必须同时 update, 因此其共用一个 callback. 我们将相关 field items 设置代码放在一个区块内====
+                dpg.add_spacer(height=10)
+                dpg.add_separator(label="ROI (max h 4096, v 2304)")
+                dpg.add_text("h start & h length:")
+                _indent = 20
+                fldsROIh = dpg.add_input_intx(size=2, indent= _indent,width=100, default_value=[1352, 240,0,0])
+                dpg.add_text("v start & v length:")
+                fldsROIv = dpg.add_input_intx(size=2, indent = _indent ,width=dpg.get_item_width(fldsROIh), default_value=[948,240,0,0])
+                dpg.add_text("h binning & v binning")
+                fldsBinning = dpg.add_input_intx(size=2, indent = _indent ,width=dpg.get_item_width(fldsROIh), default_value=[1,1,0,0])
+                def do_set_cam_roi_using_6fields_roi():
+                    hstart, hwid, *_ = dpg.get_value(fldsROIh)
+                    vstart, vwid, *_ = dpg.get_value(fldsROIv)
+                    hbin, vbin, *_ = dpg.get_value(fldsBinning)
+                    cam.set_roi(hstart, hstart+hwid, vstart, vstart+vwid, hbin, vbin)
+                def do_set_6fields_roi_using_cam_roi():
+                    hstart, hend, vstart, vend, hbin, vbin = cam.get_roi()
+                    dpg.set_value(fldsROIh,[hstart, hend-hstart,0,0])
+                    dpg.set_value(fldsROIv,[vstart, vend-vstart,0,0])
+                    dpg.set_value(fldsBinning,[hbin, vbin,0,0])
+                with dpg.item_handler_registry(tag="on leaving 6 ROI fields") as _irhUpdate6FlsOnLeave:
+                    dpg.add_item_deactivated_after_edit_handler(callback=do_set_6fields_roi_using_cam_roi)
+                for _item in [fldsROIh, fldsROIv, fldsBinning]:
+                    dpg.set_item_callback(_item, do_set_cam_roi_using_6fields_roi)
+                    dpg.bind_item_handler_registry(_item, _irhUpdate6FlsOnLeave)
+        with dpg.group(label = "awg panel"):
             togAwg = dpg.add_button(tag = "AWG toggle",
                 width=150, height=40, user_data={
                     "is on" : False, 
@@ -347,34 +210,190 @@ with dpg.window(tag="win1", pos=(0,0)):
                 dpg.add_input_text(tag = "binary target array",
                     multiline= True, width=-1,height=-1,
                     default_value="""\
-0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0""")
+    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0""")
             dpg.set_item_callback(btnTgtArr, lambda : dpg.show_item(winTgtArr))
-            # dpg.add_button(label="hello", tag = "hello", 
-            #                callback= 
-            #                _collect_awg_params
-            #                )
-# _collect_awg_params()
-dpg.set_primary_window("win1", True)
-frame_deck._update()
+                
+with dpg.file_dialog( # file dialog 就是一个独立的 window, 因此在应该在 root 定义, 与其他 window 内的元素在形式上解耦
+    directory_selector=False, show=False, 
+    tag="file dialog", width=700 ,height=400) as fileDialog:
+    dpg.add_file_extension("", color = (150,255,150,255)) # 让无后缀的项目(比如文件夹显示为绿色)
+    dpg.add_file_extension(".tif")
+    dpg.add_file_extension(".tiff")
+    def _cb_(_, app_data, __)->None:
+        """
+        选择 4 个 tif 文件时的 app_data: {
+        'file_path_name': 'c:\\Users\\DELL\\Desktop\\baslercam\\20by20 images\\4 files Selected.tif', 
+        'file_name': '4 files Selected.tif', 
+        'current_path': 'c:\\Users\\DELL\\Desktop\\baslercam\\20by20 images', 
+        'current_filter': '.tif', 
+        'min_size': [100.0, 100.0], 
+        'max_size': [30000.0, 30000.0], 
+        'selections': {
+            'Image_0093.tif': 'c:\\Users\\DELL\\Desktop\\baslercam\\20by20 images\\Image_0093.tif', 
+            'Image_0094.tif': 'c:\\Users\\DELL\\Desktop\\baslercam\\20by20 images\\Image_0094.tif',
+            'Image_0095.tif': 'c:\\Users\\DELL\\Desktop\\baslercam\\20by20 images\\Image_0095.tif',
+            'Image_0096.tif': 'c:\\Users\\DELL\\Desktop\\baslercam\\20by20 images\\Image_0096.tif'}}, 
+        
+        选择 1 个文件时的 app_data: {
+        'file_path_name': 'c:\\Users\\DELL\\Desktop\\baslercam\\20by20 images\\Image_00101.tif',
+        'file_name': 'Image_00101.tif', 
+        'current_path': 'c:\\Users\\DELL\\Desktop\\baslercam\\20by20 images', 
+        'current_filter': '.tif', 
+        'min_size': [100.0, 100.0],
+        'max_size': [30000.0, 30000.0], 
+        'selections': {'Image_00101.tif': 'c:\\Users\\DELL\\Desktop\\baslercam\\20by20 images\\Image_00101.tif'}}
+        """
+        global frame_deck
+        fname_dict = app_data["selections"]
+        if fname_dict:
+            frame_list = [tifffile.imread(e) for e in fname_dict.values()]
+            frame_deck = FrameDeck(frame_list)
+            frame_deck._update()
+    dpg.set_item_callback(fileDialog, _cb_)
+
+with dpg.window(label = "帧预览", 
+                height=700, width=700
+                ):
+    with dpg.group(label="save path field and load frames button", horizontal=True):
+        fldSavePath = dpg.add_input_text(tag="save path input field",
+                                hint="path to save tiff, e.g. C:\\Users\\username\\Desktop\\", 
+                                # width=-1
+                                ) # -1 makes the field stretch to the right edge of the window. alternatively, you can skip setting the width kwarg, then the field still stretches, but not to the right edge of the window. there is a weird padding
+        #=============================================
+        btnLoad = dpg.add_button(label="载入帧", callback=lambda: dpg.show_item(fileDialog))
+
+    with dpg.group(label= "帧量显示, 保存, 和清空",horizontal=True):
+        frameDeckCnt = dpg.add_text(tag = "frame deck display", default_value= "0 frames in deck")
+        dpg.bind_item_font(frameDeckCnt, bold_font)
+        #============================================
+        btnSaveAll = dpg.add_button(label="保存所有帧")
+        def _save_all_frames_(*cbargs):
+            saved_p = frame_deck.save_deck()
+            if saved_p:
+                frame_deck.clear()
+                msg = "0 frames in deck"
+            else:
+                msg = "NOT Saved!"
+            dpg.set_value(frameDeckCnt, msg)
+        dpg.set_item_callback(btnSaveAll, _save_all_frames_)
+        #===================================================
+        btnClearDeck = dpg.add_button(label="清空所有帧")
+        def _on_confirm(sender):
+            frame_deck.clear()
+            dpg.set_value(frameDeckCnt, "0 frames in deck")
+            dpg.delete_item(
+                dpg.get_item_parent(dpg.get_item_parent(sender))
+                )  # Close the modal after confirming
+        dpg.set_item_callback(btnClearDeck,
+                                factory_cb_yn_modal_dialog(cb_on_confirm=_on_confirm, dialog_text="确认要清空内存中的所有帧吗?"))
+        #==============================================
+        btnSaveCurrent = dpg.add_button(label="保存当前帧")
+        def _save_current_frame_(*cbargs):
+            saved_p = frame_deck.save_cid_frame()
+            if saved_p:
+                dpg.set_value(frameDeckCnt, "Saved!")
+            else:
+                dpg.set_value(frameDeckCnt, "NOT Saved!")
+        dpg.set_item_callback(btnSaveCurrent, _save_current_frame_)
+    with dpg.group(label = "热图上下限, 帧翻页, 平均图 checkbox", horizontal=True):
+        dpg.add_checkbox(tag = "manual scale checkbox", label = "自定义热图上下限")
+        #===========================================
+        dpg.add_input_intx(tag = "color scale lims",label = "热图上下限 (最多 0-65535)", size = 2, width=120, default_value=[0,65535,0,0])
+        dpg.add_spacer(width=10)
+        #===============================================
+        leftArr = dpg.add_button(tag = "plot previous frame", label="<", arrow=True)
+        def _left_arrow_cb_(*cbargs):
+            if frame_deck.cid:
+                frame_deck.cid -= 1
+                frame_deck.plot_cid_frame()
+        dpg.set_item_callback(leftArr, _left_arrow_cb_)
+        #===============================================
+        rightArr = dpg.add_button(tag = "plot next frame", label=">", arrow=True, direction=dpg.mvDir_Right)
+        def _right_arrow_cb_(*cbargs):
+            if frame_deck and (frame_deck.cid<len(frame_deck)-1):
+                frame_deck.cid += 1
+                frame_deck.plot_cid_frame()
+        dpg.set_item_callback(rightArr, _right_arrow_cb_)
+        dpg.add_spacer(width = 10)
+        #============================================
+        cboxTogAvgMap = dpg.add_checkbox(label="deck 平均图",tag="toggle 积分/单张 map")
+        @toggle_checkbox_and_disable(leftArr, rightArr)
+        def _toggle_cid_and_avg_map_(_, app_data,__):
+            if app_data:
+                frame_deck.plot_avg_frame()
+            else:
+                frame_deck.plot_cid_frame()
+        dpg.set_item_callback(cboxTogAvgMap, _toggle_cid_and_avg_map_)
+    with dpg.group(horizontal=True):
+        _cmap = dpg.mvPlotColormap_Viridis
+        dpg.add_colormap_scale(tag = "frame colorbar", min_scale=0, max_scale=65535, 
+                               height=-1
+                               )
+        dpg.bind_colormap(dpg.last_item(), _cmap)
+        _side = -1
+        with dpg.plot(tag="frame plot", no_mouse_pos=False, height=_side, width=_side, equal_aspects=True,
+                    query=True, query_color=(255,0,0), max_query_rects=1, min_query_rects=0) as framePlot:
+            dpg.bind_colormap(dpg.last_item(), _cmap)
+            _xyaxeskwargs = dict(no_gridlines = True, no_tick_marks = True)
+            dpg.add_plot_axis(dpg.mvXAxis, tag = "frame xax", label= "h", opposite=True, **_xyaxeskwargs)
+            dpg.add_plot_axis(dpg.mvYAxis, tag= "frame yax", label= "v", invert=True, **_xyaxeskwargs)
+            def floorHalfInt(num: float) -> float: # 0.6, 0.5 -> 0.5; 0.4 -> -0.5
+                return math.floor(num-0.5) + 0.5
+            def ceilHalfInt(num: float) -> float: # -0.6,-0.5 -> -0.5; 0.4,0.5 ->0.5, 0.6 - > 1.5
+                return math.ceil(num+0.5) - 0.5
+            def _update_hist_on_query_(sender, app_data, user_data):
+                """
+                log geometric centers of box selected pixels
+                    h->
+                  #1------+
+                v  |      |
+                ↓  +-----#2
+                app_data: (h1, v1, h2, v2)
+                """
+                if app_data:
+                    h1, v1, h2, v2 = app_data[0]
+                    hLhRvLvR = hLlim, hRlim, vLlim, vRlim = ceilHalfInt(h1), floorHalfInt(h2), ceilHalfInt(v1), floorHalfInt(v2)
+                    if user_data and hLhRvLvR == user_data:
+                        pass
+                    else:
+                        dpg.set_item_user_data(framePlot, hLhRvLvR)
+                        if hLlim <= hRlim and vLlim <=vRlim: # make sure at least one pixel's geo center falls within the query rect
+                            _update_hist(hLhRvLvR, frame_deck)
+                else: # this is only needed for the current query rect solution for hist udpates. actions from other items cannot check app_data of this item directly (usually dpg.get_value(item) can check the app_data of an item, but not for this very special query rect coordinates app_data belonging to the heatmap plot!), so they check the user_data of this item. since I mean to stop any histogram updating when no query rect is present, then this no-rect info is given by user_data = None of the heatmap plot.
+                    dpg.set_item_user_data(sender, None)
+            dpg.set_item_callback(framePlot,callback=_update_hist_on_query_)
+
+with dpg.window(label="直方图", width = 500, height =300):
+    dpg.add_input_int(
+        # pos=(80,35), 
+        tag = "hist binning input",label="hist binning", width=80,
+                    min_value=1, default_value=1, min_clamped=True)
+    with dpg.plot(tag="hist plot", 
+                #   label = "hist", 
+                  height=-1, width=-1, no_mouse_pos=True):
+        dpg.add_plot_axis(dpg.mvXAxis, label = "converted counts ((<frame pixel counts>-200)*0.1/0.9)")
+        dpg.add_plot_axis(dpg.mvYAxis, label = "frequency", tag = "hist plot yax")
+
+dpg.set_frame_callback(1, callback= lambda: frame_deck._update())
 # dpg.show_style_editor()
 dpg.setup_dearpygui()
 dpg.show_viewport()
