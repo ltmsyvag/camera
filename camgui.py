@@ -233,7 +233,7 @@ with dpg.window(label= "控制面板"):
             dpg.set_item_callback(btnTgtArr, lambda : dpg.show_item(winTgtArr))
                 
 with dpg.file_dialog( # file dialog 就是一个独立的 window, 因此在应该在 root 定义, 与其他 window 内的元素在形式上解耦
-    directory_selector=False, show=False, 
+    directory_selector=False, show=False, modal=True,
     tag="file dialog", width=700 ,height=400) as fileDialog:
     dpg.add_file_extension("", color = (150,255,150,255)) # 让无后缀的项目(比如文件夹显示为绿色)
     dpg.add_file_extension(".tif")
