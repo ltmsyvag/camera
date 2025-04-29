@@ -33,7 +33,7 @@ def do_bind_my_global_theme()->None:
             dpg.add_theme_color(dpg.mvThemeCol_Border, (255,0,255,200), category=dpg.mvThemeCat_Core)
             dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, (0,119,200), category=dpg.mvThemeCat_Core)
         with dpg.theme_component(dpg.mvInputInt): # input field 带有 +/- 按钮时, 也希望点击的时候按钮的 active 状态能更有辨识度. 由于 input field 自带的按钮不属于 mvButton, 需要单独设置一次
-            dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, (0,119,200), category=dpg.mvThemeCat_Core) 
+            dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, (0,119,200), category=dpg.mvThemeCat_Core)
         for comp in (dpg.mvInputInt, dpg.mvInputIntMulti, 
                      dpg.mvInputDouble, dpg.mvInputDoubleMulti,
                      dpg.mvInputFloat, dpg.mvInputFloatMulti,
@@ -250,10 +250,17 @@ def _return_func_if_not_wrapped(func, wrapper):
     else:
         return func
 
-def factory_cb_yn_modal_dialog(*, cb_on_confirm: Callable, 
+def _get_viewport_centerpos():
+    center_x = dpg.get_viewport_client_width()//2
+    center_y = dpg.get_viewport_client_height()//2
+    return center_x, center_y
+
+def factory_cb_yn_modal_dialog(*, cb_on_confirm: Callable = None, 
                                cb_on_cancel: Callable = None, 
                                dialog_text: str = "确认吗?",
-                               win_label: str = "确认操作") -> Callable:
+                               win_label: str = "确认操作",
+                               just_close : bool=False # just pop a window that shows a message. you close the window by clicking the top right "x"
+                               ) -> Callable:
     """
     factory generating a callback producing a yes/no modal dialog window
     """
@@ -262,11 +269,15 @@ def factory_cb_yn_modal_dialog(*, cb_on_confirm: Callable,
         dpg.delete_item(tagModalWin)  # Close the modal after cancelling
     def pop_yn_modal_win():
         with dpg.window(label = win_label, modal = True, tag = tagModalWin,
-                        pos = (200,200), on_close=lambda sender: dpg.delete_item(sender)):
+                        pos = _get_viewport_centerpos(), 
+                        on_close=lambda sender: dpg.delete_item(sender)):
             dpg.add_text(dialog_text)
-            dpg.add_spacer(height=10)
-            with dpg.group(horizontal=True):
-                dpg.add_spacer(width=30)
-                dpg.add_button(label = "Yes", callback = cb_on_confirm)
-                dpg.add_button(label = "No", callback = cb_on_cancel if cb_on_cancel else _cb_on_cancel)
+            if just_close:
+                pass
+            else:
+                dpg.add_spacer(height=10)
+                with dpg.group(horizontal=True):
+                    dpg.add_spacer(width=30)
+                    dpg.add_button(label = "Yes", callback = cb_on_confirm)
+                    dpg.add_button(label = "No", callback = cb_on_cancel if cb_on_cancel else _cb_on_cancel)
     return pop_yn_modal_win

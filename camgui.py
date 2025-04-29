@@ -42,9 +42,27 @@ dpg.create_viewport(title='camera',
                     width=1460, height=1020, x_pos=0, y_pos=0, clear_color=(0,0,0,0),
                     vsync=False) # important option to dismiss input lab, see https://github.com/hoffstadt/DearPyGui/issues/1571
 
+with dpg.viewport_menu_bar():
+    with dpg.menu(label="Windows"):
+        """
+        TODO 用 `check` kwarg 明确指示窗口显示状态
+        """
+        dpg.add_menu_item(label = "显示预览帧窗口", callback = lambda : dpg.configure_item(win_frame_preview, show=True))
+        dpg.add_menu_item(label = "显示直方图窗口", callback = lambda : dpg.configure_item(win_hist, show=True))
+    dpg.add_menu_item(label = "软件信息")
+    dpg.set_item_callback(dpg.last_item(),
+                            factory_cb_yn_modal_dialog(
+                                dialog_text=
+                                """\
+camgui 1.3-pre for A105
+作者: 吴海腾, 张云龙
+repo: https://github.com/ltmsyvag/camera
+                                """, 
+                                win_label="info", just_close=True))
+
 with dpg.window(label= "控制面板", tag = win_ctrl_panels, no_close=True):
     with dpg.group(label = "col panels", horizontal=True):
-        with dpg.child_window(label = "cam panel", width=200):
+        with dpg.child_window(label = "cam panel", width=190):
             _wid, _hi = 175, 40
             togCam = dpg.add_button(
                 width=_wid, height=_hi, user_data={
@@ -136,7 +154,10 @@ with dpg.window(label= "控制面板", tag = win_ctrl_panels, no_close=True):
                 dpg.bind_item_handler_registry(fldExposure, _ihrUpdateFldExposureOnLeave)
                 #==下面的 6 roi fields 由于在 cam 中必须同时 update, 因此其共用一个 callback. 我们将相关 field items 设置代码放在一个区块内====
                 dpg.add_spacer(height=10)
-                dpg.add_separator(label="ROI (max h 4096, v 2304)")
+                dpg.add_separator(label="ROI")
+                ttpkwargs = dict(delay=1, hide_on_activity= True)
+                with dpg.tooltip(dpg.last_item(), **ttpkwargs):
+                        dpg.add_text("max h 4096, max v 2304")
                 dpg.add_text("h start & h length:")
                 _indent = 20
                 fldsROIh = dpg.add_input_intx(size=2, indent= _indent,width=100, default_value=[1352, 240,0,0])
@@ -181,7 +202,6 @@ with dpg.window(label= "控制面板", tag = win_ctrl_panels, no_close=True):
             dpg.add_separator()
             _width=100
             _spcheight=10
-            ttpkwargs = dict(delay=1, hide_on_activity= True)
             dpg.add_input_intx(label= "x1 y1", tag= "x1 y1", size=2, width=_width, default_value = [36,23,0,0])
             with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("基矢起点 x y 坐标")
             dpg.add_input_intx(label= "x2 y2", tag= "x2 y2", size=2, width=_width, default_value = [124,25,0,0])
@@ -297,47 +317,46 @@ with dpg.file_dialog( # file dialog 就是一个独立的 window, 因此在应�
 with dpg.window(label = "帧预览", tag=win_frame_preview,
                 height=700, width=700
                 ):
+    with dpg.menu_bar():
+        with dpg.menu(label = "内存中的帧"):
+            dpg.add_menu_item(label = "保存当前帧")
+            def _save_current_frame_(*cbargs):
+                saved_p = frame_deck.save_cid_frame()
+                if saved_p:
+                    dpg.set_value(frameDeckCnt, "Saved!")
+                else:
+                    dpg.set_value(frameDeckCnt, "NOT Saved!")
+            dpg.set_item_callback(dpg.last_item(), _save_current_frame_)
+            #=============================
+            dpg.add_menu_item(label = "保存所有帧")
+            def _save_all_frames_(*cbargs):
+                saved_p = frame_deck.save_deck()
+                if saved_p:
+                    frame_deck.clear()
+                    msg = "0 frames in deck"
+                else:
+                    msg = "NOT Saved!"
+                dpg.set_value(frameDeckCnt, msg)
+            dpg.set_item_callback(dpg.last_item(), _save_all_frames_)
+            #================================
+            dpg.add_menu_item(label = "清空所有帧")
+            def _on_confirm(sender):
+                frame_deck.clear()
+                dpg.set_value(frameDeckCnt, "0 frames in deck")
+                dpg.delete_item(
+                    dpg.get_item_parent(dpg.get_item_parent(sender))
+                    )  # Close the modal after confirming
+            dpg.set_item_callback(dpg.last_item(),
+                                    factory_cb_yn_modal_dialog(cb_on_confirm=_on_confirm, dialog_text="确认要清空内存中的所有帧吗?"))
+        #=========================
+        dpg.add_menu_item(label = "载入帧", callback=lambda: dpg.show_item(fileDialog))
+
     with dpg.group(label="save path field and load frames button", horizontal=True):
         fldSavePath = dpg.add_input_text(tag="save path input field",
-                                hint="path to save tiff, e.g. C:\\Users\\username\\Desktop\\", 
-                                # width=-1
-                                ) # -1 makes the field stretch to the right edge of the window. alternatively, you can skip setting the width kwarg, then the field still stretches, but not to the right edge of the window. there is a weird padding
-        #=============================================
-        btnLoad = dpg.add_button(label="载入帧", callback=lambda: dpg.show_item(fileDialog))
-
+                                hint="path to save tiff, e.g. C:\\Users\\username\\Desktop\\")
     with dpg.group(label= "帧量显示, 保存, 和清空",horizontal=True):
         frameDeckCnt = dpg.add_text(tag = "frame deck display", default_value= "0 frames in deck")
         dpg.bind_item_font(frameDeckCnt, bold_font)
-        #============================================
-        btnSaveAll = dpg.add_button(label="保存所有帧")
-        def _save_all_frames_(*cbargs):
-            saved_p = frame_deck.save_deck()
-            if saved_p:
-                frame_deck.clear()
-                msg = "0 frames in deck"
-            else:
-                msg = "NOT Saved!"
-            dpg.set_value(frameDeckCnt, msg)
-        dpg.set_item_callback(btnSaveAll, _save_all_frames_)
-        #===================================================
-        btnClearDeck = dpg.add_button(label="清空所有帧")
-        def _on_confirm(sender):
-            frame_deck.clear()
-            dpg.set_value(frameDeckCnt, "0 frames in deck")
-            dpg.delete_item(
-                dpg.get_item_parent(dpg.get_item_parent(sender))
-                )  # Close the modal after confirming
-        dpg.set_item_callback(btnClearDeck,
-                                factory_cb_yn_modal_dialog(cb_on_confirm=_on_confirm, dialog_text="确认要清空内存中的所有帧吗?"))
-        #==============================================
-        btnSaveCurrent = dpg.add_button(label="保存当前帧")
-        def _save_current_frame_(*cbargs):
-            saved_p = frame_deck.save_cid_frame()
-            if saved_p:
-                dpg.set_value(frameDeckCnt, "Saved!")
-            else:
-                dpg.set_value(frameDeckCnt, "NOT Saved!")
-        dpg.set_item_callback(btnSaveCurrent, _save_current_frame_)
     with dpg.group(label = "热图上下限, 帧翻页, 平均图 checkbox", horizontal=True):
         dpg.add_checkbox(tag = "manual scale checkbox", label = "自定义热图上下限")
         #===========================================
