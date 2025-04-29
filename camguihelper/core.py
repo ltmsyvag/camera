@@ -99,7 +99,7 @@ class FrameDeck(list):
         self.float_deck.append(frame.astype(float))
         self.cid = len(self) - 1
         dpg.set_value("frame deck display", self.memory_report())
-        dpg.set_value("cid indicator", f"{self.cid+1}/{len(self)}")
+        dpg.set_item_label("cid indicator", f"{self.cid+1}/{len(self)}")
     def clear(self):
         """
         clear int & float decks
@@ -108,9 +108,10 @@ class FrameDeck(list):
         self.float_deck.clear()
         self.cid = None
 
-    def _plot_frame(self, frame: np.ndarray):
+    @staticmethod
+    def _plot_frame(frame: np.ndarray, 
+                    xax: str="frame xax", yax = "frame yax")->None:
         assert np.issubdtype(frame.dtype, float), "heatmap frame can only be float!"
-        yax = "frame yax"
         colorbar="frame colorbar"
         _fmin, _fmax, (_nVrows, _nHcols) = frame.min(), frame.max(), frame.shape
         if dpg.get_value("manual scale checkbox"):
@@ -125,15 +126,18 @@ class FrameDeck(list):
                             bounds_min= (0,_nVrows), bounds_max= (_nHcols, 0))
         if not dpg.get_item_user_data("frame plot"): # 只有在无 query rect 选区时，才重置 heatmap 的 zoom
             dpg.fit_axis_data(yax)
-            dpg.fit_axis_data("frame xax")
+            dpg.fit_axis_data(xax)
     def plot_avg_frame(self):
         if  self.float_deck:
             avg_frame = sum(self.float_deck) / len(self.float_deck)
             self._plot_frame(avg_frame)
-    def plot_cid_frame(self):
+    def plot_cid_frame(self, xax = "frame xax", yax= "frame yax"):
+        """
+        x/yax kwargs make it possible to plot else where when needed
+        """
         if self.cid is not None:
             frame = self.float_deck[self.cid]
-            self._plot_frame(frame)
+            self._plot_frame(frame, xax, yax)
     def plot_frame_dwim(self):
         if dpg.get_value("toggle 积分/单张 map"):
             self.plot_avg_frame()

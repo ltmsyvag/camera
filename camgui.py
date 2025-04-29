@@ -352,12 +352,11 @@ with dpg.window(label = "帧预览", tag=win_frame_preview,
         #=========================
         dpg.add_menu_item(label = "载入帧", callback=lambda: dpg.show_item(fileDialog))
 
-    with dpg.group(label="save path field and load frames button", horizontal=True):
-        fldSavePath = dpg.add_input_text(tag="save path input field",
-                                hint="path to save tiff, e.g. C:\\Users\\username\\Desktop\\")
-    with dpg.group(label= "帧量显示, 保存, 和清空",horizontal=True):
-        txtDeckCnts = dpg.add_text(tag = "frame deck display", default_value= frame_deck.memory_report())
-        dpg.bind_item_font(txtDeckCnts, bold_font)
+    fldSavePath = dpg.add_input_text(tag="save path input field",
+                            hint="path to save tiff, e.g. C:\\Users\\username\\Desktop\\")
+    #========================================
+    txtDeckCnts = dpg.add_text(tag = "frame deck display", default_value= frame_deck.memory_report())
+    dpg.bind_item_font(txtDeckCnts, bold_font)
     with dpg.group(label = "热图上下限, 帧翻页, 平均图 checkbox", horizontal=True):
         dpg.add_checkbox(tag = "manual scale checkbox", label = "自定义上下限")
         @toggle_checkbox_and_disable("color scale lims", on_and_enable=True)
@@ -374,22 +373,37 @@ with dpg.window(label = "帧预览", tag=win_frame_preview,
             if frame_deck.cid:
                 frame_deck.cid -= 1
                 frame_deck.plot_cid_frame()
-                dpg.set_value(cidIndcator, f"{frame_deck.cid+1}/{len(frame_deck)}")
+                dpg.set_item_label(cidIndcator, f"{frame_deck.cid+1}/{len(frame_deck)}")
         dpg.set_item_callback(leftArr, _left_arrow_cb_)
         #===========================================
-        cidIndcator = dpg.add_text(tag="cid indicator", default_value="0/0")
+        cidIndcator = dpg.add_button(tag="cid indicator", label="0/0", width=70)
+        heatmap_plot_kwargs = dict(no_mouse_pos=False, height=-1, width=-1, equal_aspects=True)
+        heatmap_xyaxkwargs = dict(no_gridlines = True, no_tick_marks = True)
+        heatmap_xkwargs = dict(label= "", opposite=True)
+        heatmap_ykwargs = dict(label= "", invert=True)
+        # _cmap = dpg.mvPlotColormap_Viridis
+        def _dupe_heatmap():
+            with dpg.window(width=300, height=300,
+                on_close=lambda sender: dpg.delete_item(sender)):
+                with dpg.plot(**heatmap_plot_kwargs):
+                    dpg.bind_colormap(dpg.last_item(), dpg.mvPlotColormap_Viridis)
+                    xax = dpg.add_plot_axis(dpg.mvXAxis, **heatmap_xkwargs, **heatmap_xyaxkwargs)
+                    yax = dpg.add_plot_axis(dpg.mvYAxis, **heatmap_ykwargs, **heatmap_xyaxkwargs)
+            frame_deck.plot_cid_frame(xax, yax)            
+        dpg.set_item_callback(cidIndcator, _dupe_heatmap)
+
         #==========================================
         rightArr = dpg.add_button(tag = "plot next frame", label=">", arrow=True, direction=dpg.mvDir_Right)
         def _right_arrow_cb_(*cbargs):
             if frame_deck and (frame_deck.cid<len(frame_deck)-1):
                 frame_deck.cid += 1
                 frame_deck.plot_cid_frame()
-                dpg.set_value(cidIndcator, f"{frame_deck.cid+1}/{len(frame_deck)}")
+                dpg.set_item_label(cidIndcator, f"{frame_deck.cid+1}/{len(frame_deck)}")
         dpg.set_item_callback(rightArr, _right_arrow_cb_)
         dpg.add_spacer(width = 10)
         #============================================
         cboxTogAvgMap = dpg.add_checkbox(label="帧叠平均",tag="toggle 积分/单张 map")
-        @toggle_checkbox_and_disable(leftArr, rightArr)
+        @toggle_checkbox_and_disable(leftArr, rightArr, cidIndcator)
         def _toggle_cid_and_avg_map_(_, app_data,__):
             if app_data:
                 frame_deck.plot_avg_frame()
@@ -397,18 +411,20 @@ with dpg.window(label = "帧预览", tag=win_frame_preview,
                 frame_deck.plot_cid_frame()
         dpg.set_item_callback(cboxTogAvgMap, _toggle_cid_and_avg_map_)
     with dpg.group(horizontal=True):
+        # dpg.add_button(label = "hello", pos = (0,0))
         _cmap = dpg.mvPlotColormap_Viridis
         dpg.add_colormap_scale(tag = "frame colorbar", min_scale=0, max_scale=65535, 
                                height=-1
                                )
         dpg.bind_colormap(dpg.last_item(), _cmap)
-        _side = -1
-        with dpg.plot(tag="frame plot", no_mouse_pos=False, height=_side, width=_side, equal_aspects=True,
-                    query=True, query_color=(255,0,0), max_query_rects=1, min_query_rects=0) as framePlot:
+        
+        with dpg.plot(tag="frame plot",
+                    query=True, query_color=(255,0,0), max_query_rects=1, min_query_rects=0,
+                    **heatmap_plot_kwargs) as framePlot:
             dpg.bind_colormap(dpg.last_item(), _cmap)
-            _xyaxeskwargs = dict(no_gridlines = True, no_tick_marks = True)
-            dpg.add_plot_axis(dpg.mvXAxis, tag = "frame xax", label= "h", opposite=True, **_xyaxeskwargs)
-            dpg.add_plot_axis(dpg.mvYAxis, tag= "frame yax", label= "v", invert=True, **_xyaxeskwargs)
+            
+            dpg.add_plot_axis(dpg.mvXAxis, tag = "frame xax",**heatmap_xkwargs, **heatmap_xyaxkwargs)
+            frameYax = dpg.add_plot_axis(dpg.mvYAxis, tag= "frame yax", **heatmap_ykwargs, **heatmap_xyaxkwargs)
             def floorHalfInt(num: float) -> float: # 0.6, 0.5 -> 0.5; 0.4 -> -0.5
                 return math.floor(num-0.5) + 0.5
             def ceilHalfInt(num: float) -> float: # -0.6,-0.5 -> -0.5; 0.4,0.5 ->0.5, 0.6 - > 1.5
