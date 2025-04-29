@@ -282,7 +282,7 @@ with dpg.file_dialog( # file dialog 就是一个独立的 window, 因此在应�
     dpg.add_file_extension("", color = (150,255,150,255)) # 让无后缀的项目(比如文件夹显示为绿色)
     dpg.add_file_extension(".tif")
     dpg.add_file_extension(".tiff")
-    def _cb_(_, app_data, __)->None:
+    def _ok_cb_(_, app_data, __)->None:
         """
         选择 4 个 tif 文件时的 app_data: {
         'file_path_name': 'c:\\Users\\DELL\\Desktop\\baslercam\\20by20 images\\4 files Selected.tif', 
@@ -310,9 +310,10 @@ with dpg.file_dialog( # file dialog 就是一个独立的 window, 因此在应�
         fname_dict = app_data["selections"]
         if fname_dict:
             frame_list = [tifffile.imread(e) for e in fname_dict.values()]
-            frame_deck = FrameDeck(frame_list)
-            frame_deck._update()
-    dpg.set_item_callback(fileDialog, _cb_)
+            for e in frame_list:
+                frame_deck.append(e)
+            frame_deck.plot_frame_dwim()
+    dpg.set_item_callback(fileDialog, _ok_cb_)
 
 with dpg.window(label = "帧预览", tag=win_frame_preview,
                 height=700, width=700
@@ -438,7 +439,7 @@ with dpg.window(label="直方图", tag=win_hist,
         dpg.add_plot_axis(dpg.mvXAxis, label = "converted counts ((<frame pixel counts>-200)*0.1/0.9)")
         dpg.add_plot_axis(dpg.mvYAxis, label = "frequency", tag = "hist plot yax")
 
-dpg.set_frame_callback(1, callback= lambda: frame_deck._update())
+dpg.set_frame_callback(1, callback= lambda: frame_deck._force_update())
 # dpg.show_style_editor()
 dpg.setup_dearpygui()
 dpg.show_viewport()

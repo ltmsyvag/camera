@@ -25,7 +25,7 @@ class FrameDeck(list):
     """
     cid = None # current heatmap's id in deck
     float_deck = [] # gui 中的操作需要 float frame, 因此与 list (int deck) 对应, 要有一个 float deck
-    def _update(self):
+    def _force_update(self):
         """
         强制 float_deck 和与 list 内容同步, overhead 可能较大, 在需要的时候使用
         同时执行:
@@ -36,10 +36,7 @@ class FrameDeck(list):
             self.float_deck = [e.astype(float) for e in self]
             self.cid = len(self) - 1
             dpg.set_value("frame deck display", f"{len(self)} frames in deck")
-            if dpg.get_value("toggle 积分/单张 map"):
-                self.plot_avg_frame()
-            else:
-                self.plot_cid_frame()
+            self.plot_frame_dwim()
     
     def _make_savename_stub(self):
         """
@@ -81,8 +78,12 @@ class FrameDeck(list):
     def append(self, frame: np.ndarray):
         """
         append a new frame to int & float decks
+        同时执行: 
+        - cid update
+        - counts display update
         """
-        assert np.issubdtype(frame, np.uint16), "frame should be uint16, something's off?!"
+        # print(frame.dtype)
+        assert frame.dtype == np.uint16, "frame should be uint16, something's off?!"
 
         super().append(frame)
         self.float_deck.append(frame.astype(float))
@@ -122,6 +123,11 @@ class FrameDeck(list):
         if self.cid is not None:
             frame = self.float_deck[self.cid]
             self._plot_frame(frame)
+    def plot_frame_dwim(self):
+        if dpg.get_value("toggle 积分/单张 map"):
+            self.plot_avg_frame()
+        else:
+            self.plot_cid_frame()
 
 class MyPath(Path):
     def is_readable(self):
@@ -187,10 +193,7 @@ def start_flag_watching_acq(
         if awg_is_on:
             feed_AWG(this_frame, controller, awg_params) # feed original uint16 format to AWG
         frame_deck.append(this_frame)
-        if dpg.get_value("toggle 积分/单张 map"):
-            frame_deck.plot_avg_frame()
-        else:
-            frame_deck.plot_cid_frame()
+        frame_deck.plot_frame_dwim()
         hLhRvLvR = dpg.get_item_user_data("frame plot")
         if hLhRvLvR:
             _update_hist(hLhRvLvR, frame_deck)
