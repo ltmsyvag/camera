@@ -26,6 +26,7 @@ def do_bind_my_global_theme()->None:
         _do_fix_disabled_components()
         with dpg.theme_component(dpg.mvAll): # check mark is distinc yellow. dpg.mvCheckbox doesn't work, don't know why
             dpg.add_theme_color(dpg.mvThemeCol_CheckMark, (255,255,0), category=dpg.mvThemeCat_Core)
+            # dpg.add_theme_color(dpg.mvThemeCol_DockingEmptyBg, (0,0,0, 255), category=dpg.mvThemeCat_Core) # 在 docking_space 开启时, 尝试将其变为黑色. doesn't work, don't know why.
         with dpg.theme_component(dpg.mvButton): # my button style, a bit roundish with magenta border, with distinct blueish color when pressed down
             dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 5, category=dpg.mvThemeCat_Core)
             dpg.add_theme_style(dpg.mvStyleVar_FrameBorderSize, 1, category=dpg.mvThemeCat_Core)

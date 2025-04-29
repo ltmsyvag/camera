@@ -28,15 +28,21 @@ frame_deck = FrameDeck() # the normal empty frame_deck creation
 frame_deck = FrameDeck(flist) # the override to import fake data
 
 dpg.create_context()
+win_ctrl_panels = dpg.generate_uuid() # need to generate win tags first thing to work with init file
+win_frame_preview = dpg.generate_uuid()
+win_hist = dpg.generate_uuid()
+dpg.configure_app(#docking = True, docking_space=True, docking_shift_only=True,
+                  init_file = "dpginit.ini", auto_save_init_file=True)
+
 do_bind_my_global_theme()
 _, bold_font, large_font = do_initialize_chinese_fonts()
 toggle_theming_and_enable = do_extend_add_button()
 
 dpg.create_viewport(title='camera', 
-                    width=1260, height=1020, x_pos=0, y_pos=0,
+                    width=1460, height=1020, x_pos=0, y_pos=0, clear_color=(0,0,0,0),
                     vsync=False) # important option to dismiss input lab, see https://github.com/hoffstadt/DearPyGui/issues/1571
 
-with dpg.window(label= "控制面板"):
+with dpg.window(label= "控制面板", tag = win_ctrl_panels):
     with dpg.group(label = "col panels", horizontal=True):
         with dpg.group(label = "cam panel"):
             _wid, _hi = 175, 40
@@ -270,7 +276,7 @@ with dpg.file_dialog( # file dialog 就是一个独立的 window, 因此在应�
             frame_deck._update()
     dpg.set_item_callback(fileDialog, _cb_)
 
-with dpg.window(label = "帧预览", 
+with dpg.window(label = "帧预览", tag=win_frame_preview,
                 height=700, width=700
                 ):
     with dpg.group(label="save path field and load frames button", horizontal=True):
@@ -382,7 +388,8 @@ with dpg.window(label = "帧预览",
                     dpg.set_item_user_data(sender, None)
             dpg.set_item_callback(framePlot,callback=_update_hist_on_query_)
 
-with dpg.window(label="直方图", width = 500, height =300):
+with dpg.window(label="直方图", tag=win_hist, 
+                width = 500, height =300):
     dpg.add_input_int(
         # pos=(80,35), 
         tag = "hist binning input",label="hist binning", width=80,
@@ -394,7 +401,7 @@ with dpg.window(label="直方图", width = 500, height =300):
         dpg.add_plot_axis(dpg.mvYAxis, label = "frequency", tag = "hist plot yax")
 
 dpg.set_frame_callback(1, callback= lambda: frame_deck._update())
-# dpg.show_style_editor()
+dpg.show_style_editor()
 dpg.setup_dearpygui()
 dpg.show_viewport()
 dpg.start_dearpygui()
