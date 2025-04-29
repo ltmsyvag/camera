@@ -285,4 +285,5 @@ def push_log(msg:str, *, is_error = False):
     """
     tagWin = "log window"
     dpg.add_text(msg, parent= tagWin, color = (255,0,0) if is_error else None)
-    dpg.set_y_scroll(tagWin, dpg.get_y_scroll_max(tagWin))
+    dpg.set_y_scroll(tagWin, dpg.get_y_scroll_max(tagWin)+20 # the +20 is necessary because IDK why the window does not scroll to the very bottom, there's a ~20 margin, strange. 
+                     )
