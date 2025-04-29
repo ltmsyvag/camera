@@ -44,7 +44,7 @@ dpg.create_viewport(title='camera',
 
 with dpg.window(label= "控制面板", tag = win_ctrl_panels):
     with dpg.group(label = "col panels", horizontal=True):
-        with dpg.group(label = "cam panel"):
+        with dpg.child_window(label = "cam panel", width=200):
             _wid, _hi = 175, 40
             togCam = dpg.add_button(
                 width=_wid, height=_hi, user_data={
@@ -159,7 +159,7 @@ with dpg.window(label= "控制面板", tag = win_ctrl_panels):
                 for _item in [fldsROIh, fldsROIv, fldsBinning]:
                     dpg.set_item_callback(_item, do_set_cam_roi_using_6fields_roi)
                     dpg.bind_item_handler_registry(_item, _irhUpdate6FlsOnLeave)
-        with dpg.group(label = "awg panel"):
+        with dpg.child_window(label = "awg panel"):
             togAwg = dpg.add_button(tag = "AWG toggle",
                 width=150, height=40, user_data={
                     "is on" : False, 
@@ -181,31 +181,49 @@ with dpg.window(label= "控制面板", tag = win_ctrl_panels):
             dpg.add_separator()
             _width=100
             _spcheight=10
+            ttpkwargs = dict(delay=1, hide_on_activity= True)
             dpg.add_input_intx(label= "x1 y1", tag= "x1 y1", size=2, width=_width, default_value = [36,23,0,0])
+            with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("基矢起点 x y 坐标")
             dpg.add_input_intx(label= "x2 y2", tag= "x2 y2", size=2, width=_width, default_value = [124,25,0,0])
+            with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("x 方向基矢 x y 坐标")
             dpg.add_input_intx(label= "x3 y3", tag= "x3 y3", size=2, width=_width, default_value = [34,112,0,0])
+            with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("y 方向基矢 x y 坐标")
             dpg.add_input_intx(label= "nx ny", tag= "nx ny", size=2, width=_width, default_value = [16,16,0,0])
+            with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("阵列 x y 方向尺寸")
             dpg.add_input_intx(label= "x0 y0", tag= "x0 y0", size=2, width=_width, default_value = [34,21,0,0])
+            with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("选择起点")
             dpg.add_input_intx(label= "rec_x rec_y", tag= "rec_x rec_y", size=2, width=_width, default_value=[4,4,0,0])
+            with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("每个点位选择统计光子数的 mask 大小")
             dpg.add_input_int(label="count_threshold",tag="count_threshold",step=0, width=_width/2, default_value=30)
+            with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("判断是否有光子的阈值")
             dpg.add_input_int(label="n_packed",tag="n_packed",step=0, width=_width/2, default_value=3)
+            with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("决定了每次移动的原子数")
             dpg.add_spacer(height=_spcheight)
             dpg.add_text("start_frequency_on_row(col)")
+            with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("行(列)方向的起始频率，即第一行(列)对应的频率")
             dpg.add_input_floatx(tag = "start_frequency_on_row(col)", size=2, width=_width*1.2, default_value=[90.8,111.4,0,0], label="MHz")
             dpg.add_text("end_frequency_on_row(col)")
+            with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("行(列)方向的终止频率")
             dpg.add_input_floatx(tag = "end_frequency_on_row(col)", size=2, width=_width*1.2, default_value=[111.3,90.8,0,0], label= "MHz")
             dpg.add_text("start_site_on_row(col)")
+            with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("行(列)方向的原子起始坐标")
             dpg.add_input_intx(tag = "start_site_on_row(col)", size=2, width=_width, default_value=[0,0,0,0])
             dpg.add_text("end_site_on_row(col)")
+            with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("行(列)方向的原子终止坐标")
             dpg.add_input_intx(tag = "end_site_on_row(col)", size=2, width=_width, default_value=[15,15,0,0])
             dpg.add_spacer(height=_spcheight)
             dpg.add_input_int(label="num_segments", tag="num_segments",step=0, width=_width/2, default_value=16)
+            with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("决定了 s 曲线 ramp 的平滑程度")
             dpg.add_input_float(label="power_ramp_time (ms)", tag="power_ramp_time (ms)",step=0, width=_width/2, default_value=4)
+            with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("功率 ramp 的时间")
             dpg.add_input_float(label="move_time (ms)", tag="move_time (ms)", step=0, width=_width/2, default_value=2)
+            with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("频率 ramp 的速度，也就是单个光镊移动的速度")
             dpg.add_spacer(height=_spcheight)
             dpg.add_text("percentage_total_power_for_list")
+            with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("送入aod每个轴的最大功率，是一个百分数，代表最终上升到awg设定最大电平的多少")
             dpg.add_input_float(tag = "percentage_total_power_for_list", step=0, width=_width/2, default_value=0.5)
             dpg.add_input_text(label = "ramp_type", tag = "ramp_type", width=_width, default_value="5th-order")
+            with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("决定了扫频的曲线形式")
             dpg.add_spacer(height=_spcheight)
             btnTgtArr = dpg.add_button(label="设置目标阵列")
             # def _pop_target_array_win():
@@ -323,7 +341,8 @@ with dpg.window(label = "帧预览", tag=win_frame_preview,
     with dpg.group(label = "热图上下限, 帧翻页, 平均图 checkbox", horizontal=True):
         dpg.add_checkbox(tag = "manual scale checkbox", label = "自定义热图上下限")
         #===========================================
-        dpg.add_input_intx(tag = "color scale lims",label = "热图上下限 (最多 0-65535)", size = 2, width=120, default_value=[0,65535,0,0])
+        dpg.add_input_intx(tag = "color scale lims",label = "热图上下限", size = 2, width=120, default_value=[0,65535,0,0])
+        with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("最多 0-65535")
         dpg.add_spacer(width=10)
         #===============================================
         leftArr = dpg.add_button(tag = "plot previous frame", label="<", arrow=True)
@@ -401,7 +420,7 @@ with dpg.window(label="直方图", tag=win_hist,
         dpg.add_plot_axis(dpg.mvYAxis, label = "frequency", tag = "hist plot yax")
 
 dpg.set_frame_callback(1, callback= lambda: frame_deck._update())
-dpg.show_style_editor()
+# dpg.show_style_editor()
 dpg.setup_dearpygui()
 dpg.show_viewport()
 dpg.start_dearpygui()
