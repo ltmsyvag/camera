@@ -275,3 +275,14 @@ def _collect_awg_params() -> tuple:
             end_site_on_row, end_site_on_col,
             num_segments, power_ramp_time, move_time,
             percentage_total_power_for_list, ramp_type, tgt2darr)
+# with dpg.theme() as theme_error_blinking:
+#     with dpg.theme_component(dpg.mvChildWindow):
+#         dpg.add_theme_color(dpg.mvThemeCol_FrameBg, )
+
+def push_log(msg:str, *, is_error = False):
+    """
+    TODO: add a visual bell background blinking upon error
+    """
+    tagWin = "log window"
+    dpg.add_text(msg, parent= tagWin, color = (255,0,0) if is_error else None)
+    dpg.set_y_scroll(tagWin, dpg.get_y_scroll_max(tagWin))

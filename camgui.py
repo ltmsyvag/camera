@@ -13,7 +13,8 @@ import threading
 import time
 import math
 import tifffile
-from camguihelper import gui_open_awg, FrameDeck, start_flag_watching_acq
+import winsound
+from camguihelper import gui_open_awg, FrameDeck, start_flag_watching_acq, push_log
 from camguihelper.core import _log, _update_hist
 from camguihelper.dpghelper import (
     do_bind_my_global_theme,
@@ -137,7 +138,7 @@ with dpg.window(label= "控制面板", tag = win_ctrl_panels, no_close=True):
             dpg.set_item_callback(togAcq, _toggle_acq_cb_)    
             dpg.add_separator()
             #==============================================================
-            with dpg.group(tag = "expo and roi fields",horizontal=False, enabled=False):
+            with dpg.group(tag = "expo and roi fields", enabled=False):
                 dpg.add_text("exposure time (ms):")
                 fldExposure = dpg.add_input_float(
                     width = 120, step=0, format="%.4f",
@@ -180,6 +181,10 @@ with dpg.window(label= "控制面板", tag = win_ctrl_panels, no_close=True):
                 for _item in [fldsROIh, fldsROIv, fldsBinning]:
                     dpg.set_item_callback(_item, do_set_cam_roi_using_6fields_roi)
                     dpg.bind_item_handler_registry(_item, _irhUpdate6FlsOnLeave)
+            dpg.add_separator(label="log")
+            winLog = dpg.add_child_window(tag = "log window")
+            dpg.add_button(label="msg", before=winLog, callback = lambda : push_log("hello"))
+            dpg.add_button(label="error", before=winLog, callback = lambda : push_log("hell", is_error=True))
         with dpg.child_window(label = "awg panel"):
             togAwg = dpg.add_button(tag = "AWG toggle",
                 width=150, height=40, user_data={
