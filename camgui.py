@@ -383,7 +383,7 @@ with dpg.window(label = "帧预览", tag=win_frame_preview,
         heatmap_ykwargs = dict(label= "", invert=True)
         # _cmap = dpg.mvPlotColormap_Viridis
         def _dupe_heatmap():
-            with dpg.window(width=300, height=300,
+            with dpg.window(width=300, height=300, label = f"帧 #{frame_deck.cid+1}",
                 on_close=lambda sender: dpg.delete_item(sender)):
                 with dpg.plot(**heatmap_plot_kwargs):
                     dpg.bind_colormap(dpg.last_item(), dpg.mvPlotColormap_Viridis)
