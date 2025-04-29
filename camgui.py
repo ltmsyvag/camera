@@ -42,7 +42,7 @@ dpg.create_viewport(title='camera',
                     width=1460, height=1020, x_pos=0, y_pos=0, clear_color=(0,0,0,0),
                     vsync=False) # important option to dismiss input lab, see https://github.com/hoffstadt/DearPyGui/issues/1571
 
-with dpg.window(label= "控制面板", tag = win_ctrl_panels):
+with dpg.window(label= "控制面板", tag = win_ctrl_panels, no_close=True):
     with dpg.group(label = "col panels", horizontal=True):
         with dpg.child_window(label = "cam panel", width=200):
             _wid, _hi = 175, 40
