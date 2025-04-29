@@ -25,6 +25,15 @@ class FrameDeck(list):
     """
     cid = None # current heatmap's id in deck
     float_deck = [] # gui 中的操作需要 float frame, 因此与 list (int deck) 对应, 要有一个 float deck
+    def memory_report(self) -> str:
+        len_deck = len(self)
+        if len_deck > 0:
+            mbsize_1_int_frame = self[0].nbytes/ (1024**2)
+            mbsize_1_float_frame = self.float_deck[0].nbytes/ (1024**2)
+        else:
+            mbsize_1_int_frame = mbsize_1_float_frame = 0
+        return f"内存: {len_deck} 帧 ({(mbsize_1_float_frame+mbsize_1_int_frame)*len_deck:.2f} MB)"
+    
     def _force_update(self):
         """
         强制 float_deck 和与 list 内容同步, overhead 可能较大, 在需要的时候使用
@@ -35,7 +44,7 @@ class FrameDeck(list):
         if self:
             self.float_deck = [e.astype(float) for e in self]
             self.cid = len(self) - 1
-            dpg.set_value("frame deck display", f"{len(self)} frames in deck")
+            dpg.set_value("frame deck display", self.memory_report())
             self.plot_frame_dwim()
     
     def _make_savename_stub(self):
@@ -81,14 +90,16 @@ class FrameDeck(list):
         同时执行: 
         - cid update
         - counts display update
+        - cid indicator updates
         """
         # print(frame.dtype)
         assert frame.dtype == np.uint16, "frame should be uint16, something's off?!"
 
         super().append(frame)
         self.float_deck.append(frame.astype(float))
-        self.cid = len(self.float_deck) - 1
-        dpg.set_value("frame deck display", f"{len(self)} frames in deck")
+        self.cid = len(self) - 1
+        dpg.set_value("frame deck display", self.memory_report())
+        dpg.set_value("cid indicator", f"{self.cid+1}/{len(self)}")
     def clear(self):
         """
         clear int & float decks
@@ -210,7 +221,6 @@ def _log(sender, app_data, user_data):
     """
     print(f"sender: {sender}, \t app_data: {app_data}, \t user_data: {user_data}")
 
-
 def rgb_opposite(r, g, b):
     """
     给出某 rgb 相对最大对比度颜色（HSL approach）。@GPT
@@ -219,7 +229,6 @@ def rgb_opposite(r, g, b):
     h = (h + 0.5) % 1.0 # Rotate hue by 180° (opposite color)
     r2, g2, b2 = colorsys.hls_to_rgb(h, l, s) # Convert back to RGB
     return int(r2*255), int(g2*255), int(b2*255)
-
 
 def gui_open_awg():
     raw_card = spcm.Card(card_type = spcm.SPCM_TYPE_AO)

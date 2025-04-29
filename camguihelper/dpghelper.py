@@ -15,7 +15,11 @@ def _do_fix_disabled_components()->None:
     Because a simple dpg.mvAll does not work (it should) due to bug.
     """
     for comp_type in ( # 
-        dpg.mvMenuItem, dpg.mvButton, dpg.mvText):
+        dpg.mvMenuItem, dpg.mvButton, dpg.mvText,
+        dpg.mvInputInt, dpg.mvInputIntMulti, 
+        dpg.mvInputDouble, dpg.mvInputDoubleMulti,
+        dpg.mvInputFloat, dpg.mvInputFloatMulti,
+        dpg.mvInputText, dpg.mvCheckbox):
         with dpg.theme_component(comp_type, enabled_state=False):
             dpg.add_theme_color(dpg.mvThemeCol_Text, (0.50 * 255, 0.50 * 255, 0.50 * 255, 1.00 * 255), 
                                 category=dpg.mvThemeCat_Core

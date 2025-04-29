@@ -23,9 +23,9 @@ from camguihelper.dpghelper import (
     factory_cb_yn_modal_dialog)
 
 controller = None # controller always has to exist, we can't wait for it to be created by a callback (like `cam`), since it is the argument of the func `start_flag_watching_acq` (and ultimately, the required arg of ZYL func `feed_AWG`) that runs in the thread thread_acq. When awg is off, `controller` won't be used and won't be created either, but the `controller` var still has to exist (as a global variable because I deem `controller` suitable to be a global var) as a formal argument (or placeholder) of `start_flag_watching_acq`. This is more or less an awkward situation because I want to put `start_flag_watching_acq` in a module file (where the functions do not have access to working script global vars), not in the working script. Essentailly, the func in a module py file has no closure access to the global varibles in the working script, unless I choose to explicitly pass the working script global var as an argument to the imported func
-from tiff_imports import flist
 frame_deck = FrameDeck() # the normal empty frame_deck creation
-frame_deck = FrameDeck(flist) # the override to import fake data
+
+# frame_deck = FrameDeck(flist) # the override to import fake data
 
 dpg.create_context()
 win_ctrl_panels = dpg.generate_uuid() # need to generate win tags first thing to work with init file
@@ -324,9 +324,9 @@ with dpg.window(label = "帧预览", tag=win_frame_preview,
             def _save_current_frame_(*cbargs):
                 saved_p = frame_deck.save_cid_frame()
                 if saved_p:
-                    dpg.set_value(frameDeckCnt, "Saved!")
+                    dpg.set_value(txtDeckCnts, "Saved!")
                 else:
-                    dpg.set_value(frameDeckCnt, "NOT Saved!")
+                    dpg.set_value(txtDeckCnts, "NOT Saved!")
             dpg.set_item_callback(dpg.last_item(), _save_current_frame_)
             #=============================
             dpg.add_menu_item(label = "保存所有帧")
@@ -337,13 +337,13 @@ with dpg.window(label = "帧预览", tag=win_frame_preview,
                     msg = "0 frames in deck"
                 else:
                     msg = "NOT Saved!"
-                dpg.set_value(frameDeckCnt, msg)
+                dpg.set_value(txtDeckCnts, msg)
             dpg.set_item_callback(dpg.last_item(), _save_all_frames_)
             #================================
             dpg.add_menu_item(label = "清空所有帧")
             def _on_confirm(sender):
                 frame_deck.clear()
-                dpg.set_value(frameDeckCnt, "0 frames in deck")
+                dpg.set_value(txtDeckCnts, frame_deck.memory_report())
                 dpg.delete_item(
                     dpg.get_item_parent(dpg.get_item_parent(sender))
                     )  # Close the modal after confirming
@@ -356,12 +356,16 @@ with dpg.window(label = "帧预览", tag=win_frame_preview,
         fldSavePath = dpg.add_input_text(tag="save path input field",
                                 hint="path to save tiff, e.g. C:\\Users\\username\\Desktop\\")
     with dpg.group(label= "帧量显示, 保存, 和清空",horizontal=True):
-        frameDeckCnt = dpg.add_text(tag = "frame deck display", default_value= "0 frames in deck")
-        dpg.bind_item_font(frameDeckCnt, bold_font)
+        txtDeckCnts = dpg.add_text(tag = "frame deck display", default_value= frame_deck.memory_report())
+        dpg.bind_item_font(txtDeckCnts, bold_font)
     with dpg.group(label = "热图上下限, 帧翻页, 平均图 checkbox", horizontal=True):
-        dpg.add_checkbox(tag = "manual scale checkbox", label = "自定义热图上下限")
+        dpg.add_checkbox(tag = "manual scale checkbox", label = "自定义上下限")
+        @toggle_checkbox_and_disable("color scale lims", on_and_enable=True)
+        def _empty_cb(*cbargs):
+            pass
+        dpg.set_item_callback(dpg.last_item(), _empty_cb)
         #===========================================
-        dpg.add_input_intx(tag = "color scale lims",label = "热图上下限", size = 2, width=120, default_value=[0,65535,0,0])
+        dpg.add_input_intx(tag = "color scale lims",label = "热图上下限", size = 2, width=100, default_value=[0,65535,0,0], enabled=False)
         with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("最多 0-65535")
         dpg.add_spacer(width=10)
         #===============================================
@@ -370,17 +374,21 @@ with dpg.window(label = "帧预览", tag=win_frame_preview,
             if frame_deck.cid:
                 frame_deck.cid -= 1
                 frame_deck.plot_cid_frame()
+                dpg.set_value(cidIndcator, f"{frame_deck.cid+1}/{len(frame_deck)}")
         dpg.set_item_callback(leftArr, _left_arrow_cb_)
-        #===============================================
+        #===========================================
+        cidIndcator = dpg.add_text(tag="cid indicator", default_value="0/0")
+        #==========================================
         rightArr = dpg.add_button(tag = "plot next frame", label=">", arrow=True, direction=dpg.mvDir_Right)
         def _right_arrow_cb_(*cbargs):
             if frame_deck and (frame_deck.cid<len(frame_deck)-1):
                 frame_deck.cid += 1
                 frame_deck.plot_cid_frame()
+                dpg.set_value(cidIndcator, f"{frame_deck.cid+1}/{len(frame_deck)}")
         dpg.set_item_callback(rightArr, _right_arrow_cb_)
         dpg.add_spacer(width = 10)
         #============================================
-        cboxTogAvgMap = dpg.add_checkbox(label="deck 平均图",tag="toggle 积分/单张 map")
+        cboxTogAvgMap = dpg.add_checkbox(label="帧叠平均",tag="toggle 积分/单张 map")
         @toggle_checkbox_and_disable(leftArr, rightArr)
         def _toggle_cid_and_avg_map_(_, app_data,__):
             if app_data:
@@ -439,7 +447,13 @@ with dpg.window(label="直方图", tag=win_hist,
         dpg.add_plot_axis(dpg.mvXAxis, label = "converted counts ((<frame pixel counts>-200)*0.1/0.9)")
         dpg.add_plot_axis(dpg.mvYAxis, label = "frequency", tag = "hist plot yax")
 
-dpg.set_frame_callback(1, callback= lambda: frame_deck._force_update())
+from tiff_imports import flist
+def _fake_frames_loading():
+    for e in flist:
+        frame_deck.append(e)
+    frame_deck.plot_frame_dwim()
+# dpg.set_frame_callback(1, callback= lambda: frame_deck._force_update())
+dpg.set_frame_callback(1, callback= _fake_frames_loading)
 # dpg.show_style_editor()
 dpg.setup_dearpygui()
 dpg.show_viewport()
