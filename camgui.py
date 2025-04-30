@@ -213,7 +213,7 @@ with dpg.window(label= "控制面板", tag = win_ctrl_panels, no_close=True):
                     dpg.bind_item_handler_registry(_item, _irhUpdate6FlsOnLeave)
             dpg.add_separator(label="log")
             winLog = dpg.add_child_window(tag = "log window")
-            dpg.add_button(label="msg", before=winLog, callback = lambda : push_log("hello"))
+            dpg.add_button(label="msg", before=winLog, callback = lambda : push_log("hellohellohellohellohellohellohellohellohellohellohellohellohello"))
             dpg.add_button(label="error", before=winLog, callback = lambda : push_log("hell", is_error=True))
         with dpg.child_window(label = "awg panel"):
             with dpg.group(tag = "awg panel"):
@@ -371,16 +371,17 @@ with dpg.window(label = "帧预览", tag=win_frame_preview,
                 saved_p = frame_deck.save_deck()
                 if saved_p:
                     frame_deck.clear()
-                    msg = "0 frames in deck"
+                    push_log("保存成功", is_good=True)
                 else:
-                    msg = "NOT Saved!"
-                dpg.set_value(txtDeckCnts, msg)
+                    push_log("保存失败", is_error=True)
+                    # msg = "NOT Saved!"
+                # dpg.set_value(txtDeckCnts, msg)
             dpg.set_item_callback(dpg.last_item(), _save_all_frames_)
             #================================
             dpg.add_menu_item(label = "清空所有帧")
             def _on_confirm(sender):
                 frame_deck.clear()
-                dpg.set_value(txtDeckCnts, frame_deck.memory_report())
+                # dpg.set_value(txtDeckCnts, frame_deck.memory_report())
                 dpg.delete_item(
                     dpg.get_item_parent(dpg.get_item_parent(sender))
                     )  # Close the modal after confirming
@@ -448,7 +449,6 @@ with dpg.window(label = "帧预览", tag=win_frame_preview,
                 frame_deck.plot_cid_frame()
         dpg.set_item_callback(cboxTogAvgMap, _toggle_cid_and_avg_map_)
     with dpg.group(horizontal=True):
-        # dpg.add_button(label = "hello", pos = (0,0))
         _cmap = dpg.mvPlotColormap_Viridis
         dpg.add_colormap_scale(tag = "frame colorbar", min_scale=0, max_scale=65535, 
                                height=-1

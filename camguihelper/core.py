@@ -91,6 +91,7 @@ class FrameDeck(list):
         - cid update
         - counts display update
         - cid indicator updates
+        append 现在貌似是为 frame_deck 添加 frame 的唯一入口, let's keep it that way
         """
         # print(frame.dtype)
         assert frame.dtype == np.uint16, "frame should be uint16, something's off?!"
@@ -102,11 +103,14 @@ class FrameDeck(list):
         dpg.set_item_label("cid indicator", f"{self.cid+1}/{len(self)}")
     def clear(self):
         """
-        clear int & float decks
+        - clear int & float decks
+        - cid update
+        - cid indicator updates
         """
         super().clear()
         self.float_deck.clear()
         self.cid = None
+        dpg.set_value("frame deck display", self.memory_report())
 
     @staticmethod
     def _plot_frame(frame: np.ndarray, 
@@ -306,11 +310,23 @@ def _collect_awg_params() -> tuple:
 #     with dpg.theme_component(dpg.mvChildWindow):
 #         dpg.add_theme_color(dpg.mvThemeCol_FrameBg, )
 
-def push_log(msg:str, *, is_error = False):
+def push_log(msg:str, *, 
+             is_error: bool=False, is_good: bool=False):
     """
     TODO: add a visual bell background blinking upon error
     """
     tagWin = "log window"
-    dpg.add_text(msg, parent= tagWin, color = (255,0,0) if is_error else None)
+    now = datetime.now()
+    timestamp = now.strftime("%H:%M:%S.") + f"{now.microsecond//1000:03d}"
+    if is_error:
+        color = (255,0,0)
+    elif is_good:
+        color = (0,255,0)
+    else:
+        color = None
+    dpg.add_text("- "+timestamp+"\n"+msg, 
+                 parent= tagWin, 
+                 color = color,
+                 wrap= 150)
     dpg.set_y_scroll(tagWin, dpg.get_y_scroll_max(tagWin)+20 # the +20 is necessary because IDK why the window does not scroll to the very bottom, there's a ~20 margin, strange. 
                      )
