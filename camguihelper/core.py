@@ -113,17 +113,19 @@ class FrameDeck(list):
                     xax: str="frame xax", yax = "frame yax")->None:
         assert np.issubdtype(frame.dtype, float), "heatmap frame can only be float!"
         colorbar="frame colorbar"
-        _fmin, _fmax, (_nVrows, _nHcols) = frame.min(), frame.max(), frame.shape
+        fmin, fmax, (nvrows, nhcols) = frame.min(), frame.max(), frame.shape
+
+        plot_mainframe_p = (xax == "frame xax") and (yax == "frame yax") # need this check because we can plot in dupe frame windows
         if dpg.get_value("manual scale checkbox"):
-            _fmin, _fmax, *_ = dpg.get_value("color scale lims")
-        dpg.configure_item(
-            colorbar, 
-            min_scale = _fmin, 
-            max_scale = _fmax)
+            fmin, fmax, *_ = dpg.get_value("color scale lims")
+        elif plot_mainframe_p: # update disabled manual color lim fields. do not do this when plotting elsewhere
+            dpg.set_value("color scale lims", [int(fmin), int(fmax), 0, 0])
+        if plot_mainframe_p: # always update color bar lims when doing main plot, whether the manual scale checkbox is checked or not
+            dpg.configure_item(colorbar, min_scale = fmin, max_scale = fmax)
         dpg.delete_item(yax, children_only=True) # this is necessary!
-        dpg.add_heat_series(frame, _nVrows, _nHcols, parent=yax, 
-                            scale_min=_fmin, scale_max=_fmax,format="",
-                            bounds_min= (0,_nVrows), bounds_max= (_nHcols, 0))
+        dpg.add_heat_series(frame, nvrows, nhcols, parent=yax, 
+                            scale_min=fmin, scale_max=fmax,format="",
+                            bounds_min= (0,nvrows), bounds_max= (nhcols, 0))
         if not dpg.get_item_user_data("frame plot"): # 只有在无 query rect 选区时，才重置 heatmap 的 zoom
             dpg.fit_axis_data(yax)
             dpg.fit_axis_data(xax)

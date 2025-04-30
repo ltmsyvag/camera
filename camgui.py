@@ -473,7 +473,7 @@ def _fake_frames_loading():
     for e in flist:
         frame_deck.append(e)
     frame_deck.plot_frame_dwim()
-# dpg.set_frame_callback(1, callback= lambda: frame_deck._force_update())
+
 dpg.set_frame_callback(1, callback= _fake_frames_loading)
 # dpg.show_style_editor()
 dpg.setup_dearpygui()
