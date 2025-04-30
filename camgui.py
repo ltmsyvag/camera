@@ -473,8 +473,13 @@ def _fake_frames_loading():
     for e in flist:
         frame_deck.append(e)
     frame_deck.plot_frame_dwim()
-
 dpg.set_frame_callback(1, callback= _fake_frames_loading)
+def _check_children():
+    if dpg.get_item_children("frame yax")[1]:
+        print("has children")
+    else:
+        print("has no children")
+dpg.set_frame_callback(2, callback= _check_children)
 # dpg.show_style_editor()
 dpg.setup_dearpygui()
 dpg.show_viewport()
