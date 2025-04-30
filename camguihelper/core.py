@@ -76,7 +76,7 @@ class FrameDeck(list):
         self.float_deck.append(frame.astype(float))
         self.cid = len(self) - 1
         dpg.set_value("frame deck display", self.memory_report())
-        dpg.set_item_label("cid indicator", f"{self.cid+1}/{len(self)}")
+        dpg.set_item_label("cid indicator", f"{self.cid}")
     def save_deck(self):
         """
         保存全部 frames, 并 push 成功/失败 message
@@ -108,7 +108,6 @@ class FrameDeck(list):
                 push_log(f"当前帧保存失败.\nexception type: {type(e).__name__}\nexception msg: {e}",
                             is_error=True)
             push_log("当前帧保存成功", is_good=True)
-            
         else:
             push_log("内存为空或者保存路径有问题", is_error=True)
     def clear(self):
@@ -121,6 +120,7 @@ class FrameDeck(list):
         self.float_deck.clear()
         self.cid = None
         dpg.set_value("frame deck display", self.memory_report())
+        dpg.set_item_label("cid indicator", "N/A")
 
     @staticmethod
     def _plot_frame(frame: np.ndarray, 

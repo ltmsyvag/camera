@@ -358,25 +358,14 @@ with dpg.window(label = "帧预览", tag=win_frame_preview,
     with dpg.menu_bar():
         with dpg.menu(label = "内存中的帧"):
             dpg.add_menu_item(label = "保存当前帧")
-            # def _save_current_frame_(*cbargs):
-            #     saved_p = frame_deck.save_cid_frame()
-            #     if saved_p:
-            #         dpg.set_value(txtDeckCnts, "Saved!")
-            #     else:
-            #         dpg.set_value(txtDeckCnts, "NOT Saved!")
             dpg.set_item_callback(dpg.last_item(), lambda: frame_deck.save_cid_frame())
             #=============================
             dpg.add_menu_item(label = "保存所有帧")
-            # def _save_all_frames_(*cbargs):
-            #     frame_deck.save_deck()
-                    # msg = "NOT Saved!"
-                # dpg.set_value(txtDeckCnts, msg)
             dpg.set_item_callback(dpg.last_item(), lambda: frame_deck.save_deck())
             #================================
             dpg.add_menu_item(label = "清空所有帧")
             def _on_confirm(sender):
                 frame_deck.clear()
-                # dpg.set_value(txtDeckCnts, frame_deck.memory_report())
                 dpg.delete_item(
                     dpg.get_item_parent(dpg.get_item_parent(sender))
                     )  # Close the modal after confirming
@@ -406,17 +395,17 @@ with dpg.window(label = "帧预览", tag=win_frame_preview,
             if frame_deck.cid:
                 frame_deck.cid -= 1
                 frame_deck.plot_cid_frame()
-                dpg.set_item_label(cidIndcator, f"{frame_deck.cid+1}/{len(frame_deck)}")
+                dpg.set_item_label(cidIndcator, f"{frame_deck.cid}")
         dpg.set_item_callback(leftArr, _left_arrow_cb_)
         #===========================================
-        cidIndcator = dpg.add_button(tag="cid indicator", label="0/0", width=70)
+        cidIndcator = dpg.add_button(tag="cid indicator", label="N/A", width=40, height=29)
         heatmap_plot_kwargs = dict(no_mouse_pos=False, height=-1, width=-1, equal_aspects=True)
         heatmap_xyaxkwargs = dict(no_gridlines = True, no_tick_marks = True)
         heatmap_xkwargs = dict(label= "", opposite=True)
         heatmap_ykwargs = dict(label= "", invert=True)
         # _cmap = dpg.mvPlotColormap_Viridis
         def _dupe_heatmap():
-            with dpg.window(width=300, height=300, label = f"帧 #{frame_deck.cid+1}",
+            with dpg.window(width=300, height=300, label = f"帧 #{frame_deck.cid}",
                 on_close=lambda sender: dpg.delete_item(sender)):
                 with dpg.plot(**heatmap_plot_kwargs):
                     dpg.bind_colormap(dpg.last_item(), dpg.mvPlotColormap_Viridis)
@@ -424,14 +413,13 @@ with dpg.window(label = "帧预览", tag=win_frame_preview,
                     yax = dpg.add_plot_axis(dpg.mvYAxis, **heatmap_ykwargs, **heatmap_xyaxkwargs)
             frame_deck.plot_cid_frame(xax, yax)            
         dpg.set_item_callback(cidIndcator, _dupe_heatmap)
-
         #==========================================
         rightArr = dpg.add_button(tag = "plot next frame", label=">", arrow=True, direction=dpg.mvDir_Right)
         def _right_arrow_cb_(*cbargs):
             if frame_deck and (frame_deck.cid<len(frame_deck)-1):
                 frame_deck.cid += 1
                 frame_deck.plot_cid_frame()
-                dpg.set_item_label(cidIndcator, f"{frame_deck.cid+1}/{len(frame_deck)}")
+                dpg.set_item_label(cidIndcator, f"{frame_deck.cid}")
         dpg.set_item_callback(rightArr, _right_arrow_cb_)
         dpg.add_spacer(width = 10)
         #============================================
@@ -494,7 +482,6 @@ with dpg.window(label="直方图", tag=win_hist,
                   height=-1, width=-1, no_mouse_pos=True):
         dpg.add_plot_axis(dpg.mvXAxis, label = "converted counts ((<frame pixel counts>-200)*0.1/0.9)")
         dpg.add_plot_axis(dpg.mvYAxis, label = "frequency", tag = "hist plot yax")
-
 
 dpg.set_item_callback(togCam,_dummy_cam_toggle_cb_)
 dpg.set_item_callback(togAcq, _dummy_toggle_acq_cb)
