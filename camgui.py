@@ -13,7 +13,6 @@ import threading
 import time
 import math
 import tifffile
-import winsound
 from camguihelper import gui_open_awg, FrameDeck, start_flag_watching_acq, push_log
 from camguihelper.core import _log, _update_hist
 from camguihelper.dpghelper import (
@@ -22,7 +21,7 @@ from camguihelper.dpghelper import (
     do_extend_add_button,
     toggle_checkbox_and_disable,
     factory_cb_yn_modal_dialog)
-
+cam = None # probably needed for dummy acquisition, the same reason as needing controller = None
 controller = None # controller always has to exist, we can't wait for it to be created by a callback (like `cam`), since it is the argument of the func `start_flag_watching_acq` (and ultimately, the required arg of ZYL func `feed_AWG`) that runs in the thread thread_acq. When awg is off, `controller` won't be used and won't be created either, but the `controller` var still has to exist (as a global variable because I deem `controller` suitable to be a global var) as a formal argument (or placeholder) of `start_flag_watching_acq`. This is more or less an awkward situation because I want to put `start_flag_watching_acq` in a module file (where the functions do not have access to working script global vars), not in the working script. Essentailly, the func in a module py file has no closure access to the global varibles in the working script, unless I choose to explicitly pass the working script global var as an argument to the imported func
 frame_deck = FrameDeck() # the normal empty frame_deck creation
 
@@ -33,7 +32,8 @@ win_ctrl_panels = dpg.generate_uuid() # need to generate win tags first thing to
 win_frame_preview = dpg.generate_uuid()
 win_hist = dpg.generate_uuid()
 dpg.configure_app(#docking = True, docking_space=True, docking_shift_only=True,
-                  init_file = "dpginit.ini", auto_save_init_file=True)
+                  init_file = "dpginit.ini", auto_save_init_file=True
+                  )
 
 do_bind_my_global_theme()
 _, bold_font, large_font = do_initialize_chinese_fonts()
@@ -102,9 +102,10 @@ with dpg.window(label= "控制面板", tag = win_ctrl_panels, no_close=True):
                     time.sleep(0.5)
                 else:
                     time.sleep(0.5)
-            _cam_toggle_cb_ = _dummy_cam_toggle_cb_
+
             dpg.set_item_callback(togCam,_cam_toggle_cb_)
             #===============================================================
+            # myflag = threading.Event()
             togAcq = dpg.add_button(tag="acquisition toggle", enabled=False,
                 width=_wid, height=_hi, user_data={
                     "is on" : False, 
@@ -114,8 +115,10 @@ with dpg.window(label= "控制面板", tag = win_ctrl_panels, no_close=True):
                     "acq thread": None,
                     })
             @toggle_theming_and_enable(
-                    "expo and roi fields", togCam, "awg panel",
-                    "target array window", on_and_enable= False)
+                    "expo and roi fields", togCam,
+                    "awg panel",
+                    "target array binary text input",
+                    on_and_enable= False)
             def _toggle_acq_cb_(sender, _, user_data):
                 state = user_data["is on"]
                 next_state = not state
@@ -133,9 +136,36 @@ with dpg.window(label= "控制面板", tag = win_ctrl_panels, no_close=True):
                     cam.stop_acquisition()
                     cam.set_trigger_mode("int")
                     print("acq stopped")
-                dpg.set_item_user_data(sender, user_data)
+                # dpg.set_item_user_data(sender, user_data) # the decor saves the user_data so I might not need to explicitly save it at all
+            
+            @toggle_theming_and_enable(
+                    "expo and roi fields", togCam,
+                    "awg panel",
+                    "target array binary text input",
+                    on_and_enable= False)
+            def _dummy_toggle_acq_cb(sender, _ , user_data):
+                state = user_data["is on"]
+                next_state = not state
+                flag = user_data["acq thread flag"]
+                if next_state:
+                    try:
+                        thread_watching_a_flag = threading.Thread(
+                            target=start_flag_watching_acq, args=(cam, flag, frame_deck, controller))
+                        user_data["acq thread"] = thread_watching_a_flag
+                        flag.set()
+                        thread_watching_a_flag.start()
+                    except:
+                        print("HERE!")
+                else:
+                    thread_watching_a_flag = user_data["acq thread"]
+                    flag.clear()
+                    thread_watching_a_flag.join()
+                    user_data["acq thread"] = None
+                    print("acq stopped")
+                # dpg.set_item_user_data(sender, user_data)
+
             dpg.bind_item_font(togAcq, large_font)
-            dpg.set_item_callback(togAcq, _toggle_acq_cb_)    
+            dpg.set_item_callback(togAcq, _toggle_acq_cb_)
             dpg.add_separator()
             #==============================================================
             with dpg.group(tag = "expo and roi fields", enabled=False):
@@ -186,101 +216,103 @@ with dpg.window(label= "控制面板", tag = win_ctrl_panels, no_close=True):
             dpg.add_button(label="msg", before=winLog, callback = lambda : push_log("hello"))
             dpg.add_button(label="error", before=winLog, callback = lambda : push_log("hell", is_error=True))
         with dpg.child_window(label = "awg panel"):
-            togAwg = dpg.add_button(tag = "AWG toggle",
-                width=150, height=40, user_data={
-                    "is on" : False, 
-                    "off label" : "AWG 已关闭",
-                    "on label" : "AWG 已开启",
-                    })
-            dpg.bind_item_font(togAwg, large_font)
-            @toggle_theming_and_enable()
-            def _awg_toggle_cb_(_,__,user_data):
-                global raw_card, controller
-                state = user_data["is on"]
-                next_state = not state
-                if next_state:
-                    raw_card, controller = gui_open_awg() # raw_card is opened upon being returned by gui_open_awg()
-                else:
-                    raw_card.close()
-                    controller = None # controller always has to exist, since its the argument of the func start_acqloop that runs in the thread thread_acq
-            dpg.set_item_callback(togAwg, _awg_toggle_cb_)
-            dpg.add_separator()
-            _width=100
-            _spcheight=10
-            dpg.add_input_intx(label= "x1 y1", tag= "x1 y1", size=2, width=_width, default_value = [36,23,0,0])
-            with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("基矢起点 x y 坐标")
-            dpg.add_input_intx(label= "x2 y2", tag= "x2 y2", size=2, width=_width, default_value = [124,25,0,0])
-            with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("x 方向基矢 x y 坐标")
-            dpg.add_input_intx(label= "x3 y3", tag= "x3 y3", size=2, width=_width, default_value = [34,112,0,0])
-            with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("y 方向基矢 x y 坐标")
-            dpg.add_input_intx(label= "nx ny", tag= "nx ny", size=2, width=_width, default_value = [16,16,0,0])
-            with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("阵列 x y 方向尺寸")
-            dpg.add_input_intx(label= "x0 y0", tag= "x0 y0", size=2, width=_width, default_value = [34,21,0,0])
-            with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("选择起点")
-            dpg.add_input_intx(label= "rec_x rec_y", tag= "rec_x rec_y", size=2, width=_width, default_value=[4,4,0,0])
-            with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("每个点位选择统计光子数的 mask 大小")
-            dpg.add_input_int(label="count_threshold",tag="count_threshold",step=0, width=_width/2, default_value=30)
-            with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("判断是否有光子的阈值")
-            dpg.add_input_int(label="n_packed",tag="n_packed",step=0, width=_width/2, default_value=3)
-            with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("决定了每次移动的原子数")
-            dpg.add_spacer(height=_spcheight)
-            dpg.add_text("start_frequency_on_row(col)")
-            with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("行(列)方向的起始频率，即第一行(列)对应的频率")
-            dpg.add_input_floatx(tag = "start_frequency_on_row(col)", size=2, width=_width*1.2, default_value=[90.8,111.4,0,0], label="MHz")
-            dpg.add_text("end_frequency_on_row(col)")
-            with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("行(列)方向的终止频率")
-            dpg.add_input_floatx(tag = "end_frequency_on_row(col)", size=2, width=_width*1.2, default_value=[111.3,90.8,0,0], label= "MHz")
-            dpg.add_text("start_site_on_row(col)")
-            with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("行(列)方向的原子起始坐标")
-            dpg.add_input_intx(tag = "start_site_on_row(col)", size=2, width=_width, default_value=[0,0,0,0])
-            dpg.add_text("end_site_on_row(col)")
-            with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("行(列)方向的原子终止坐标")
-            dpg.add_input_intx(tag = "end_site_on_row(col)", size=2, width=_width, default_value=[15,15,0,0])
-            dpg.add_spacer(height=_spcheight)
-            dpg.add_input_int(label="num_segments", tag="num_segments",step=0, width=_width/2, default_value=16)
-            with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("决定了 s 曲线 ramp 的平滑程度")
-            dpg.add_input_float(label="power_ramp_time (ms)", tag="power_ramp_time (ms)",step=0, width=_width/2, default_value=4)
-            with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("功率 ramp 的时间")
-            dpg.add_input_float(label="move_time (ms)", tag="move_time (ms)", step=0, width=_width/2, default_value=2)
-            with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("频率 ramp 的速度，也就是单个光镊移动的速度")
-            dpg.add_spacer(height=_spcheight)
-            dpg.add_text("percentage_total_power_for_list")
-            with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("送入aod每个轴的最大功率，是一个百分数，代表最终上升到awg设定最大电平的多少")
-            dpg.add_input_float(tag = "percentage_total_power_for_list", step=0, width=_width/2, default_value=0.5)
-            dpg.add_input_text(label = "ramp_type", tag = "ramp_type", width=_width, default_value="5th-order")
-            with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("决定了扫频的曲线形式")
-            dpg.add_spacer(height=_spcheight)
-            btnTgtArr = dpg.add_button(label="设置目标阵列")
-            # def _pop_target_array_win():
-            #     # winTgtArr = dpg.add_window(label =)
-            with dpg.window(label = "设置目标阵列", tag = "target array window",
-                            pos = (200,200), width = 450, height=450,
-                            show=False) as winTgtArr:
-                dpg.add_input_text(tag = "binary target array",
-                    multiline= True, width=-1,height=-1,
-                    default_value="""\
-    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0""")
-            dpg.set_item_callback(btnTgtArr, lambda : dpg.show_item(winTgtArr))
-                
+            with dpg.group(tag = "awg panel"):
+                togAwg = dpg.add_button(tag = "AWG toggle",
+                    width=150, height=40, user_data={
+                        "is on" : False, 
+                        "off label" : "AWG 已关闭",
+                        "on label" : "AWG 已开启",
+                        })
+                dpg.bind_item_font(togAwg, large_font)
+                @toggle_theming_and_enable()
+                def _awg_toggle_cb_(_,__,user_data):
+                    global raw_card, controller
+                    state = user_data["is on"]
+                    next_state = not state
+                    if next_state:
+                        raw_card, controller = gui_open_awg() # raw_card is opened upon being returned by gui_open_awg()
+                    else:
+                        raw_card.close()
+                        controller = None # controller always has to exist, since its the argument of the func start_acqloop that runs in the thread thread_acq
+                dpg.set_item_callback(togAwg, _awg_toggle_cb_)
+                dpg.add_separator()
+                _width=100
+                _spcheight=10
+                dpg.add_input_intx(label= "x1 y1", tag= "x1 y1", size=2, width=_width, default_value = [36,23,0,0])
+                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("基矢起点 x y 坐标")
+                dpg.add_input_intx(label= "x2 y2", tag= "x2 y2", size=2, width=_width, default_value = [124,25,0,0])
+                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("x 方向基矢 x y 坐标")
+                dpg.add_input_intx(label= "x3 y3", tag= "x3 y3", size=2, width=_width, default_value = [34,112,0,0])
+                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("y 方向基矢 x y 坐标")
+                dpg.add_input_intx(label= "nx ny", tag= "nx ny", size=2, width=_width, default_value = [16,16,0,0])
+                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("阵列 x y 方向尺寸")
+                dpg.add_input_intx(label= "x0 y0", tag= "x0 y0", size=2, width=_width, default_value = [34,21,0,0])
+                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("选择起点")
+                dpg.add_input_intx(label= "rec_x rec_y", tag= "rec_x rec_y", size=2, width=_width, default_value=[4,4,0,0])
+                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("每个点位选择统计光子数的 mask 大小")
+                dpg.add_input_int(label="count_threshold",tag="count_threshold",step=0, width=_width/2, default_value=30)
+                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("判断是否有光子的阈值")
+                dpg.add_input_int(label="n_packed",tag="n_packed",step=0, width=_width/2, default_value=3)
+                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("决定了每次移动的原子数")
+                dpg.add_spacer(height=_spcheight)
+                dpg.add_text("start_frequency_on_row(col)")
+                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("行(列)方向的起始频率，即第一行(列)对应的频率")
+                dpg.add_input_floatx(tag = "start_frequency_on_row(col)", size=2, width=_width*1.2, default_value=[90.8,111.4,0,0], label="MHz")
+                dpg.add_text("end_frequency_on_row(col)")
+                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("行(列)方向的终止频率")
+                dpg.add_input_floatx(tag = "end_frequency_on_row(col)", size=2, width=_width*1.2, default_value=[111.3,90.8,0,0], label= "MHz")
+                dpg.add_text("start_site_on_row(col)")
+                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("行(列)方向的原子起始坐标")
+                dpg.add_input_intx(tag = "start_site_on_row(col)", size=2, width=_width, default_value=[0,0,0,0])
+                dpg.add_text("end_site_on_row(col)")
+                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("行(列)方向的原子终止坐标")
+                dpg.add_input_intx(tag = "end_site_on_row(col)", size=2, width=_width, default_value=[15,15,0,0])
+                dpg.add_spacer(height=_spcheight)
+                dpg.add_input_int(label="num_segments", tag="num_segments",step=0, width=_width/2, default_value=16)
+                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("决定了 s 曲线 ramp 的平滑程度")
+                dpg.add_input_float(label="power_ramp_time (ms)", tag="power_ramp_time (ms)",step=0, width=_width/2, default_value=4)
+                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("功率 ramp 的时间")
+                dpg.add_input_float(label="move_time (ms)", tag="move_time (ms)", step=0, width=_width/2, default_value=2)
+                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("频率 ramp 的速度，也就是单个光镊移动的速度")
+                dpg.add_spacer(height=_spcheight)
+                dpg.add_text("percentage_total_power_for_list")
+                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("送入aod每个轴的最大功率，是一个百分数，代表最终上升到awg设定最大电平的多少")
+                dpg.add_input_float(tag = "percentage_total_power_for_list", step=0, width=_width/2, default_value=0.5)
+                dpg.add_input_text(label = "ramp_type", tag = "ramp_type", width=_width, default_value="5th-order")
+                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("决定了扫频的曲线形式")
+                dpg.add_spacer(height=_spcheight)
+                _btn = dpg.add_button(label="设置目标阵列")
+                dpg.set_item_callback(_btn, # strange, dpg.last_item() does not work here
+                                      lambda : dpg.show_item(winTgtArr))
+
+with dpg.window(label = "设置目标阵列", tag = "target array window",
+                pos = (200,200), width = 430, height=430,
+                show=False) as winTgtArr:
+    dpg.add_input_text(tag = "target array binary text input",
+        multiline= True, width=-1,height=-1,
+        default_value="""\
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0""")
+
+
 with dpg.file_dialog( # file dialog 就是一个独立的 window, 因此在应该在 root 定义, 与其他 window 内的元素在形式上解耦
     directory_selector=False, show=False, modal=True,
     tag="file dialog", width=700 ,height=400) as fileDialog:
@@ -468,18 +500,16 @@ with dpg.window(label="直方图", tag=win_hist,
         dpg.add_plot_axis(dpg.mvXAxis, label = "converted counts ((<frame pixel counts>-200)*0.1/0.9)")
         dpg.add_plot_axis(dpg.mvYAxis, label = "frequency", tag = "hist plot yax")
 
-from tiff_imports import flist
-def _fake_frames_loading():
-    for e in flist:
-        frame_deck.append(e)
-    frame_deck.plot_frame_dwim()
-dpg.set_frame_callback(1, callback= _fake_frames_loading)
-def _check_children():
-    if dpg.get_item_children("frame yax")[1]:
-        print("has children")
-    else:
-        print("has no children")
-dpg.set_frame_callback(2, callback= _check_children)
+
+dpg.set_item_callback(togCam,_dummy_cam_toggle_cb_)
+dpg.set_item_callback(togAcq, _dummy_toggle_acq_cb)
+
+# from camguihelper.fake_frames_imports import flist
+# def _fake_frames_loading():
+#     for e in flist:
+#         frame_deck.append(e)
+#     frame_deck.plot_frame_dwim()
+# dpg.set_frame_callback(1, callback= _fake_frames_loading)
 # dpg.show_style_editor()
 dpg.setup_dearpygui()
 dpg.show_viewport()

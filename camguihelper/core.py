@@ -115,11 +115,14 @@ class FrameDeck(list):
         colorbar="frame colorbar"
         fmin, fmax, (nvrows, nhcols) = frame.min(), frame.max(), frame.shape
 
-        plot_mainframe_p = (xax == "frame xax") and (yax == "frame yax") # need this check because we can plot in dupe frame windows
+        plot_mainframe_p = yax == "frame yax" # need this check because we can plot in dupe frame windows
         if dpg.get_value("manual scale checkbox"):
             fmin, fmax, *_ = dpg.get_value("color scale lims")
         elif plot_mainframe_p: # update disabled manual color lim fields. do not do this when plotting elsewhere
             dpg.set_value("color scale lims", [int(fmin), int(fmax), 0, 0])
+        else: # 在 dupe heatmap 中 plot 时, 啥都不干
+            pass
+
         if plot_mainframe_p: # always update color bar lims when doing main plot, whether the manual scale checkbox is checked or not
             dpg.configure_item(colorbar, min_scale = fmin, max_scale = fmax)
         
@@ -194,12 +197,13 @@ def _update_hist(hLhRvLvR: tuple, frame_deck: FrameDeck, yax = "hist plot yax")-
     dpg.add_histogram_series(
         histData, parent = yax, bins =nBins, 
         min_range=theMinInt,max_range=max_range)
-    
+
+
 def start_flag_watching_acq(
     cam: DCAM.DCAM.DCAMCamera,
     flag: threading.Event,
     frame_deck: FrameDeck,
-    controller # type is DDSRampController, not hinted because it acts funny on macOS
+    controller, # type is DDSRampController, not hinted because it acts funny on macOS
     )-> None:
     cam.set_trigger_mode("ext")
     cam.start_acquisition(mode="sequence", nframes=100)
@@ -219,6 +223,23 @@ def start_flag_watching_acq(
         if hLhRvLvR:
             _update_hist(hLhRvLvR, frame_deck)
         # print("frame acquired")
+
+import time
+from .fake_frames_imports import frame_list
+def _dummy_start_flag_watching_acq(cam, flag, frame_deck, controller):
+    while flag.is_set():
+        time.sleep(1)
+        if frame_list:
+            this_frame = frame_list.pop()
+            frame_deck.append(this_frame)
+            frame_deck.plot_frame_dwim()
+            hLhRvLvR = dpg.get_item_user_data("frame plot")
+            if hLhRvLvR:
+                _update_hist(hLhRvLvR, frame_deck)
+        else:
+            break
+start_flag_watching_acq = _dummy_start_flag_watching_acq
+
 
 def _log(sender, app_data, user_data):
     """
@@ -271,7 +292,7 @@ def _collect_awg_params() -> tuple:
     move_time *= 1e-3
     percentage_total_power_for_list = dpg.get_value("percentage_total_power_for_list")
     ramp_type = dpg.get_value("ramp_type")
-    user_tgt_arr_input = dpg.get_value("binary target array")
+    user_tgt_arr_input = dpg.get_value("target array binary text input")
     lines = user_tgt_arr_input.replace(" ", "").strip().splitlines()
     tgt2darr = np.array([[int(ch) for ch in line] for line in lines if line != ""], dtype=int)
     return (x1,y1, x2, y2, x3, y3, nx, ny, x0, y0, rec_x, rec_y, count_threshold,
