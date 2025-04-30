@@ -60,30 +60,6 @@ class FrameDeck(list):
                 timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
                 fpath_stub = str(saveroot / timestamp)
                 return fpath_stub
-    def save_deck(self):
-        """
-        保存全部 frames, 如果保存成功/失败, 返回 True/False
-        """
-        fpath_stub = self._make_savename_stub()
-        if fpath_stub:
-            for i, self in enumerate(self):
-                fpath = fpath_stub + f"_{i}.tiff"
-                tifffile.imwrite(fpath, self)
-                
-            return True # saved
-        else:
-            return False
-    def save_cid_frame(self)->bool:
-        """
-        保存 cid 指向的 frame, 如果保存成功/失败, 返回 True/False
-        """
-        fpath_stub = self._make_savename_stub()
-        if fpath_stub:
-            fpath = fpath_stub + f"_{self.cid}.tiff"
-            tifffile.imwrite(fpath, self[self.cid])
-            return True # saved
-        else:
-            return False # not saved
     def append(self, frame: np.ndarray):
         """
         append a new frame to int & float decks
@@ -101,6 +77,38 @@ class FrameDeck(list):
         self.cid = len(self) - 1
         dpg.set_value("frame deck display", self.memory_report())
         dpg.set_item_label("cid indicator", f"{self.cid+1}/{len(self)}")
+    def save_deck(self):
+        """
+        保存全部 frames, 并 push 成功/失败 message
+        """
+        fpath_stub = self._make_savename_stub()
+        if fpath_stub:
+            for i, frame in enumerate(self):
+                fpath = fpath_stub + f"_{i}.tiff"
+                try:
+                    tifffile.imwrite(fpath, frame)
+                except Exception as e:
+                    push_log(f"帧 #{i} 保存失败.\nexception type: {type(e).__name__}\nexception msg: {e}",
+                             is_error=True)
+                
+            push_log("全部帧保存成功", is_good=True)
+        else:
+            push_log("内存为空或者保存路径有问题", is_error=True)
+
+    def save_cid_frame(self)->bool:
+        """
+        保存 cid 指向的 frame, 并 push 成功/失败 message
+        """
+        fpath_stub = self._make_savename_stub()
+        if fpath_stub:
+            fpath = fpath_stub + f"_{self.cid}.tiff"
+            try:
+                tifffile.imwrite(fpath, self[self.cid])
+            except Exception as e:
+                push_log(f"当前帧保存失败.\nexception type: {type(e).__name__}\nexception msg: {e}",
+                            is_error=True)
+        else:
+            push_log("内存为空或者保存路径有问题", is_error=True)
     def clear(self):
         """
         - clear int & float decks

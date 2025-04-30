@@ -358,25 +358,20 @@ with dpg.window(label = "帧预览", tag=win_frame_preview,
     with dpg.menu_bar():
         with dpg.menu(label = "内存中的帧"):
             dpg.add_menu_item(label = "保存当前帧")
-            def _save_current_frame_(*cbargs):
-                saved_p = frame_deck.save_cid_frame()
-                if saved_p:
-                    dpg.set_value(txtDeckCnts, "Saved!")
-                else:
-                    dpg.set_value(txtDeckCnts, "NOT Saved!")
-            dpg.set_item_callback(dpg.last_item(), _save_current_frame_)
+            # def _save_current_frame_(*cbargs):
+            #     saved_p = frame_deck.save_cid_frame()
+            #     if saved_p:
+            #         dpg.set_value(txtDeckCnts, "Saved!")
+            #     else:
+            #         dpg.set_value(txtDeckCnts, "NOT Saved!")
+            dpg.set_item_callback(dpg.last_item(), lambda: frame_deck.save_cid_frame())
             #=============================
             dpg.add_menu_item(label = "保存所有帧")
-            def _save_all_frames_(*cbargs):
-                saved_p = frame_deck.save_deck()
-                if saved_p:
-                    frame_deck.clear()
-                    push_log("保存成功", is_good=True)
-                else:
-                    push_log("保存失败", is_error=True)
+            # def _save_all_frames_(*cbargs):
+            #     frame_deck.save_deck()
                     # msg = "NOT Saved!"
                 # dpg.set_value(txtDeckCnts, msg)
-            dpg.set_item_callback(dpg.last_item(), _save_all_frames_)
+            dpg.set_item_callback(dpg.last_item(), lambda: frame_deck.save_deck())
             #================================
             dpg.add_menu_item(label = "清空所有帧")
             def _on_confirm(sender):
