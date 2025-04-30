@@ -107,6 +107,8 @@ class FrameDeck(list):
             except Exception as e:
                 push_log(f"当前帧保存失败.\nexception type: {type(e).__name__}\nexception msg: {e}",
                             is_error=True)
+            push_log("当前帧保存成功", is_good=True)
+            
         else:
             push_log("内存为空或者保存路径有问题", is_error=True)
     def clear(self):
