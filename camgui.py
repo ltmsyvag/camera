@@ -420,10 +420,17 @@ with dpg.window(label = "帧预览", tag=win_frame_preview,
         heatmap_xkwargs = dict(label= "", opposite=True)
         heatmap_ykwargs = dict(label= "", invert=True)
         # _cmap = dpg.mvPlotColormap_Viridis
+        def _radio_cb(_, app_data, __):
+            if app_data == "倒数帧":
+                ...
         def _dupe_heatmap():
             with dpg.window(width=300, height=300, label = f"帧 #{frame_deck.cid}",
                 on_close=lambda sender: dpg.delete_item(sender)):
-                dpg.add_radio_button(("a", "b"), default_value="b", horizontal=True)
+                with dpg.group(horizontal=True):
+                    dpg.add_input_int(width=100)
+                    dpg.add_radio_button(("倒数帧", "绝对帧"), 
+                                         default_value="倒数帧号", horizontal=True,
+                                         callback=_log)
                 with dpg.plot(**heatmap_plot_kwargs):
                     dpg.bind_colormap(dpg.last_item(), dpg.mvPlotColormap_Viridis)
                     xax = dpg.add_plot_axis(dpg.mvXAxis, **heatmap_xkwargs, **heatmap_xyaxkwargs)
