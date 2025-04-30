@@ -48,8 +48,23 @@ with dpg.viewport_menu_bar():
         """
         TODO 用 `check` kwarg 明确指示窗口显示状态
         """
-        dpg.add_menu_item(label = "显示预览帧窗口", callback = lambda : dpg.configure_item(win_frame_preview, show=True))
-        dpg.add_menu_item(label = "显示直方图窗口", callback = lambda : dpg.configure_item(win_hist, show=True))
+        dpg.add_menu_item(label="显示控制面板")
+        def _show_and_highlight_win(*cbargs):
+            dpg.configure_item(win_ctrl_panels, show=True, collapsed = False)
+            dpg.focus_item(win_ctrl_panels)
+        dpg.set_item_callback(dpg.last_item(), _show_and_highlight_win)
+        #=============================
+        dpg.add_menu_item(label="显示预览帧窗口")
+        def _show_and_highlight_win(*cbargs):
+            dpg.configure_item(win_frame_preview, show=True, collapsed = False)
+            dpg.focus_item(win_frame_preview)
+        dpg.set_item_callback(dpg.last_item(), _show_and_highlight_win)
+        #=============================
+        dpg.add_menu_item(label="显示直方图窗口")
+        def _show_and_highlight_win(*cbargs):
+            dpg.configure_item(win_hist, show=True, collapsed = False)
+            dpg.focus_item(win_hist)
+        dpg.set_item_callback(dpg.last_item(), _show_and_highlight_win)
     dpg.add_menu_item(label = "软件信息")
     dpg.set_item_callback(dpg.last_item(),
                             factory_cb_yn_modal_dialog(
@@ -377,18 +392,17 @@ with dpg.window(label = "帧预览", tag=win_frame_preview,
     fldSavePath = dpg.add_input_text(tag="save path input field",
                             hint="path to save tiff, e.g. C:\\Users\\username\\Desktop\\")
     #========================================
-    txtDeckCnts = dpg.add_text(tag = "frame deck display", default_value= frame_deck.memory_report())
-    dpg.bind_item_font(txtDeckCnts, bold_font)
+    dpg.add_text(tag = "frame deck display", default_value= frame_deck.memory_report())
+    dpg.bind_item_font(dpg.last_item(), bold_font)
     with dpg.group(label = "热图上下限, 帧翻页, 平均图 checkbox", horizontal=True):
+        dpg.add_input_intx(tag = "color scale lims",label = "", size = 2, width=100, default_value=[0,65535,0,0], enabled=False)
+        with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("热图上下限, 最多 0-65535")
+        #===========================================
         dpg.add_checkbox(tag = "manual scale checkbox", label = "自定义上下限")
         @toggle_checkbox_and_disable("color scale lims", on_and_enable=True)
         def _empty_cb(*cbargs):
             pass
         dpg.set_item_callback(dpg.last_item(), _empty_cb)
-        #===========================================
-        dpg.add_input_intx(tag = "color scale lims",label = "热图上下限", size = 2, width=100, default_value=[0,65535,0,0], enabled=False)
-        with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("最多 0-65535")
-        dpg.add_spacer(width=10)
         #===============================================
         leftArr = dpg.add_button(tag = "plot previous frame", label="<", arrow=True)
         def _left_arrow_cb_(*cbargs):
@@ -399,6 +413,8 @@ with dpg.window(label = "帧预览", tag=win_frame_preview,
         dpg.set_item_callback(leftArr, _left_arrow_cb_)
         #===========================================
         cidIndcator = dpg.add_button(tag="cid indicator", label="N/A", width=40, height=29)
+        with dpg.tooltip(dpg.last_item(), **ttpkwargs):
+            dpg.add_text("数字是帧的 python id (从零开始)\n内存为空的时候显示 'N/A'")
         heatmap_plot_kwargs = dict(no_mouse_pos=False, height=-1, width=-1, equal_aspects=True)
         heatmap_xyaxkwargs = dict(no_gridlines = True, no_tick_marks = True)
         heatmap_xkwargs = dict(label= "", opposite=True)
@@ -407,11 +423,12 @@ with dpg.window(label = "帧预览", tag=win_frame_preview,
         def _dupe_heatmap():
             with dpg.window(width=300, height=300, label = f"帧 #{frame_deck.cid}",
                 on_close=lambda sender: dpg.delete_item(sender)):
+                dpg.add_radio_button(("a", "b"), default_value="b", horizontal=True)
                 with dpg.plot(**heatmap_plot_kwargs):
                     dpg.bind_colormap(dpg.last_item(), dpg.mvPlotColormap_Viridis)
                     xax = dpg.add_plot_axis(dpg.mvXAxis, **heatmap_xkwargs, **heatmap_xyaxkwargs)
                     yax = dpg.add_plot_axis(dpg.mvYAxis, **heatmap_ykwargs, **heatmap_xyaxkwargs)
-            frame_deck.plot_cid_frame(xax, yax)            
+            frame_deck.plot_cid_frame(xax, yax)        
         dpg.set_item_callback(cidIndcator, _dupe_heatmap)
         #==========================================
         rightArr = dpg.add_button(tag = "plot next frame", label=">", arrow=True, direction=dpg.mvDir_Right)

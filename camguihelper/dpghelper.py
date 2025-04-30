@@ -3,7 +3,7 @@
 dpg 相关的帮助函数, 主要用于个人初始化和 batch processing
 """
 import platform
-from .core import rgb_opposite
+from .core import rgb_opposite, push_log
 import dearpygui.dearpygui as dpg
 from typing import Callable
 def _do_fix_disabled_components()->None:
@@ -180,7 +180,6 @@ def do_extend_add_button() -> Callable:
         本装饰器用于装饰 toggle button 的 callback. 它的作用包括:
         1. 根据 user_data 中的 "is on" key 判断 toggle 状态, 从而切换 button 的 on/off theme 和 label
         2. 在 callback 执行失败时, 用 button label 报错
-            TODO 设置一个 button tooltip 来给出详细错误信息
         3. 在 callback 执行成功后, 修改 user_data["is on"] 所保存的 toggle 状态.
         4. 在 toggle on/off 成功时，enable/disable (若 `on_and_enable=False` 
             则是 disable/enable) 参数 items 中包含的 gui 元素.
@@ -202,9 +201,8 @@ def do_extend_add_button() -> Callable:
                         dpg.configure_item(item, enabled=state if on_and_enable else not state)
                 except Exception as e:
                     dpg.set_item_label(sender, "错误!")
-                    print("exception type: ", type(e).__name__)
-                    print("exception message: ", e)
-                    return # exit early 
+                    push_log(f"exception type: {type(e).__name__}\nexception message: {e}", is_error=True)
+                    return
 
                 if state:
                     dpg.bind_item_theme(sender, theme_toggle_on)

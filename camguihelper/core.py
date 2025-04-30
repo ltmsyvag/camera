@@ -323,6 +323,7 @@ def _collect_awg_params() -> tuple:
 def push_log(msg:str, *, 
              is_error: bool=False, is_good: bool=False):
     """
+    将 message 显示在 log window 中
     TODO: add a visual bell background blinking upon error
     """
     tagWin = "log window"
