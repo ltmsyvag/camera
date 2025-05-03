@@ -13,6 +13,7 @@ import threading
 import time
 import math
 import tifffile
+import re
 from camguihelper import gui_open_awg, FrameDeck, start_flag_watching_acq, push_log
 from camguihelper.core import _log, _update_hist
 from camguihelper.dpghelper import (
@@ -28,13 +29,12 @@ frame_deck = FrameDeck() # the normal empty frame_deck creation
 # frame_deck = FrameDeck(flist) # the override to import fake data
 
 dpg.create_context()
-win_ctrl_panels = dpg.generate_uuid() # need to generate win tags first thing to work with init file
-win_frame_preview = dpg.generate_uuid()
-win_hist = dpg.generate_uuid()
+winCtrlPanels = dpg.generate_uuid() # need to generate win tags first thing to work with init file
+winFramePreview = dpg.generate_uuid()
+winHist = dpg.generate_uuid()
+winTgtArr = dpg.generate_uuid()
 dpg.configure_app(#docking = True, docking_space=True, docking_shift_only=True,
-                  init_file = "dpginit.ini", # 记住窗口的位置, 关闭 gui 时会自动更新. 但是只能记住 init 文件中已经存在的窗口位置
-                  auto_save_init_file=False # 在需要记住 init 文件中不存在的窗口时, 设为 True. 打开 gui 一次, 打开想记住的窗口一次, 然后关闭, 再设本 kwarg 为 False. 这样 init 能记住我想记住的新窗口, 而且不会记住未来我不想记住的临时窗口
-                  )
+                  init_file = "dpginit.ini", )
 
 do_bind_my_global_theme()
 _, bold_font, large_font = do_initialize_chinese_fonts()
@@ -51,20 +51,20 @@ with dpg.viewport_menu_bar():
         """
         dpg.add_menu_item(label="显示控制面板")
         def _show_and_highlight_win(*cbargs):
-            dpg.configure_item(win_ctrl_panels, show=True, collapsed = False)
-            dpg.focus_item(win_ctrl_panels)
+            dpg.configure_item(winCtrlPanels, show=True, collapsed = False)
+            dpg.focus_item(winCtrlPanels)
         dpg.set_item_callback(dpg.last_item(), _show_and_highlight_win)
         #=============================
         dpg.add_menu_item(label="显示预览帧窗口")
         def _show_and_highlight_win(*cbargs):
-            dpg.configure_item(win_frame_preview, show=True, collapsed = False)
-            dpg.focus_item(win_frame_preview)
+            dpg.configure_item(winFramePreview, show=True, collapsed = False)
+            dpg.focus_item(winFramePreview)
         dpg.set_item_callback(dpg.last_item(), _show_and_highlight_win)
         #=============================
         dpg.add_menu_item(label="显示直方图窗口")
         def _show_and_highlight_win(*cbargs):
-            dpg.configure_item(win_hist, show=True, collapsed = False)
-            dpg.focus_item(win_hist)
+            dpg.configure_item(winHist, show=True, collapsed = False)
+            dpg.focus_item(winHist)
         dpg.set_item_callback(dpg.last_item(), _show_and_highlight_win)
     dpg.add_menu_item(label = "软件信息")
     dpg.set_item_callback(dpg.last_item(),
@@ -77,7 +77,7 @@ repo: https://github.com/ltmsyvag/camera
                                 """, 
                                 win_label="info", just_close=True))
 
-with dpg.window(label= "控制面板", tag = win_ctrl_panels):
+with dpg.window(label= "控制面板", tag = winCtrlPanels):
     with dpg.group(label = "col panels", horizontal=True):
         with dpg.child_window(label = "cam panel", width=190):
             _wid, _hi = 175, 40
@@ -299,11 +299,13 @@ with dpg.window(label= "控制面板", tag = win_ctrl_panels):
                 dpg.add_spacer(height=_spcheight)
                 _btn = dpg.add_button(label="设置目标阵列")
                 dpg.set_item_callback(_btn, # strange, dpg.last_item() does not work here
-                                      lambda : dpg.show_item(winTgtArr))
+                                      lambda : dpg.show_item(winTgtArr)
+                                    #   lambda : dpg.configure_item(winTgtArr, show=True)
+                                      )
 
-with dpg.window(label = "设置目标阵列", tag = "target array window",
-                pos = (200,200), width = 430, height=430,
-                show=False) as winTgtArr:
+with dpg.window(label = "设置目标阵列", tag = winTgtArr,
+                pos = (200,200), width = 430, height=430):
+    dpg.set_frame_callback(1,lambda: dpg.configure_item(winTgtArr, show=False)) # hide win on 1st frame, not during context creation, else this hidden-by-default window's size won't be remembered by init file
     dpg.add_input_text(tag = "target array binary text input",
         multiline= True, width=-1,height=-1,
         default_value="""\
@@ -368,7 +370,7 @@ with dpg.file_dialog( # file dialog 就是一个独立的 window, 因此在应�
             frame_deck.plot_frame_dwim()
     dpg.set_item_callback(fileDialog, _ok_cb_)
 
-with dpg.window(label = "帧预览", tag=win_frame_preview,
+with dpg.window(label = "帧预览", tag=winFramePreview,
                 height=700, width=700
                 ):
     with dpg.menu_bar():
@@ -496,7 +498,7 @@ with dpg.window(label = "帧预览", tag=win_frame_preview,
                     dpg.set_item_user_data(sender, None)
             dpg.set_item_callback(framePlot,callback=_update_hist_on_query_)
 
-with dpg.window(label="直方图", tag=win_hist, 
+with dpg.window(label="直方图", tag=winHist, 
                 width = 500, height =300):
     dpg.add_input_int(
         # pos=(80,35), 
@@ -511,6 +513,7 @@ with dpg.window(label="直方图", tag=win_hist,
 dpg.set_item_callback(togCam,_dummy_cam_toggle_cb_)
 dpg.set_item_callback(togAcq, _dummy_toggle_acq_cb)
 
+# dpg.set_frame_callback(1, callback= lambda: dpg.set_exit_callback(print("hello")))
 # from camguihelper.fake_frames_imports import flist
 # def _fake_frames_loading():
 #     for e in flist:
@@ -522,4 +525,11 @@ dpg.setup_dearpygui()
 dpg.show_viewport()
 dpg.start_dearpygui()
 dpg.destroy_context()
+with open("dpginit.ini") as f:
+    lines = f.readlines()
+lines = lines[:25] # delete line 26 and onward. 因为只记忆 4 个窗口的位置, 新创建的窗口(被 append 再 ini 文件末)都会被删掉
+with open("dpginit.ini", "w") as f:
+    f.writelines(lines)
+
+
 # %%
