@@ -25,6 +25,7 @@ class FrameDeck(list):
     """
     cid = None # current heatmap's id in deck
     float_deck = [] # gui 中的操作需要 float frame, 因此与 list (int deck) 对应, 要有一个 float deck
+    llst_items_dupe_maps = [] # 保存 duplicated heatmaps window 中的 item tuple
     def memory_report(self) -> str:
         len_deck = len(self)
         if len_deck > 0:
@@ -166,7 +167,25 @@ class FrameDeck(list):
             self.plot_avg_frame()
         else:
             self.plot_cid_frame()
-
+        for dupe_map_items in self.llst_items_dupe_maps: # update dupe windows
+            # xax, yax, inputInt, radioBtn = dupe_map_items
+            self._update_dupe_map(*dupe_map_items)
+    def _update_dupe_map(self, xax, yax, inputInt, radioBtn):
+        """
+        根据 duplicated map 的帧序号输入和 radio button 选择, 在给定的 xax, yax 中重绘热图
+        这是搭配 llst_items_dupe_maps 使用的函数
+        """
+        input_id, radio_option = dpg.get_value(inputInt), dpg.get_value(radioBtn)
+        
+        if radio_option == "正数帧":
+            plot_id = input_id
+        else:
+            plot_id = input_id+len(self) - 1
+        if 0 <= plot_id < len(self):
+            frame = self.float_deck[plot_id]
+            self._plot_frame(frame, xax, yax)
+        else:
+            dpg.delete_item(yax, children_only=True)
 class MyPath(Path):
     def is_readable(self):
         return os.access(self, os.R_OK)

@@ -423,21 +423,62 @@ with dpg.window(label = "帧预览", tag=winFramePreview,
         heatmap_xkwargs = dict(label= "", opposite=True)
         heatmap_ykwargs = dict(label= "", invert=True)
         # _cmap = dpg.mvPlotColormap_Viridis
-        def _radio_cb(_, app_data, __):
-            if app_data == "倒数帧":
-                ...
         def _dupe_heatmap():
-            with dpg.window(width=300, height=300, label = f"帧 #{frame_deck.cid}",
-                on_close=lambda sender: dpg.delete_item(sender)):
+            xax = dpg.generate_uuid() # 在实际创建这些 items 之前就要用到它们的 tag, 故先创建此 tag
+            yax = dpg.generate_uuid() 
+            inputInt = dpg.generate_uuid() 
+            radioBtn = dpg.generate_uuid()
+            dupe_map_items = xax, yax, inputInt, radioBtn
+            def _on_close(sender, *args):
+                """
+                window 的 on close callback 貌似不同于普通 callback, 只能在创建 window 时设置, 
+                因此这里将这个 callback 定义在先
+                """
+                frame_deck.llst_items_dupe_maps.remove(dupe_map_items)
+                dpg.delete_item(sender)
+            with dpg.window(width=300, height=300, on_close=_on_close) as dupeWin:
+                frame_deck.llst_items_dupe_maps.append(dupe_map_items)
                 with dpg.group(horizontal=True):
-                    dpg.add_input_int(width=100)
-                    dpg.add_radio_button(("倒数帧", "绝对帧"), 
-                                         default_value="倒数帧号", horizontal=True,
-                                         callback=_log)
+                    dpg.add_input_int(width=100, tag=inputInt, max_value=0, max_clamped=True, 
+                                    #   callback=_log
+                                      )
+                    def _cb_input_int(*args):
+                        frame_deck._update_dupe_map(*dupe_map_items)
+                        
+                    dpg.set_item_callback(inputInt, _cb_input_int)
+
+                    dpg.add_radio_button(("倒数帧", "正数帧"), tag=radioBtn,
+                                         default_value="倒数帧", horizontal=True,
+                                        #  callback=_log
+                                         )
+                    def _cb_radio(_, app_data, __):
+                        """
+                        这个 radio button 的 callback 必须放在 enclosing 的 _dupe_heatmap callback 定义中,
+                        因为它需要操纵的 item 是 enclosing callback 创造的对象, 需要利用 enclosing scope 中的变量 inputInt
+                        """
+                        input_id = dpg.get_value(inputInt)
+                        empty_deck = True if not frame_deck.cid else False
+                        if empty_deck:
+                            dpg.set_value(inputInt, 0)
+                        else:
+                            if app_data == "倒数帧": # convert forward id to backward id
+                                converted_id = input_id - len(frame_deck) + 1
+                            else: # convert backward id to forward id
+                                converted_id = input_id + len(frame_deck) - 1 
+                            dpg.set_value(inputInt, converted_id)
+                        if app_data == "倒数帧": # unlim low bound, lim high bound to 0
+                            dpg.configure_item(inputInt, min_clamped = False)
+                            dpg.configure_item(inputInt, max_value = 0, max_clamped = True)
+                        else: # unlim high bound, lim low bound to 0
+                            dpg.configure_item(inputInt, max_clamped = False)
+                            dpg.configure_item(inputInt, min_value = 0, min_clamped = True)
+                        print(dpg.get_value(inputInt))
+                    dpg.set_item_callback(radioBtn, _cb_radio)
                 with dpg.plot(**heatmap_plot_kwargs):
                     dpg.bind_colormap(dpg.last_item(), dpg.mvPlotColormap_Viridis)
-                    xax = dpg.add_plot_axis(dpg.mvXAxis, **heatmap_xkwargs, **heatmap_xyaxkwargs)
-                    yax = dpg.add_plot_axis(dpg.mvYAxis, **heatmap_ykwargs, **heatmap_xyaxkwargs)
+                    dpg.add_plot_axis(dpg.mvXAxis, tag=xax, **heatmap_xkwargs, **heatmap_xyaxkwargs)
+                    dpg.add_plot_axis(dpg.mvYAxis, tag=yax, **heatmap_ykwargs, **heatmap_xyaxkwargs)
+
             frame_deck.plot_cid_frame(xax, yax)        
         dpg.set_item_callback(cidIndcator, _dupe_heatmap)
         #==========================================
@@ -525,6 +566,7 @@ dpg.setup_dearpygui()
 dpg.show_viewport()
 dpg.start_dearpygui()
 dpg.destroy_context()
+# init file 在 destroy context 时保存, 因此对 init file 的 truncation 需要在 destroy context 后执行
 with open("dpginit.ini") as f:
     lines = f.readlines()
 lines = lines[:25] # delete line 26 and onward. 因为只记忆 4 个窗口的位置, 新创建的窗口(被 append 再 ini 文件末)都会被删掉
