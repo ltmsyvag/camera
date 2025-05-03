@@ -444,9 +444,8 @@ with dpg.window(label = "帧预览", tag=winFramePreview,
                                       )
                     def _cb_input_int(*args):
                         frame_deck._update_dupe_map(*dupe_map_items)
-                        
                     dpg.set_item_callback(inputInt, _cb_input_int)
-
+                    #===================================
                     dpg.add_radio_button(("倒数帧", "正数帧"), tag=radioBtn,
                                          default_value="倒数帧", horizontal=True,
                                         #  callback=_log
@@ -472,12 +471,18 @@ with dpg.window(label = "帧预览", tag=winFramePreview,
                         else: # unlim high bound, lim low bound to 0
                             dpg.configure_item(inputInt, max_clamped = False)
                             dpg.configure_item(inputInt, min_value = 0, min_clamped = True)
-                        print(dpg.get_value(inputInt))
                     dpg.set_item_callback(radioBtn, _cb_radio)
                 with dpg.plot(**heatmap_plot_kwargs):
                     dpg.bind_colormap(dpg.last_item(), dpg.mvPlotColormap_Viridis)
                     dpg.add_plot_axis(dpg.mvXAxis, tag=xax, **heatmap_xkwargs, **heatmap_xyaxkwargs)
                     dpg.add_plot_axis(dpg.mvYAxis, tag=yax, **heatmap_ykwargs, **heatmap_xyaxkwargs)
+                    xaxlims_orig, yaxlims_orig = dpg.get_axis_limits("frame xax"), dpg.get_axis_limits("frame yax")
+                    dpg.set_axis_limits(xax, *xaxlims_orig)
+                    dpg.set_axis_limits(yax, *yaxlims_orig)
+                    dpg.split_frame()
+                    dpg.set_axis_limits_auto(xax)
+                    dpg.set_axis_limits_auto(yax)
+
 
             frame_deck.plot_cid_frame(xax, yax)        
         dpg.set_item_callback(cidIndcator, _dupe_heatmap)
@@ -513,6 +518,13 @@ with dpg.window(label = "帧预览", tag=winFramePreview,
             
             dpg.add_plot_axis(dpg.mvXAxis, tag = "frame xax",**heatmap_xkwargs, **heatmap_xyaxkwargs)
             frameYax = dpg.add_plot_axis(dpg.mvYAxis, tag= "frame yax", **heatmap_ykwargs, **heatmap_xyaxkwargs)
+            for ax in ["frame xax", "frame yax"]:
+                dpg.set_axis_limits(ax, 0, 240)
+                # dpg.split_frame() # waits forever because frames are not rolling in the context creation stage
+            def _do_loosen_initial_lims():
+                for ax in ["frame xax", "frame yax"]:
+                    dpg.set_axis_limits_auto(ax)
+            dpg.set_frame_callback(2, _do_loosen_initial_lims) # seems this is the only way to set the initial limits
             def floorHalfInt(num: float) -> float: # 0.6, 0.5 -> 0.5; 0.4 -> -0.5
                 return math.floor(num-0.5) + 0.5
             def ceilHalfInt(num: float) -> float: # -0.6,-0.5 -> -0.5; 0.4,0.5 ->0.5, 0.6 - > 1.5

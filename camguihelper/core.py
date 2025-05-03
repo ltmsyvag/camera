@@ -146,11 +146,12 @@ class FrameDeck(list):
             dpg.delete_item(yax, children_only=True) # this is necessary!
         dpg.add_heat_series(frame, nvrows, nhcols, parent=yax, 
                             scale_min=fmin, scale_max=fmax,format="",
-                            bounds_min= (0,nvrows), bounds_max= (nhcols, 0))
+                            bounds_min= (0,nvrows), bounds_max= (nhcols, 0)
+                            )
         # if not dpg.get_item_user_data("frame plot"): # 只有在无 query rect 选区时，才重置 heatmap 的 zoom
-        if not had_series_child_p: # 如果没有老 series, 则我们 plot 了一张新图, 自动 scale 显示 frame 完整数据. 否则保持原始用户定义的 scale 不变 (因为用户可能在持续观察一个特定的选区)
-            dpg.fit_axis_data(yax)
-            dpg.fit_axis_data(xax)
+        # if not had_series_child_p: # 如果没有老 series, 则我们 plot 了一张新图, 自动 scale 显示 frame 完整数据. 否则保持原始用户定义的 scale 不变 (因为用户可能在持续观察一个特定的选区)
+        #     dpg.fit_axis_data(yax)
+        #     dpg.fit_axis_data(xax)
     def plot_avg_frame(self):
         if  self.float_deck:
             avg_frame = sum(self.float_deck) / len(self.float_deck)
