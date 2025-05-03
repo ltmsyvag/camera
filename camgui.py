@@ -32,7 +32,8 @@ win_ctrl_panels = dpg.generate_uuid() # need to generate win tags first thing to
 win_frame_preview = dpg.generate_uuid()
 win_hist = dpg.generate_uuid()
 dpg.configure_app(#docking = True, docking_space=True, docking_shift_only=True,
-                  init_file = "dpginit.ini", auto_save_init_file=True
+                  init_file = "dpginit.ini", # 记住窗口的位置, 关闭 gui 时会自动更新. 但是只能记住 init 文件中已经存在的窗口位置
+                  auto_save_init_file=False # 在需要记住 init 文件中不存在的窗口时, 设为 True. 打开 gui 一次, 打开想记住的窗口一次, 然后关闭, 再设本 kwarg 为 False. 这样 init 能记住我想记住的新窗口, 而且不会记住未来我不想记住的临时窗口
                   )
 
 do_bind_my_global_theme()
@@ -76,7 +77,7 @@ repo: https://github.com/ltmsyvag/camera
                                 """, 
                                 win_label="info", just_close=True))
 
-with dpg.window(label= "控制面板", tag = win_ctrl_panels, no_close=True):
+with dpg.window(label= "控制面板", tag = win_ctrl_panels):
     with dpg.group(label = "col panels", horizontal=True):
         with dpg.child_window(label = "cam panel", width=190):
             _wid, _hi = 175, 40

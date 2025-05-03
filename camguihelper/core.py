@@ -16,8 +16,8 @@ import platform, uuid
 system = platform.system()
 if (system == "Windows") and (hex(uuid.getnode()) != '0xf4ce2305b4c7'): # the code stands for A402 computer
     import spcm
-    from .AWG_module.no_with_func import DDSRampController
-    from .AWG_module.unified import feed_AWG
+    from AWG_module.no_with_func import DDSRampController
+    from AWG_module.unified import feed_AWG
 
 class FrameDeck(list):
     """
@@ -239,7 +239,7 @@ def start_flag_watching_acq(
         # print("frame acquired")
 
 import time
-from .fake_frames_imports import frame_list
+from fake_frames_imports import frame_list
 def _dummy_start_flag_watching_acq(cam, flag, frame_deck, controller):
     while flag.is_set():
         time.sleep(1)
