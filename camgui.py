@@ -485,15 +485,11 @@ with dpg.window(label = "帧预览", tag=winFramePreview,
                     dpg.set_axis_limits_auto(xax)
                     dpg.set_axis_limits_auto(yax)
                 #======================
-                dpg.add_checkbox(pos = (10,62), tag = cBox) # 要画在 plot 上, 所以在 plot 后添加
+                dpg.add_checkbox(pos = (8,62), tag = cBox) # 要画在 plot 上, 所以在 plot 后添加
                 @toggle_checkbox_and_disable(_grp)
-                def _toggle_cid_and_avg_map_(_, app_data,__):
-                    ...
-                    if app_data:
-                        frame_deck.plot_avg_frame(xax, yax)
-                    else:
-                        frame_deck.plot_cid_frame(xax, yax)
-                dpg.set_item_callback(cBox, _toggle_cid_and_avg_map_)
+                def _toggle_id_and_avg_map_(sender, *args):
+                    frame_deck._update_dupe_map(xax,yax,inputInt, radioBtn, sender)
+                dpg.set_item_callback(cBox, _toggle_id_and_avg_map_)
                 with dpg.tooltip(cBox, **ttpkwargs):
                     dpg.add_text("切换单帧/平均帧")
 
@@ -557,7 +553,9 @@ with dpg.window(label = "帧预览", tag=winFramePreview,
             dpg.set_item_callback(framePlot,callback=_update_hist_on_query_)
     #===本 checkbox 需要画在 plot 上面, 因此在 plot 添加
     dpg.add_checkbox(tag="toggle 积分/单张 map", pos = (85,153)) #
-    @toggle_checkbox_and_disable(leftArr, rightArr, cidIndcator)
+    @toggle_checkbox_and_disable(leftArr, rightArr, 
+                                #  cidIndcator # commented because we want to duplicate map when the main map is showing avg frame
+                                 )
     def _toggle_cid_and_avg_map_(_, app_data,__):
         if app_data:
             frame_deck.plot_avg_frame()
