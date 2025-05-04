@@ -433,7 +433,7 @@ with dpg.window(label = "帧预览", tag=winFramePreview,
             dpg.add_menu_item(label="PiYG", callback= factory_cb_bind_heatmap_cmap(dpg.mvPlotColormap_PiYG), check=True)
             dpg.add_menu_item(label="Spectral", callback= factory_cb_bind_heatmap_cmap(dpg.mvPlotColormap_Spectral), check=True)
             dpg.add_menu_item(label="Greys", callback= factory_cb_bind_heatmap_cmap(dpg.mvPlotColormap_Greys), check=True)
-            
+    #=========================================   
     fldSavePath = dpg.add_input_text(tag="save path input field",
                             hint="path to save tiff, e.g. C:\\Users\\username\\Desktop\\")
     #========================================
@@ -441,21 +441,19 @@ with dpg.window(label = "帧预览", tag=winFramePreview,
     dpg.bind_item_font(dpg.last_item(), bold_font)
     with dpg.group(label = "热图上下限, 帧翻页", horizontal=True):
         _inputInt = dpg.add_drag_intx(callback=_log, tag = "color scale lims",label = "", size = 2, width=100, default_value=[0,65535,0,0], enabled=False, max_value=65535, min_value=0, clamped=True)
-        # dpg.add_drag_intx()
         with dpg.tooltip(_inputInt, **ttpkwargs): dpg.add_text("热图上下限, 最多 0-65535\n若未勾选'手动上下限', 则每次绘图自动用全帧最大/最小值作为上下限")
         def _set_color_scale(_, app_data, __):
-            """
-            TODO: maybe update dupe map series too, 
-            for now it seems not important, 
-            the dupe map dons the new scale lims when replotting anyway
-            """
             fmin, fmax, *_ = app_data
             # print(heatSeries)
             dpg.configure_item(frameColBar, min_scale = fmin, max_scale = fmax)
-            heatmapSlot = dpg.get_item_children(frameYax)[1]
-            if heatmapSlot:
-                heatSeries, = heatmapSlot
-                dpg.configure_item(heatSeries, scale_min = fmin, scale_max = fmax)
+            lst_allyaxes = [yax for _, yax, *_ in frame_deck.llst_items_dupe_maps]
+            lst_allyaxes.append(frameYax)
+            for yax in lst_allyaxes:
+                heatmapSlot = dpg.get_item_children(yax)[1]
+                if heatmapSlot:
+                    heatSeries, = heatmapSlot
+                    dpg.configure_item(heatSeries, scale_min = fmin, scale_max = fmax)
+
         dpg.set_item_callback(_inputInt, _set_color_scale)
         #===========================================
         dpg.add_checkbox(tag = "manual scale checkbox", label = "手动上下限")
@@ -633,14 +631,6 @@ with dpg.window(label="直方图", tag=winHist,
 dpg.set_item_callback(togCam,_dummy_cam_toggle_cb_)
 dpg.set_item_callback(togAcq, _dummy_toggle_acq_cb)
 
-# dpg.set_frame_callback(1, callback= lambda: dpg.set_exit_callback(print("hello")))
-# from camguihelper.fake_frames_imports import flist
-# def _fake_frames_loading():
-#     for e in flist:
-#         frame_deck.append(e)
-#     frame_deck.plot_frame_dwim()
-# dpg.set_frame_callback(1, callback= _fake_frames_loading)
-# dpg.show_style_editor()
 dpg.setup_dearpygui()
 dpg.show_viewport()
 dpg.start_dearpygui()
