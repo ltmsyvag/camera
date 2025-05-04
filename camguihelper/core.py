@@ -23,20 +23,16 @@ class FrameDeck(list):
     """
     class of a special list with my own methods for manipulating the frames it stores
     """
-    # cid = None # current heatmap's id in deck
-    # float_deck = [] # gui 中的操作需要 float frame, 因此与 list (int deck) 对应, 要有一个 float deck
-    # frame_avg = None
-    # llst_items_dupe_maps = [] # 保存 duplicated heatmaps window 中的 item tuple
     def __init__(self):
         """
         将状态变量作为 instance attr 初始化
         好处(相对于 class attr 来说)是在不重启 kernel, 只重启 camgui.py 的情况下,
         frame_deck 的状态不会保留上一次启动的记忆
         """
-        self.cid = None
-        self.float_deck = []
+        self.cid = None # current heatmap's id in deck
+        self.float_deck = [] # gui 中的操作需要 float frame, 因此与 list (int deck) 对应, 要有一个 float deck
         self.frame_avg = None
-        self.llst_items_dupe_maps = []
+        self.llst_items_dupe_maps = [] # 保存 duplicated heatmaps window 中的 item tuple
     def memory_report(self) -> str:
         len_deck = len(self)
         if len_deck > 0:

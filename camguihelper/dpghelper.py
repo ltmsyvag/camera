@@ -15,7 +15,8 @@ def _do_fix_disabled_components()->None:
     Because a simple dpg.mvAll does not work (it should) due to bug.
     """
     for comp_type in ( # 
-        dpg.mvMenuItem, dpg.mvButton, dpg.mvText, 
+        dpg.mvMenuItem, dpg.mvButton, dpg.mvText,
+        dpg.mvDragIntMulti,
         dpg.mvInputInt, dpg.mvInputIntMulti, 
         dpg.mvInputDouble, dpg.mvInputDoubleMulti,
         dpg.mvInputFloat, dpg.mvInputFloatMulti,

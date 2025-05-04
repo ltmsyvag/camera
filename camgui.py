@@ -185,8 +185,14 @@ with dpg.window(label= "控制面板", tag = winCtrlPanels):
 
             dpg.bind_item_font(togAcq, large_font)
             dpg.set_item_callback(togAcq, _toggle_acq_cb_)
+            #===================================
+            _color = (255,0,255)
+            dpg.add_text("当前 0000", color= _color)
+            dpg.bind_item_font(dpg.last_item(), large_font)
+            dpg.add_text("接下来 0001")
+            dpg.bind_item_font(dpg.last_item(), bold_font)
             dpg.add_separator()
-            #==============================================================
+            #====================================
             with dpg.group(tag = "expo and roi fields", enabled=False):
                 dpg.add_text("exposure time (ms):")
                 fldExposure = dpg.add_input_float(
@@ -397,8 +403,8 @@ with dpg.window(label = "帧预览", tag=winFramePreview,
         with dpg.menu(label = "热图主题"):
             def factory_cb_bind_heatmap_cmap(cmap: int)-> Callable:
                 def cb_bind_heatmap_theme(sender, *args) ->None:
-                    dpg.bind_colormap("frame colorbar", cmap)
-                    dpg.bind_colormap("frame plot", cmap)
+                    dpg.bind_colormap(frameColBar, cmap)
+                    dpg.bind_colormap(framePlot, cmap)
                     for xax, *_ in frame_deck.llst_items_dupe_maps:
                         tagPlot = dpg.get_item_parent(xax)
                         dpg.bind_colormap(tagPlot, cmap)
@@ -431,9 +437,24 @@ with dpg.window(label = "帧预览", tag=winFramePreview,
     #========================================
     dpg.add_text(tag = "frame deck display", default_value= frame_deck.memory_report())
     dpg.bind_item_font(dpg.last_item(), bold_font)
-    with dpg.group(label = "热图上下限, 帧翻页, 平均图 checkbox", horizontal=True):
-        dpg.add_input_intx(tag = "color scale lims",label = "", size = 2, width=100, default_value=[0,65535,0,0], enabled=False)
-        with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("热图上下限, 最多 0-65535\n若未勾选'手动上下限', 则每次绘图自动用全帧最大/最小值作为上下限")
+    with dpg.group(label = "热图上下限, 帧翻页", horizontal=True):
+        _inputInt = dpg.add_drag_intx(callback=_log, tag = "color scale lims",label = "", size = 2, width=100, default_value=[0,65535,0,0], enabled=False, max_value=65535, min_value=0, clamped=True)
+        # dpg.add_drag_intx()
+        with dpg.tooltip(_inputInt, **ttpkwargs): dpg.add_text("热图上下限, 最多 0-65535\n若未勾选'手动上下限', 则每次绘图自动用全帧最大/最小值作为上下限")
+        def _set_color_scale(_, app_data, __):
+            """
+            TODO: maybe update dupe map series too, 
+            for now it seems not important, 
+            the dupe map dons the new scale lims when replotting anyway
+            """
+            fmin, fmax, *_ = app_data
+            # print(heatSeries)
+            dpg.configure_item(frameColBar, min_scale = fmin, max_scale = fmax)
+            heatmapSlot = dpg.get_item_children(frameYax)[1]
+            if heatmapSlot:
+                heatSeries, = heatmapSlot
+                dpg.configure_item(heatSeries, scale_min = fmin, scale_max = fmax)
+        dpg.set_item_callback(_inputInt, _set_color_scale)
         #===========================================
         dpg.add_checkbox(tag = "manual scale checkbox", label = "手动上下限")
         @toggle_checkbox_and_disable("color scale lims", on_and_enable=True)
@@ -542,7 +563,7 @@ with dpg.window(label = "帧预览", tag=winFramePreview,
         
     with dpg.group(horizontal=True):
         _cmap = dpg.mvPlotColormap_Viridis
-        dpg.add_colormap_scale(tag = "frame colorbar", min_scale=0, max_scale=500, 
+        frameColBar = dpg.add_colormap_scale(tag = "frame colorbar", min_scale=0, max_scale=500, 
                             height=-1
                             )
         dpg.bind_colormap(dpg.last_item(), _cmap)
