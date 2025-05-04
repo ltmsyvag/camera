@@ -428,7 +428,8 @@ with dpg.window(label = "帧预览", tag=winFramePreview,
             yax = dpg.generate_uuid() 
             inputInt = dpg.generate_uuid() 
             radioBtn = dpg.generate_uuid()
-            dupe_map_items = xax, yax, inputInt, radioBtn
+            cBox = dpg.generate_uuid()
+            dupe_map_items = xax, yax, inputInt, radioBtn, cBox
             def _on_close(sender, *args):
                 """
                 window 的 on close callback 貌似不同于普通 callback, 只能在创建 window 时设置, 
@@ -438,7 +439,7 @@ with dpg.window(label = "帧预览", tag=winFramePreview,
                 dpg.delete_item(sender)
             with dpg.window(width=300, height=300, on_close=_on_close, label = f"#{len(frame_deck.llst_items_dupe_maps)}"):
                 frame_deck.llst_items_dupe_maps.append(dupe_map_items)
-                with dpg.group(horizontal=True):
+                with dpg.group(horizontal=True) as _grp:
                     #==============================
                     dpg.add_input_int(width=100, tag=inputInt, max_value=0, max_clamped=True, 
                                     #   callback=_log
@@ -484,8 +485,16 @@ with dpg.window(label = "帧预览", tag=winFramePreview,
                     dpg.set_axis_limits_auto(xax)
                     dpg.set_axis_limits_auto(yax)
                 #======================
-                dpg.add_checkbox(pos = (10,62)) # 要画在 plot 上, 所以在 plot 后添加
-                with dpg.tooltip(dpg.last_item(), **ttpkwargs):
+                dpg.add_checkbox(pos = (10,62), tag = cBox) # 要画在 plot 上, 所以在 plot 后添加
+                @toggle_checkbox_and_disable(_grp)
+                def _toggle_cid_and_avg_map_(_, app_data,__):
+                    ...
+                    if app_data:
+                        frame_deck.plot_avg_frame(xax, yax)
+                    else:
+                        frame_deck.plot_cid_frame(xax, yax)
+                dpg.set_item_callback(cBox, _toggle_cid_and_avg_map_)
+                with dpg.tooltip(cBox, **ttpkwargs):
                     dpg.add_text("切换单帧/平均帧")
 
             frame_deck.plot_cid_frame(xax, yax)    

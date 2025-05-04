@@ -15,15 +15,18 @@ def _do_fix_disabled_components()->None:
     Because a simple dpg.mvAll does not work (it should) due to bug.
     """
     for comp_type in ( # 
-        dpg.mvMenuItem, dpg.mvButton, dpg.mvText,
+        dpg.mvMenuItem, dpg.mvButton, dpg.mvText, 
         dpg.mvInputInt, dpg.mvInputIntMulti, 
         dpg.mvInputDouble, dpg.mvInputDoubleMulti,
         dpg.mvInputFloat, dpg.mvInputFloatMulti,
         dpg.mvInputText, dpg.mvCheckbox):
         with dpg.theme_component(comp_type, enabled_state=False):
-            dpg.add_theme_color(dpg.mvThemeCol_Text, (0.50 * 255, 0.50 * 255, 0.50 * 255, 1.00 * 255), 
-                                category=dpg.mvThemeCat_Core
-                                )
+            dpg.add_theme_color(dpg.mvThemeCol_Text, (0.50 * 255, 0.50 * 255, 0.50 * 255, 1.00 * 255), category=dpg.mvThemeCat_Core)
+    with dpg.theme_component(dpg.mvRadioButton, enabled_state=False):
+        dpg.add_theme_color(# if you put this setting into the comp_type forloop, it won't work. probably because this radio_button-exclusive component will override
+            dpg.mvThemeCol_Text, (0.50 * 255, 0.50 * 255, 0.50 * 255, 1.00 * 255), category=dpg.mvThemeCat_Core)
+        dpg.add_theme_color(# the checkmark controls the color of the selected radio button
+            dpg.mvThemeCol_CheckMark, (0.50 * 255, 0.50 * 255, 0.50 * 255, 1.00 * 255), category=dpg.mvThemeCat_Core)
 
 def do_bind_my_global_theme()->None:
     with dpg.theme() as global_theme:

@@ -150,13 +150,14 @@ class FrameDeck(list):
                             scale_min=fmin, scale_max=fmax,format="",
                             bounds_min= (0,nvrows), bounds_max= (nhcols, 0)
                             )
-    def plot_avg_frame(self):
+    def plot_avg_frame(self, xax = "frame xax", yax= "frame yax"):
         """
         与 plot_cid_frame 一起都是 绘制 main heatmap 的方法
         区别于 plot_frame_dwim (绘制所有 map, 包括 dupe maps)
+        x/yax kwargs make it possible to plot else where when needed
         """
         if self.frame_avg is not None:
-            self._plot_frame(self.frame_avg)
+            self._plot_frame(self.frame_avg, xax, yax)
     def plot_cid_frame(self, xax = "frame xax", yax= "frame yax"):
         """
         与 plot_avg_frame 一起都是 绘制 main heatmap 的方法
@@ -176,22 +177,26 @@ class FrameDeck(list):
             self.plot_cid_frame()
         for dupe_map_items in self.llst_items_dupe_maps: # update dupe windows
             self._update_dupe_map(*dupe_map_items)
-    def _update_dupe_map(self, xax, yax, inputInt, radioBtn):
+    def _update_dupe_map(self, xax, yax, inputInt, radioBtn, cBox):
         """
         根据 duplicated map 的帧序号输入和 radio button 选择, 在给定的 xax, yax 中重绘热图
         这是搭配 llst_items_dupe_maps 使用的函数
         """
-        input_id, radio_option = dpg.get_value(inputInt), dpg.get_value(radioBtn)
-        
-        if radio_option == "正数帧":
-            plot_id = input_id
+        input_id = dpg.get_value(inputInt)
+        radio_option = dpg.get_value(radioBtn)
+        plot_avg_p = dpg.get_value(cBox)
+        if plot_avg_p:
+            self.plot_avg_frame(xax, yax)
         else:
-            plot_id = input_id+len(self) - 1
-        if 0 <= plot_id < len(self):
-            frame = self.float_deck[plot_id]
-            self._plot_frame(frame, xax, yax)
-        else:
-            dpg.delete_item(yax, children_only=True)
+            if radio_option == "正数帧":
+                plot_id = input_id
+            else:
+                plot_id = input_id+len(self) - 1
+            if 0 <= plot_id < len(self):
+                frame = self.float_deck[plot_id]
+                self._plot_frame(frame, xax, yax)
+            else:
+                dpg.delete_item(yax, children_only=True)
 
 class MyPath(Path):
     def is_readable(self):
