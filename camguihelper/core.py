@@ -113,6 +113,7 @@ class FrameDeck(list):
         - cid update
         - avg frame update
         - cid indicator updates
+        - clear all plots
         """
         super().clear()
         self.float_deck.clear()
@@ -120,6 +121,15 @@ class FrameDeck(list):
         self.frame_avg = None
         dpg.set_value("frame deck display", self.memory_report())
         dpg.set_item_label("cid indicator", "N/A")
+        for yax in self.get_all_tags_yaxes():
+            heatmapSlot = dpg.get_item_children(yax)[1]
+            if heatmapSlot:
+                heatSeries, = heatmapSlot
+                dpg.delete_item(heatSeries)
+    def get_all_tags_yaxes(self):
+        lst_allyaxes = [yax for _, yax, *_ in self.llst_items_dupe_maps]
+        lst_allyaxes.append("frame yax")
+        return lst_allyaxes
 
     @staticmethod
     def _plot_frame(frame: np.ndarray, 

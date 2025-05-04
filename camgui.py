@@ -446,9 +446,7 @@ with dpg.window(label = "帧预览", tag=winFramePreview,
             fmin, fmax, *_ = app_data
             # print(heatSeries)
             dpg.configure_item(frameColBar, min_scale = fmin, max_scale = fmax)
-            lst_allyaxes = [yax for _, yax, *_ in frame_deck.llst_items_dupe_maps]
-            lst_allyaxes.append(frameYax)
-            for yax in lst_allyaxes:
+            for yax in frame_deck.get_all_tags_yaxes():
                 heatmapSlot = dpg.get_item_children(yax)[1]
                 if heatmapSlot:
                     heatSeries, = heatmapSlot
