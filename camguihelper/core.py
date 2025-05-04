@@ -23,10 +23,20 @@ class FrameDeck(list):
     """
     class of a special list with my own methods for manipulating the frames it stores
     """
-    cid = None # current heatmap's id in deck
-    float_deck = [] # gui 中的操作需要 float frame, 因此与 list (int deck) 对应, 要有一个 float deck
-    frame_avg = None
-    llst_items_dupe_maps = [] # 保存 duplicated heatmaps window 中的 item tuple
+    # cid = None # current heatmap's id in deck
+    # float_deck = [] # gui 中的操作需要 float frame, 因此与 list (int deck) 对应, 要有一个 float deck
+    # frame_avg = None
+    # llst_items_dupe_maps = [] # 保存 duplicated heatmaps window 中的 item tuple
+    def __init__(self):
+        """
+        将状态变量作为 instance attr 初始化
+        好处(相对于 class attr 来说)是在不重启 kernel, 只重启 camgui.py 的情况下,
+        frame_deck 的状态不会保留上一次启动的记忆
+        """
+        self.cid = None
+        self.float_deck = []
+        self.frame_avg = None
+        self.llst_items_dupe_maps = []
     def memory_report(self) -> str:
         len_deck = len(self)
         if len_deck > 0:
@@ -35,19 +45,6 @@ class FrameDeck(list):
         else:
             mbsize_1_int_frame = mbsize_1_float_frame = 0
         return f"内存: {len_deck} 帧 ({(mbsize_1_float_frame+mbsize_1_int_frame)*len_deck:.2f} MB)"
-    
-    # def _force_update(self):
-    #     """
-    #     强制 float_deck 和与 list 内容同步, overhead 可能较大, 在需要的时候使用
-    #     同时执行:
-    #     - 更新 deck counts 显示
-    #     - 调整 cid 到 deck 最末
-    #     """
-    #     if self:
-    #         self.float_deck = [e.astype(float) for e in self]
-    #         self.cid = len(self) - 1
-    #         dpg.set_value("frame deck display", self.memory_report())
-    #         self.plot_frame_dwim()
     
     def _make_savename_stub(self):
         """
@@ -153,29 +150,31 @@ class FrameDeck(list):
                             scale_min=fmin, scale_max=fmax,format="",
                             bounds_min= (0,nvrows), bounds_max= (nhcols, 0)
                             )
-        # if not dpg.get_item_user_data("frame plot"): # 只有在无 query rect 选区时，才重置 heatmap 的 zoom
-        # if not had_series_child_p: # 如果没有老 series, 则我们 plot 了一张新图, 自动 scale 显示 frame 完整数据. 否则保持原始用户定义的 scale 不变 (因为用户可能在持续观察一个特定的选区)
-        #     dpg.fit_axis_data(yax)
-        #     dpg.fit_axis_data(xax)
     def plot_avg_frame(self):
+        """
+        与 plot_cid_frame 一起都是 绘制 main heatmap 的方法
+        区别于 plot_frame_dwim (绘制所有 map, 包括 dupe maps)
+        """
         if self.frame_avg is not None:
             self._plot_frame(self.frame_avg)
-        # if  self.float_deck:
-        #     avg_frame = sum(self.float_deck) / len(self.float_deck)
     def plot_cid_frame(self, xax = "frame xax", yax= "frame yax"):
         """
+        与 plot_avg_frame 一起都是 绘制 main heatmap 的方法
+        区别于 plot_frame_dwim (绘制所有 map, 包括 dupe maps)
         x/yax kwargs make it possible to plot else where when needed
         """
         if self.cid is not None:
             frame = self.float_deck[self.cid]
             self._plot_frame(frame, xax, yax)
     def plot_frame_dwim(self):
+        """
+        global update of all maps (main and dupes)
+        """
         if dpg.get_value("toggle 积分/单张 map"):
             self.plot_avg_frame()
         else:
             self.plot_cid_frame()
         for dupe_map_items in self.llst_items_dupe_maps: # update dupe windows
-            # xax, yax, inputInt, radioBtn = dupe_map_items
             self._update_dupe_map(*dupe_map_items)
     def _update_dupe_map(self, xax, yax, inputInt, radioBtn):
         """

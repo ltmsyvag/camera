@@ -229,8 +229,8 @@ with dpg.window(label= "控制面板", tag = winCtrlPanels):
                     dpg.bind_item_handler_registry(_item, _irhUpdate6FlsOnLeave)
             dpg.add_separator(label="log")
             winLog = dpg.add_child_window(tag = "log window")
-            dpg.add_button(label="msg", before=winLog, callback = lambda : push_log("hellohellohellohellohellohellohellohellohellohellohellohellohello"))
-            dpg.add_button(label="error", before=winLog, callback = lambda : push_log("hell", is_error=True))
+            # dpg.add_button(label="msg", before=winLog, callback = lambda : push_log("hellohellohellohellohellohellohellohellohellohellohellohellohello"))
+            # dpg.add_button(label="error", before=winLog, callback = lambda : push_log("hell", is_error=True))
         with dpg.child_window(label = "awg panel"):
             with dpg.group(tag = "awg panel"):
                 togAwg = dpg.add_button(tag = "AWG toggle",
@@ -399,9 +399,9 @@ with dpg.window(label = "帧预览", tag=winFramePreview,
     dpg.bind_item_font(dpg.last_item(), bold_font)
     with dpg.group(label = "热图上下限, 帧翻页, 平均图 checkbox", horizontal=True):
         dpg.add_input_intx(tag = "color scale lims",label = "", size = 2, width=100, default_value=[0,65535,0,0], enabled=False)
-        with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("热图上下限, 最多 0-65535")
+        with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("热图上下限, 最多 0-65535\n若未勾选'手动上下限', 则每次绘图自动用全帧最大/最小值作为上下限")
         #===========================================
-        dpg.add_checkbox(tag = "manual scale checkbox", label = "自定义上下限")
+        dpg.add_checkbox(tag = "manual scale checkbox", label = "手动上下限")
         @toggle_checkbox_and_disable("color scale lims", on_and_enable=True)
         def _empty_cb(*cbargs):
             pass
@@ -436,16 +436,17 @@ with dpg.window(label = "帧预览", tag=winFramePreview,
                 """
                 frame_deck.llst_items_dupe_maps.remove(dupe_map_items)
                 dpg.delete_item(sender)
-            with dpg.window(width=300, height=300, on_close=_on_close) as dupeWin:
+            with dpg.window(width=300, height=300, on_close=_on_close, label = f"#{len(frame_deck.llst_items_dupe_maps)}"):
                 frame_deck.llst_items_dupe_maps.append(dupe_map_items)
                 with dpg.group(horizontal=True):
+                    #==============================
                     dpg.add_input_int(width=100, tag=inputInt, max_value=0, max_clamped=True, 
                                     #   callback=_log
                                       )
                     def _cb_input_int(*args):
                         frame_deck._update_dupe_map(*dupe_map_items)
                     dpg.set_item_callback(inputInt, _cb_input_int)
-                    #===================================
+                    #===============================
                     dpg.add_radio_button(("倒数帧", "正数帧"), tag=radioBtn,
                                          default_value="倒数帧", horizontal=True,
                                         #  callback=_log
@@ -482,8 +483,12 @@ with dpg.window(label = "帧预览", tag=winFramePreview,
                     dpg.split_frame()
                     dpg.set_axis_limits_auto(xax)
                     dpg.set_axis_limits_auto(yax)
+                #======================
+                dpg.add_checkbox(pos = (10,62)) # 要画在 plot 上, 所以在 plot 后添加
+                with dpg.tooltip(dpg.last_item(), **ttpkwargs):
+                    dpg.add_text("切换单帧/平均帧")
 
-            frame_deck.plot_cid_frame(xax, yax)        
+            frame_deck.plot_cid_frame(xax, yax)    
         dpg.set_item_callback(cidIndcator, _dupe_heatmap)
         #==========================================
         rightArr = dpg.add_button(tag = "plot next frame", label=">", arrow=True, direction=dpg.mvDir_Right)
@@ -493,23 +498,15 @@ with dpg.window(label = "帧预览", tag=winFramePreview,
                 frame_deck.plot_cid_frame()
                 dpg.set_item_label(cidIndcator, f"{frame_deck.cid}")
         dpg.set_item_callback(rightArr, _right_arrow_cb_)
-        dpg.add_spacer(width = 10)
+        # dpg.add_spacer(width = 10)
         #============================================
-        cboxTogAvgMap = dpg.add_checkbox(label="帧叠平均",tag="toggle 积分/单张 map")
-        @toggle_checkbox_and_disable(leftArr, rightArr, cidIndcator)
-        def _toggle_cid_and_avg_map_(_, app_data,__):
-            if app_data:
-                frame_deck.plot_avg_frame()
-            else:
-                frame_deck.plot_cid_frame()
-        dpg.set_item_callback(cboxTogAvgMap, _toggle_cid_and_avg_map_)
+        
     with dpg.group(horizontal=True):
         _cmap = dpg.mvPlotColormap_Viridis
-        dpg.add_colormap_scale(tag = "frame colorbar", min_scale=0, max_scale=65535, 
-                               height=-1
-                               )
+        dpg.add_colormap_scale(tag = "frame colorbar", min_scale=0, max_scale=500, 
+                            height=-1
+                            )
         dpg.bind_colormap(dpg.last_item(), _cmap)
-        
         with dpg.plot(tag="frame plot",
                     query=True, query_color=(255,0,0), max_query_rects=1, min_query_rects=0,
                     **heatmap_plot_kwargs) as framePlot:
@@ -549,7 +546,17 @@ with dpg.window(label = "帧预览", tag=winFramePreview,
                 else: # this is only needed for the current query rect solution for hist udpates. actions from other items cannot check app_data of this item directly (usually dpg.get_value(item) can check the app_data of an item, but not for this very special query rect coordinates app_data belonging to the heatmap plot!), so they check the user_data of this item. since I mean to stop any histogram updating when no query rect is present, then this no-rect info is given by user_data = None of the heatmap plot.
                     dpg.set_item_user_data(sender, None)
             dpg.set_item_callback(framePlot,callback=_update_hist_on_query_)
-
+    #===本 checkbox 需要画在 plot 上面, 因此在 plot 添加
+    dpg.add_checkbox(tag="toggle 积分/单张 map", pos = (85,153)) #
+    @toggle_checkbox_and_disable(leftArr, rightArr, cidIndcator)
+    def _toggle_cid_and_avg_map_(_, app_data,__):
+        if app_data:
+            frame_deck.plot_avg_frame()
+        else:
+            frame_deck.plot_cid_frame()
+    dpg.set_item_callback(dpg.last_item(), _toggle_cid_and_avg_map_)
+    with dpg.tooltip(dpg.last_item(), **ttpkwargs):
+        dpg.add_text("切换单帧/平均帧")
 with dpg.window(label="直方图", tag=winHist, 
                 width = 500, height =300):
     dpg.add_input_int(
