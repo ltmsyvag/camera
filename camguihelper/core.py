@@ -25,6 +25,7 @@ class FrameDeck(list):
     """
     cid = None # current heatmap's id in deck
     float_deck = [] # gui 中的操作需要 float frame, 因此与 list (int deck) 对应, 要有一个 float deck
+    frame_avg = None
     llst_items_dupe_maps = [] # 保存 duplicated heatmaps window 中的 item tuple
     def memory_report(self) -> str:
         len_deck = len(self)
@@ -35,18 +36,18 @@ class FrameDeck(list):
             mbsize_1_int_frame = mbsize_1_float_frame = 0
         return f"内存: {len_deck} 帧 ({(mbsize_1_float_frame+mbsize_1_int_frame)*len_deck:.2f} MB)"
     
-    def _force_update(self):
-        """
-        强制 float_deck 和与 list 内容同步, overhead 可能较大, 在需要的时候使用
-        同时执行:
-        - 更新 deck counts 显示
-        - 调整 cid 到 deck 最末
-        """
-        if self:
-            self.float_deck = [e.astype(float) for e in self]
-            self.cid = len(self) - 1
-            dpg.set_value("frame deck display", self.memory_report())
-            self.plot_frame_dwim()
+    # def _force_update(self):
+    #     """
+    #     强制 float_deck 和与 list 内容同步, overhead 可能较大, 在需要的时候使用
+    #     同时执行:
+    #     - 更新 deck counts 显示
+    #     - 调整 cid 到 deck 最末
+    #     """
+    #     if self:
+    #         self.float_deck = [e.astype(float) for e in self]
+    #         self.cid = len(self) - 1
+    #         dpg.set_value("frame deck display", self.memory_report())
+    #         self.plot_frame_dwim()
     
     def _make_savename_stub(self):
         """
@@ -66,6 +67,7 @@ class FrameDeck(list):
         append a new frame to int & float decks
         同时执行: 
         - cid update
+        - 平均 heatmap 计算
         - counts display update
         - cid indicator updates
         append 现在貌似是为 frame_deck 添加 frame 的唯一入口, let's keep it that way
@@ -76,6 +78,7 @@ class FrameDeck(list):
         super().append(frame)
         self.float_deck.append(frame.astype(float))
         self.cid = len(self) - 1
+        self.frame_avg = sum(self.float_deck) / len(self.float_deck)
         dpg.set_value("frame deck display", self.memory_report())
         dpg.set_item_label("cid indicator", f"{self.cid}")
     def save_deck(self):
@@ -115,11 +118,13 @@ class FrameDeck(list):
         """
         - clear int & float decks
         - cid update
+        - avg frame update
         - cid indicator updates
         """
         super().clear()
         self.float_deck.clear()
         self.cid = None
+        self.frame_avg = None
         dpg.set_value("frame deck display", self.memory_report())
         dpg.set_item_label("cid indicator", "N/A")
 
@@ -153,9 +158,10 @@ class FrameDeck(list):
         #     dpg.fit_axis_data(yax)
         #     dpg.fit_axis_data(xax)
     def plot_avg_frame(self):
-        if  self.float_deck:
-            avg_frame = sum(self.float_deck) / len(self.float_deck)
-            self._plot_frame(avg_frame)
+        if self.frame_avg is not None:
+            self._plot_frame(self.frame_avg)
+        # if  self.float_deck:
+        #     avg_frame = sum(self.float_deck) / len(self.float_deck)
     def plot_cid_frame(self, xax = "frame xax", yax= "frame yax"):
         """
         x/yax kwargs make it possible to plot else where when needed
@@ -363,10 +369,12 @@ def push_log(msg:str, *,
                  parent= tagWin, 
                  color = color,
                  wrap= 150)
+    
     win_children = dpg.get_item_children(tagWin)
     lst_tags_msgs = win_children[1]
     if len(lst_tags_msgs)>100: # log 最多 100 条
         oldestTxt = lst_tags_msgs.pop(0)
         dpg.delete_item(oldestTxt)
+
     dpg.set_y_scroll(tagWin, dpg.get_y_scroll_max(tagWin)+20 # the +20 is necessary because IDK why the window does not scroll to the very bottom, there's a ~20 margin, strange. 
                      )
