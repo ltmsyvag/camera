@@ -40,7 +40,7 @@ dpg.configure_app(#docking = True, docking_space=True, docking_shift_only=True,
 do_bind_my_global_theme()
 _, bold_font, large_font = do_initialize_chinese_fonts()
 toggle_theming_and_enable = do_extend_add_button()
-
+myCmap = dpg.mvPlotColormap_Viridis
 
 
 dpg.create_viewport(title='camera', 
@@ -477,7 +477,6 @@ with dpg.window(label = "帧预览", tag=winFramePreview,
         heatmap_xyaxkwargs = dict(no_gridlines = True, no_tick_marks = True)
         heatmap_xkwargs = dict(label= "", opposite=True)
         heatmap_ykwargs = dict(label= "", invert=True)
-        # _cmap = dpg.mvPlotColormap_Viridis
         def _dupe_heatmap():
             xax = dpg.generate_uuid() # 在实际创建这些 items 之前就要用到它们的 tag, 故先创建此 tag
             yax = dpg.generate_uuid() 
@@ -530,7 +529,7 @@ with dpg.window(label = "帧预览", tag=winFramePreview,
                             dpg.configure_item(inputInt, min_value = 0, min_clamped = True)
                     dpg.set_item_callback(radioBtn, _cb_radio)
                 with dpg.plot(**heatmap_plot_kwargs):
-                    dpg.bind_colormap(dpg.last_item(), dpg.mvPlotColormap_Viridis)
+                    dpg.bind_colormap(dpg.last_item(), myCmap)
                     dpg.add_plot_axis(dpg.mvXAxis, tag=xax, **heatmap_xkwargs, **heatmap_xyaxkwargs)
                     dpg.add_plot_axis(dpg.mvYAxis, tag=yax, **heatmap_ykwargs, **heatmap_xyaxkwargs)
                     xaxlims_orig, yaxlims_orig = dpg.get_axis_limits("frame xax"), dpg.get_axis_limits("frame yax")
@@ -562,15 +561,14 @@ with dpg.window(label = "帧预览", tag=winFramePreview,
         #============================================
         
     with dpg.group(horizontal=True):
-        _cmap = dpg.mvPlotColormap_Viridis
         frameColBar = dpg.add_colormap_scale(tag = "frame colorbar", min_scale=0, max_scale=500, 
                             height=-1
                             )
-        dpg.bind_colormap(dpg.last_item(), _cmap)
+        dpg.bind_colormap(dpg.last_item(), myCmap)
         with dpg.plot(tag="frame plot",
                     query=True, query_color=(255,0,0), max_query_rects=1, min_query_rects=0,
                     **heatmap_plot_kwargs) as framePlot:
-            dpg.bind_colormap(dpg.last_item(), _cmap)
+            dpg.bind_colormap(dpg.last_item(), myCmap)
             
             dpg.add_plot_axis(dpg.mvXAxis, tag = "frame xax",**heatmap_xkwargs, **heatmap_xyaxkwargs)
             frameYax = dpg.add_plot_axis(dpg.mvYAxis, tag= "frame yax", **heatmap_ykwargs, **heatmap_xyaxkwargs)
