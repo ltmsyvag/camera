@@ -7,6 +7,7 @@ item 和 (创建 containter item 的) context manager 之间用 `#====` 分隔
 item 常数用首字母小写的驼峰命名 e.g. myItem. 其他任何变量都不能用此驼峰命名 (类用首字母大写的驼峰命名, e.g. MyClass)
 cam 将会是全局变量, 由 callback 创建
 """
+from typing import Callable
 import dearpygui.dearpygui as dpg
 from pylablib.devices import DCAM
 import threading
@@ -39,6 +40,8 @@ dpg.configure_app(#docking = True, docking_space=True, docking_shift_only=True,
 do_bind_my_global_theme()
 _, bold_font, large_font = do_initialize_chinese_fonts()
 toggle_theming_and_enable = do_extend_add_button()
+
+
 
 dpg.create_viewport(title='camera', 
                     width=1460, height=1020, x_pos=0, y_pos=0, clear_color=(0,0,0,0),
@@ -391,7 +394,38 @@ with dpg.window(label = "帧预览", tag=winFramePreview,
                                     factory_cb_yn_modal_dialog(cb_on_confirm=_on_confirm, dialog_text="确认要清空内存中的所有帧吗?"))
         #=========================
         dpg.add_menu_item(label = "载入帧", callback=lambda: dpg.show_item(fileDialog))
-
+        with dpg.menu(label = "热图主题"):
+            def factory_cb_bind_heatmap_cmap(cmap: int)-> Callable:
+                def cb_bind_heatmap_theme(sender, *args) ->None:
+                    dpg.bind_colormap("frame colorbar", cmap)
+                    dpg.bind_colormap("frame plot", cmap)
+                    for xax, *_ in frame_deck.llst_items_dupe_maps:
+                        tagPlot = dpg.get_item_parent(xax)
+                        dpg.bind_colormap(tagPlot, cmap)
+                    lst_other_menu_items = dpg.get_item_children(dpg.get_item_parent(sender))[1]
+                    lst_other_menu_items.remove(sender)
+                    dpg.set_value(sender, True)
+                    for item in lst_other_menu_items:
+                        dpg.set_value(item, False)
+                return cb_bind_heatmap_theme
+            
+            dpg.add_menu_item(label="Deep", callback= factory_cb_bind_heatmap_cmap(dpg.mvPlotColormap_Deep), check=True)
+            dpg.add_menu_item(label="Dark", callback= factory_cb_bind_heatmap_cmap(dpg.mvPlotColormap_Dark), check=True)
+            dpg.add_menu_item(label="Pastel", callback= factory_cb_bind_heatmap_cmap(dpg.mvPlotColormap_Pastel), check=True)
+            dpg.add_menu_item(label="Paired", callback= factory_cb_bind_heatmap_cmap(dpg.mvPlotColormap_Paired), check=True)
+            dpg.add_menu_item(label="Viridis", callback= factory_cb_bind_heatmap_cmap(dpg.mvPlotColormap_Viridis), check=True, default_value=True)
+            dpg.add_menu_item(label="Plasma", callback= factory_cb_bind_heatmap_cmap(dpg.mvPlotColormap_Plasma), check=True)
+            dpg.add_menu_item(label="Hot", callback= factory_cb_bind_heatmap_cmap(dpg.mvPlotColormap_Hot), check=True)
+            dpg.add_menu_item(label="Cool", callback= factory_cb_bind_heatmap_cmap(dpg.mvPlotColormap_Cool), check=True)
+            dpg.add_menu_item(label="Pink", callback= factory_cb_bind_heatmap_cmap(dpg.mvPlotColormap_Pink), check=True)
+            dpg.add_menu_item(label="Jet", callback= factory_cb_bind_heatmap_cmap(dpg.mvPlotColormap_Jet), check=True)
+            dpg.add_menu_item(label="Twilight", callback= factory_cb_bind_heatmap_cmap(dpg.mvPlotColormap_Twilight), check=True)
+            dpg.add_menu_item(label="RdBu", callback= factory_cb_bind_heatmap_cmap(dpg.mvPlotColormap_RdBu), check=True)
+            dpg.add_menu_item(label="BrBG", callback= factory_cb_bind_heatmap_cmap(dpg.mvPlotColormap_BrBG), check=True)
+            dpg.add_menu_item(label="PiYG", callback= factory_cb_bind_heatmap_cmap(dpg.mvPlotColormap_PiYG), check=True)
+            dpg.add_menu_item(label="Spectral", callback= factory_cb_bind_heatmap_cmap(dpg.mvPlotColormap_Spectral), check=True)
+            dpg.add_menu_item(label="Greys", callback= factory_cb_bind_heatmap_cmap(dpg.mvPlotColormap_Greys), check=True)
+            
     fldSavePath = dpg.add_input_text(tag="save path input field",
                             hint="path to save tiff, e.g. C:\\Users\\username\\Desktop\\")
     #========================================
