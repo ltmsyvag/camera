@@ -483,7 +483,6 @@ with dpg.window(label = "帧预览", tag=winFramePreview,
                     dpg.set_axis_limits_auto(xax)
                     dpg.set_axis_limits_auto(yax)
 
-
             frame_deck.plot_cid_frame(xax, yax)        
         dpg.set_item_callback(cidIndcator, _dupe_heatmap)
         #==========================================

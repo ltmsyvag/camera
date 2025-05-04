@@ -187,6 +187,7 @@ class FrameDeck(list):
             self._plot_frame(frame, xax, yax)
         else:
             dpg.delete_item(yax, children_only=True)
+
 class MyPath(Path):
     def is_readable(self):
         return os.access(self, os.R_OK)
@@ -232,7 +233,6 @@ def _update_hist(hLhRvLvR: tuple, frame_deck: FrameDeck, yax = "hist plot yax")-
         histData, parent = yax, bins =nBins, 
         min_range=theMinInt,max_range=max_range)
 
-
 def start_flag_watching_acq(
     cam: DCAM.DCAM.DCAMCamera,
     flag: threading.Event,
@@ -259,17 +259,21 @@ def start_flag_watching_acq(
         # print("frame acquired")
 
 import time
+
 from fake_frames_imports import frame_list
 def _dummy_start_flag_watching_acq(cam, flag, frame_deck, controller):
     while flag.is_set():
         time.sleep(1)
         if frame_list:
             this_frame = frame_list.pop()
+            beg = time.time()            
             frame_deck.append(this_frame)
             frame_deck.plot_frame_dwim()
             hLhRvLvR = dpg.get_item_user_data("frame plot")
             if hLhRvLvR:
                 _update_hist(hLhRvLvR, frame_deck)
+            end = time.time()
+            push_log(f"绘图耗时{(end-beg)*1e3:.3f} ms")
         else:
             break
 start_flag_watching_acq = _dummy_start_flag_watching_acq
@@ -359,5 +363,10 @@ def push_log(msg:str, *,
                  parent= tagWin, 
                  color = color,
                  wrap= 150)
+    win_children = dpg.get_item_children(tagWin)
+    lst_tags_msgs = win_children[1]
+    if len(lst_tags_msgs)>100: # log 最多 100 条
+        oldestTxt = lst_tags_msgs.pop(0)
+        dpg.delete_item(oldestTxt)
     dpg.set_y_scroll(tagWin, dpg.get_y_scroll_max(tagWin)+20 # the +20 is necessary because IDK why the window does not scroll to the very bottom, there's a ~20 margin, strange. 
                      )
