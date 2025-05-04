@@ -14,7 +14,6 @@ import threading
 import time
 import math
 import tifffile
-import re
 from camguihelper import gui_open_awg, FrameDeck, start_flag_watching_acq, push_log
 from camguihelper.core import _log, _update_hist
 from camguihelper.dpghelper import (
@@ -344,8 +343,9 @@ with dpg.file_dialog( # file dialog 就是一个独立的 window, 因此在应�
     directory_selector=False, show=False, modal=True,
     tag="file dialog", width=700 ,height=400) as fileDialog:
     dpg.add_file_extension("", color = (150,255,150,255)) # 让无后缀的项目(比如文件夹显示为绿色)
-    dpg.add_file_extension(".tif")
-    dpg.add_file_extension(".tiff")
+    # dpg.add_file_extension(".tif")
+    # dpg.add_file_extension(".tiff")
+    dpg.add_file_extension("tiff files (*.tif *.tiff){.tif,.tiff}") # the {} part is what the file dialog really parses, others are for human eyes
     def _ok_cb_(_, app_data, __)->None:
         """
         选择 4 个 tif 文件时的 app_data: {
@@ -378,6 +378,8 @@ with dpg.file_dialog( # file dialog 就是一个独立的 window, 因此在应�
                 frame_deck.append(e)
             frame_deck.plot_frame_dwim()
     dpg.set_item_callback(fileDialog, _ok_cb_)
+    
+    # dpg.add_button(label="stuff")
 
 with dpg.window(label = "帧预览", tag=winFramePreview,
                 height=700, width=700
@@ -559,7 +561,6 @@ with dpg.window(label = "帧预览", tag=winFramePreview,
         dpg.set_item_callback(rightArr, _right_arrow_cb_)
         # dpg.add_spacer(width = 10)
         #============================================
-        
     with dpg.group(horizontal=True):
         frameColBar = dpg.add_colormap_scale(tag = "frame colorbar", min_scale=0, max_scale=500, 
                             height=-1
