@@ -22,7 +22,7 @@ from camguihelper.dpghelper import (
     do_extend_add_button,
     toggle_checkbox_and_disable,
     factory_cb_yn_modal_dialog)
-cam = None # probably needed for dummy acquisition, the same reason as needing controller = None
+
 controller = None # controller always has to exist, we can't wait for it to be created by a callback (like `cam`), since it is the argument of the func `start_flag_watching_acq` (and ultimately, the required arg of ZYL func `feed_AWG`) that runs in the thread thread_acq. When awg is off, `controller` won't be used and won't be created either, but the `controller` var still has to exist (as a global variable because I deem `controller` suitable to be a global var) as a formal argument (or placeholder) of `start_flag_watching_acq`. This is more or less an awkward situation because I want to put `start_flag_watching_acq` in a module file (where the functions do not have access to working script global vars), not in the working script. Essentailly, the func in a module py file has no closure access to the global varibles in the working script, unless I choose to explicitly pass the working script global var as an argument to the imported func
 frame_deck = FrameDeck(session_manager_root="") # the normal empty frame_deck creation
 
@@ -446,6 +446,41 @@ with dpg.window(label = "帧预览", tag=winFramePreview,
             dpg.add_menu_item(label="PiYG", callback= factory_cb_bind_heatmap_cmap(dpg.mvPlotColormap_PiYG), check=True)
             dpg.add_menu_item(label="Spectral", callback= factory_cb_bind_heatmap_cmap(dpg.mvPlotColormap_Spectral), check=True)
             dpg.add_menu_item(label="Greys", callback= factory_cb_bind_heatmap_cmap(dpg.mvPlotColormap_Greys), check=True)
+            def _make_reverse_cmap(tagCmap: int, ncolors: int=11)->list:
+                """
+                reverse a dpg builtin cmap scheme. usually the continuous heatmaps have 11 colors, except for grey (2 colors)
+                """
+                series = [dpg.get_colormap_color(tagCmap, i) for i in range(ncolors)]
+                series = [
+                    [int(r*255), int(g*255), int(b*255), int(a*255)] for (r,g,b,a) in series
+                    ]
+                series.reverse()
+                return series
+            with dpg.colormap_registry():
+                dpg.mvPlotColormap_Viridis_r = dpg.add_colormap(_make_reverse_cmap(dpg.mvPlotColormap_Viridis), qualitative=False)
+                dpg.mvPlotColormap_Plasma_r = dpg.add_colormap(_make_reverse_cmap(dpg.mvPlotColormap_Plasma), qualitative=False)
+                dpg.mvPlotColormap_Hot_r = dpg.add_colormap(_make_reverse_cmap(dpg.mvPlotColormap_Hot), qualitative=False)
+                dpg.mvPlotColormap_Cool_r = dpg.add_colormap(_make_reverse_cmap(dpg.mvPlotColormap_Cool), qualitative=False)
+                dpg.mvPlotColormap_Pink_r = dpg.add_colormap(_make_reverse_cmap(dpg.mvPlotColormap_Pink), qualitative=False)
+                dpg.mvPlotColormap_Jet_r = dpg.add_colormap(_make_reverse_cmap(dpg.mvPlotColormap_Jet), qualitative=False)
+                dpg.mvPlotColormap_Twilight_r = dpg.add_colormap(_make_reverse_cmap(dpg.mvPlotColormap_Twilight), qualitative=False)
+                dpg.mvPlotColormap_RdBu_r = dpg.add_colormap(_make_reverse_cmap(dpg.mvPlotColormap_RdBu), qualitative=False)
+                dpg.mvPlotColormap_BrBG_r = dpg.add_colormap(_make_reverse_cmap(dpg.mvPlotColormap_BrBG), qualitative=False)
+                dpg.mvPlotColormap_PiYG_r = dpg.add_colormap(_make_reverse_cmap(dpg.mvPlotColormap_PiYG), qualitative=False)
+                dpg.mvPlotColormap_Spectral_r = dpg.add_colormap(_make_reverse_cmap(dpg.mvPlotColormap_Spectral), qualitative=False)
+                dpg.mvPlotColormap_Greys_r = dpg.add_colormap(_make_reverse_cmap(dpg.mvPlotColormap_Greys, ncolors=2), qualitative=False)
+            dpg.add_menu_item(label="Viridis_r", callback= factory_cb_bind_heatmap_cmap(dpg.mvPlotColormap_Viridis_r), check=True)
+            dpg.add_menu_item(label="Plasma_r", callback= factory_cb_bind_heatmap_cmap(dpg.mvPlotColormap_Plasma_r), check=True)
+            dpg.add_menu_item(label="Hot_r", callback= factory_cb_bind_heatmap_cmap(dpg.mvPlotColormap_Hot_r), check=True)
+            dpg.add_menu_item(label="Cool_r", callback= factory_cb_bind_heatmap_cmap(dpg.mvPlotColormap_Cool_r), check=True)
+            dpg.add_menu_item(label="Pink_r", callback= factory_cb_bind_heatmap_cmap(dpg.mvPlotColormap_Pink_r), check=True)
+            dpg.add_menu_item(label="Jet_r", callback= factory_cb_bind_heatmap_cmap(dpg.mvPlotColormap_Jet_r), check=True)
+            dpg.add_menu_item(label="Twilight_r", callback= factory_cb_bind_heatmap_cmap(dpg.mvPlotColormap_Twilight_r), check=True)
+            dpg.add_menu_item(label="RdBu_r", callback= factory_cb_bind_heatmap_cmap(dpg.mvPlotColormap_RdBu_r), check=True)
+            dpg.add_menu_item(label="BrBG_r", callback= factory_cb_bind_heatmap_cmap(dpg.mvPlotColormap_BrBG_r), check=True)
+            dpg.add_menu_item(label="PiYG_r", callback= factory_cb_bind_heatmap_cmap(dpg.mvPlotColormap_PiYG_r), check=True)
+            dpg.add_menu_item(label="Spectral_r", callback= factory_cb_bind_heatmap_cmap(dpg.mvPlotColormap_Spectral_r), check=True)
+            dpg.add_menu_item(label="Greys_r", callback= factory_cb_bind_heatmap_cmap(dpg.mvPlotColormap_Greys_r), check=True)
     #=========================================   
     fldSavePath = dpg.add_input_text(tag="save path input field",
                             hint="path to save tiff, e.g. C:\\Users\\username\\Desktop\\"
@@ -642,8 +677,11 @@ with dpg.window(label="直方图", tag=winHist,
         dpg.add_plot_axis(dpg.mvXAxis, label = "converted counts ((<frame pixel counts>-200)*0.1/0.9)")
         dpg.add_plot_axis(dpg.mvYAxis, label = "frequency", tag = "hist plot yax")
 
-dpg.set_item_callback(togCam,_dummy_cam_toggle_cb_)
-dpg.set_item_callback(togAcq, _dummy_toggle_acq_cb)
+if True: # do dummy acquisition
+    dpg.set_item_callback(togCam,_dummy_cam_toggle_cb_)
+    dpg.set_item_callback(togAcq, _dummy_toggle_acq_cb)
+    cam = None # probably needed for dummy acquisition, the same reason as needing controller = None
+
 # dpg.show_style_editor()
 dpg.setup_dearpygui()
 dpg.show_viewport()
