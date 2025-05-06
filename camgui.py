@@ -15,7 +15,7 @@ import time
 import math
 import tifffile
 from camguihelper import gui_open_awg, FrameDeck, start_flag_watching_acq
-from camguihelper.core import _log, _update_hist
+from camguihelper.core import _log, _update_hist, _dummy_start_flag_watching_acq
 from camguihelper.dpghelper import (
     do_bind_my_global_theme,
     do_initialize_chinese_fonts,
@@ -168,7 +168,7 @@ with dpg.window(label= "控制面板", tag = winCtrlPanels):
                 if next_state:
                     try:
                         thread_watching_a_flag = threading.Thread(
-                            target=start_flag_watching_acq, args=(cam, flag, frame_deck, controller))
+                            target=_dummy_start_flag_watching_acq, args=(cam, flag, frame_deck, controller))
                         user_data["acq thread"] = thread_watching_a_flag
                         flag.set()
                         thread_watching_a_flag.start()

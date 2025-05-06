@@ -158,7 +158,8 @@ class FrameDeck(list):
         return lst_allyaxes
     @staticmethod
     def _plot_frame(frame: np.ndarray, 
-                    xax: str="frame xax", yax = "frame yax")->None:
+                    # xax: str="frame xax", 
+                    yax = "frame yax")->None:
         assert np.issubdtype(frame.dtype, float), "heatmap frame can only be float!"
         colorbar="frame colorbar"
         fmin, fmax, (nvrows, nhcols) = frame.min(), frame.max(), frame.shape
@@ -310,7 +311,7 @@ def _dummy_start_flag_watching_acq(cam, flag, frame_deck, controller):
             push_log(f"绘图耗时{(end-beg)*1e3:.3f} ms")
         else:
             break
-start_flag_watching_acq = _dummy_start_flag_watching_acq
+
 
 
 def _log(sender, app_data, user_data):
