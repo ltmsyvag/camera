@@ -14,7 +14,7 @@ import threading
 import time
 import math
 import tifffile
-from camguihelper import gui_open_awg, FrameDeck, start_flag_watching_acq, push_log
+from camguihelper import gui_open_awg, FrameDeck, start_flag_watching_acq
 from camguihelper.core import _log, _update_hist
 from camguihelper.dpghelper import (
     do_bind_my_global_theme,
@@ -184,13 +184,30 @@ with dpg.window(label= "控制面板", tag = winCtrlPanels):
 
             dpg.bind_item_font(togAcq, large_font)
             dpg.set_item_callback(togAcq, _toggle_acq_cb_)
-            #===================================
-            _color = (255,0,255)
-            dpg.add_text("当前 0000", color= _color)
-            dpg.bind_item_font(dpg.last_item(), large_font)
-            dpg.add_text("接下来 0001")
-            dpg.bind_item_font(dpg.last_item(), bold_font)
-            dpg.add_separator()
+            #==============================
+            with dpg.child_window(height=122,no_scrollbar=True) as _cw:
+                with dpg.group(horizontal=True):
+                    dpg.add_text("配置文件夹:")
+                    ttpkwargs = dict(delay=1, hide_on_activity= True)
+                    with dpg.tooltip(dpg.last_item(), **ttpkwargs):
+                        dpg.add_text("当前面板中所有的配置在触发采集开始时\n会被保存到这个文件夹")
+                    dpg.add_text("CA1")
+                    dpg.bind_item_font(dpg.last_item(), large_font)
+                #===================================
+                with dpg.group(horizontal=True):
+                    dpg.add_text("帧文件夹:")
+                    with dpg.tooltip(dpg.last_item(), **ttpkwargs):
+                        dpg.add_text("当前采集的所有帧文件(tiff)\n会被保存到这个文件夹")
+                    _color = (255,0,255)
+                    dpg.add_text("0000", color= _color)
+                    dpg.bind_item_font(dpg.last_item(), large_font)
+                dpg.add_button(label="新 帧文件夹")
+            with dpg.theme() as _thm:
+                with dpg.theme_component(dpg.mvChildWindow):
+                    dpg.add_theme_color(dpg.mvThemeCol_ChildBg, (0,0,0))
+            dpg.bind_item_theme(_cw, _thm)
+                # dpg.add_separator()
+                # dpg.add_separator()
             #====================================
             with dpg.group(tag = "expo and roi fields", enabled=False):
                 dpg.add_text("exposure time (ms):")
@@ -210,7 +227,6 @@ with dpg.window(label= "控制面板", tag = winCtrlPanels):
                 #==下面的 6 roi fields 由于在 cam 中必须同时 update, 因此其共用一个 callback. 我们将相关 field items 设置代码放在一个区块内====
                 dpg.add_spacer(height=10)
                 dpg.add_separator(label="ROI")
-                ttpkwargs = dict(delay=1, hide_on_activity= True)
                 with dpg.tooltip(dpg.last_item(), **ttpkwargs):
                         dpg.add_text("max h 4096, max v 2304")
                 dpg.add_text("h start & h length:")
@@ -628,7 +644,7 @@ with dpg.window(label="直方图", tag=winHist,
 
 dpg.set_item_callback(togCam,_dummy_cam_toggle_cb_)
 dpg.set_item_callback(togAcq, _dummy_toggle_acq_cb)
-
+# dpg.show_style_editor()
 dpg.setup_dearpygui()
 dpg.show_viewport()
 dpg.start_dearpygui()
