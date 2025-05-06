@@ -45,7 +45,7 @@ session_manager_root = MyPath("session_manager_root")
                     |    |                ├-- 0001/
                     |    |                └-- 0002/
                     |    └-- 2026/
-                    └-- camgui_configs
+                    └-- camgui_configs/
                          ├-- 2025/
                          |     ├-- 一月/
                          |     |     ├-- 01/
@@ -64,7 +64,6 @@ class FrameDeck(list):
     """
     class of a special list with my own methods for manipulating the frames it stores
     """
-    # data_root = session_manager_root / "frames"
     def __init__(self, 
                  session_manager_root: MyPath=session_manager_root #允许 camgui.py 代码中 override 测试用的 sm root
                  ):
@@ -87,6 +86,7 @@ class FrameDeck(list):
             mbsize_1_int_frame = mbsize_1_float_frame = 0
         return f"内存: {len_deck} 帧 ({(mbsize_1_float_frame+mbsize_1_int_frame)*len_deck:.2f} MB)"
     
+    @classmethod
     def _make_savename_stub(self):
         """
         如果想保存的文件时间是
@@ -188,8 +188,11 @@ class FrameDeck(list):
         else:
             push_log("不存在!")
 
-    def _mk_new_data_dir(self):
-        ...
+    def _update_session_data_dir(self):
+        if self.data_root.is_dir() and self.data_root.is_writable(): # `is_dir` 保证 dir 存在且是 dir (不是文件名), `is_writable` 保证 dir 可写. 这个 check 防止
+            ...
+        else:
+            push_log("data root does not exist or is non-writable", is_error=True)
     def get_all_tags_yaxes(self):
         lst_allyaxes = [yax for _, yax, *_ in self.llst_items_dupe_maps]
         lst_allyaxes.append("frame yax")
