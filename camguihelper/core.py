@@ -12,12 +12,12 @@ import colorsys
 import tifffile
 import os
 import dearpygui.dearpygui as dpg
-import platform, uuid
-system = platform.system()
-if (system == "Windows") and (hex(uuid.getnode()) != '0xf4ce2305b4c7'): # the code stands for A402 computer
-    import spcm
-    from AWG_module.no_with_func import DDSRampController
-    from AWG_module.unified import feed_AWG
+# import platform, uuid
+# system = platform.system()
+# if (system == "Windows") and (hex(uuid.getnode()) != '0xf4ce2305b4c7'): # the code stands for A402 computer
+import spcm
+from AWG_module.no_with_func import DDSRampController
+from AWG_module.unified import feed_AWG
 
 class MyPath(Path):
     def is_readable(self):
@@ -310,7 +310,7 @@ def start_flag_watching_acq(
     cam: DCAM.DCAM.DCAMCamera,
     flag: threading.Event,
     frame_deck: FrameDeck,
-    controller, # type is DDSRampController, not hinted because it acts funny on macOS
+    controller: DDSRampController,
     )-> None:
     cam.set_trigger_mode("ext")
     cam.start_acquisition(mode="sequence", nframes=100)

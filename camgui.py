@@ -642,8 +642,8 @@ with dpg.window(label="直方图", tag=winHist,
         dpg.add_plot_axis(dpg.mvXAxis, label = "converted counts ((<frame pixel counts>-200)*0.1/0.9)")
         dpg.add_plot_axis(dpg.mvYAxis, label = "frequency", tag = "hist plot yax")
 
-dpg.set_item_callback(togCam,_dummy_cam_toggle_cb_)
-dpg.set_item_callback(togAcq, _dummy_toggle_acq_cb)
+# dpg.set_item_callback(togCam,_dummy_cam_toggle_cb_)
+# dpg.set_item_callback(togAcq, _dummy_toggle_acq_cb)
 # dpg.show_style_editor()
 dpg.setup_dearpygui()
 dpg.show_viewport()
