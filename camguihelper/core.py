@@ -138,7 +138,7 @@ class FrameDeck(list):
         fpath_stub = self._make_savename_stub()
         if self:
             for i, frame in enumerate(self):
-                fpath = fpath_stub + f"_{i}.tiff"
+                fpath = fpath_stub + f"_{i}.tif"
                 try:
                     tifffile.imwrite(fpath, frame)
                 except Exception as e:
@@ -154,7 +154,7 @@ class FrameDeck(list):
         """
         fpath_stub = self._make_savename_stub()
         if self.cid: # 当前 cid 不是 None, 则说明 deck 非空
-            fpath = fpath_stub + f"_{self.cid}.tiff"
+            fpath = fpath_stub + f"_{self.cid}.tif"
             try:
                 tifffile.imwrite(fpath, self[self.cid])
             except Exception as e:
