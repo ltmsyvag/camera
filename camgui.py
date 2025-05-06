@@ -228,9 +228,9 @@ with dpg.window(label= "控制面板", tag = winCtrlPanels):
                         dpg.add_text("max h 4096, max v 2304")
                 dpg.add_text("h start & h length:")
                 _indent = 20
-                fldsROIh = dpg.add_input_intx(size=2, indent= _indent,width=100, default_value=[1352, 240,0,0])
+                fldsROIh = dpg.add_input_intx(size=2, indent= _indent,width=100, default_value=[1320, 160,0,0])
                 dpg.add_text("v start & v length:")
-                fldsROIv = dpg.add_input_intx(size=2, indent = _indent ,width=dpg.get_item_width(fldsROIh), default_value=[948,240,0,0])
+                fldsROIv = dpg.add_input_intx(size=2, indent = _indent ,width=dpg.get_item_width(fldsROIh), default_value=[968,140,0,0])
                 dpg.add_text("h binning & v binning")
                 fldsBinning = dpg.add_input_intx(size=2, indent = _indent ,width=dpg.get_item_width(fldsROIh), default_value=[1,1,0,0])
                 def do_set_cam_roi_using_6fields_roi():
@@ -275,11 +275,11 @@ with dpg.window(label= "控制面板", tag = winCtrlPanels):
                 dpg.add_separator()
                 _width=100
                 _spcheight=10
-                dpg.add_input_intx(label= "x1 y1", tag= "x1 y1", size=2, width=_width, default_value = [36,23,0,0])
+                dpg.add_input_intx(label= "x1 y1", tag= "x1 y1", size=2, width=_width, default_value = [38,24,0,0])
                 with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("基矢起点 x y 坐标")
-                dpg.add_input_intx(label= "x2 y2", tag= "x2 y2", size=2, width=_width, default_value = [124,25,0,0])
+                dpg.add_input_intx(label= "x2 y2", tag= "x2 y2", size=2, width=_width, default_value = [126,27,0,0])
                 with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("x 方向基矢 x y 坐标")
-                dpg.add_input_intx(label= "x3 y3", tag= "x3 y3", size=2, width=_width, default_value = [34,112,0,0])
+                dpg.add_input_intx(label= "x3 y3", tag= "x3 y3", size=2, width=_width, default_value = [36,112,0,0])
                 with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("y 方向基矢 x y 坐标")
                 dpg.add_input_intx(label= "nx ny", tag= "nx ny", size=2, width=_width, default_value = [16,16,0,0])
                 with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("阵列 x y 方向尺寸")
@@ -294,10 +294,10 @@ with dpg.window(label= "控制面板", tag = winCtrlPanels):
                 dpg.add_spacer(height=_spcheight)
                 dpg.add_text("start_frequency_on_row(col)")
                 with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("行(列)方向的起始频率，即第一行(列)对应的频率")
-                dpg.add_input_floatx(tag = "start_frequency_on_row(col)", size=2, width=_width*1.2, default_value=[90.8,111.4,0,0], label="MHz")
+                dpg.add_input_floatx(tag = "start_frequency_on_row(col)", size=2, width=_width*1.2, default_value=[90.75,111.25,0,0], label="MHz")
                 dpg.add_text("end_frequency_on_row(col)")
                 with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("行(列)方向的终止频率")
-                dpg.add_input_floatx(tag = "end_frequency_on_row(col)", size=2, width=_width*1.2, default_value=[111.3,90.8,0,0], label= "MHz")
+                dpg.add_input_floatx(tag = "end_frequency_on_row(col)", size=2, width=_width*1.2, default_value=[111.25,90.75,0,0], label= "MHz")
                 dpg.add_text("start_site_on_row(col)")
                 with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("行(列)方向的原子起始坐标")
                 dpg.add_input_intx(tag = "start_site_on_row(col)", size=2, width=_width, default_value=[0,0,0,0])
@@ -330,26 +330,22 @@ with dpg.window(label = "设置目标阵列", tag = winTgtArr,
     dpg.add_input_text(tag = "target array binary text input",
         multiline= True, width=-1,height=-1,
         default_value="""\
-0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0""")
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0""")
 
 
 with dpg.file_dialog( # file dialog 就是一个独立的 window, 因此在应该在 root 定义, 与其他 window 内的元素在形式上解耦
