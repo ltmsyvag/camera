@@ -24,7 +24,7 @@ from camguihelper.dpghelper import (
     factory_cb_yn_modal_dialog)
 cam = None # probably needed for dummy acquisition, the same reason as needing controller = None
 controller = None # controller always has to exist, we can't wait for it to be created by a callback (like `cam`), since it is the argument of the func `start_flag_watching_acq` (and ultimately, the required arg of ZYL func `feed_AWG`) that runs in the thread thread_acq. When awg is off, `controller` won't be used and won't be created either, but the `controller` var still has to exist (as a global variable because I deem `controller` suitable to be a global var) as a formal argument (or placeholder) of `start_flag_watching_acq`. This is more or less an awkward situation because I want to put `start_flag_watching_acq` in a module file (where the functions do not have access to working script global vars), not in the working script. Essentailly, the func in a module py file has no closure access to the global varibles in the working script, unless I choose to explicitly pass the working script global var as an argument to the imported func
-frame_deck = FrameDeck() # the normal empty frame_deck creation
+frame_deck = FrameDeck(session_manager_root="") # the normal empty frame_deck creation
 
 # frame_deck = FrameDeck(flist) # the override to import fake data
 
@@ -154,8 +154,7 @@ with dpg.window(label= "控制面板", tag = winCtrlPanels):
                     cam.stop_acquisition()
                     cam.set_trigger_mode("int")
                     print("acq stopped")
-                # dpg.set_item_user_data(sender, user_data) # the decor saves the user_data so I might not need to explicitly save it at all
-            
+                # dpg.set_item_user_data(sender, user_data) # the decor saves the user_data so I might not need to explicitly save it at all       
             @toggle_theming_and_enable(
                     "expo and roi fields", togCam,
                     "awg panel",
@@ -449,7 +448,10 @@ with dpg.window(label = "帧预览", tag=winFramePreview,
             dpg.add_menu_item(label="Greys", callback= factory_cb_bind_heatmap_cmap(dpg.mvPlotColormap_Greys), check=True)
     #=========================================   
     fldSavePath = dpg.add_input_text(tag="save path input field",
-                            hint="path to save tiff, e.g. C:\\Users\\username\\Desktop\\")
+                            hint="path to save tiff, e.g. C:\\Users\\username\\Desktop\\"
+                            # ,callback=frame_deck._make_savename_stub
+                            )
+    # frame_deck._make_savename_stub()
     #========================================
     dpg.add_text(tag = "frame deck display", default_value= frame_deck.memory_report())
     dpg.bind_item_font(dpg.last_item(), bold_font)

@@ -73,7 +73,7 @@ class FrameDeck(list):
         好处(相对于 class attr 来说)是在不重启 kernel, 只重启 camgui.py 的情况下,
         frame_deck 的状态不会保留上一次启动的记忆
         """
-        self.data_root  = session_manager_root / "frames"
+        self.data_root  = MyPath(session_manager_root) / "frames"
         self.cid = None # current heatmap's id in deck
         self.float_deck = [] # gui 中的操作需要 float frame, 因此与 list (int deck) 对应, 要有一个 float deck
         self.frame_avg = None
@@ -94,11 +94,24 @@ class FrameDeck(list):
         那么在 Desktop 存在并可写入, 且 frame deck 非空的情况下, 返回字符串形式的 stub
         "C:\\Users\\username\\Desktop\\2023-10-01-12-00-00"
         """
+        dpath = MyPath(dpg.get_value("save path input field"))
+        dpath.mkdir(parents=True, exist_ok=True)
+        if dpath.is_dir() and dpath.is_writable():
+            timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+            fpath_stub = str(dpath / timestamp)
+            return fpath_stub
+        else:
+            push_log("data root does not exist or is non-writable", is_error=True)
+        # print(dpath)
+        # print(dpath.is_dir())
+    def _make_savename_stub_new(self):
         # self.data_root = MyPath(dpg.get_value("save path input field"))
         if self.data_root.is_dir() and self.data_root.is_writable():
             timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
             fpath_stub = str(self.data_root / timestamp)
             return fpath_stub
+        else:
+            push_log("data root does not exist or is non-writable", is_error=True)
     def append(self, frame: np.ndarray):
         """
         append a new frame to int & float decks
