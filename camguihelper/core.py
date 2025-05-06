@@ -19,16 +19,40 @@ if (system == "Windows") and (hex(uuid.getnode()) != '0xf4ce2305b4c7'): # the co
     from AWG_module.no_with_func import DDSRampController
     from AWG_module.unified import feed_AWG
 
+class MyPath(Path):
+    def is_readable(self):
+        return os.access(self, os.R_OK)
+    def is_writable(self):
+        return os.access(self, os.W_OK)
+    def is_executable(self):
+        return os.access(self, os.X_OK)
+
+session_manager_root = MyPath("session_manager_root")
+"""
+├└
+├-- session_manager_root/
+|     ├--frames/ # data root
+|         ├-- 2025/
+                ├-- 一月/
+                ├-- 二月/
+          ├-- 2026/
+
+"""
+
 class FrameDeck(list):
     """
     class of a special list with my own methods for manipulating the frames it stores
     """
-    def __init__(self):
+    # data_root = session_manager_root / "frames"
+    def __init__(self, 
+                 session_manager_root: MyPath=session_manager_root #允许 camgui.py 代码中 override 测试用的 sm root
+                 ):
         """
         将状态变量作为 instance attr 初始化
         好处(相对于 class attr 来说)是在不重启 kernel, 只重启 camgui.py 的情况下,
         frame_deck 的状态不会保留上一次启动的记忆
         """
+        self.data_root  = session_manager_root / "frames"
         self.cid = None # current heatmap's id in deck
         self.float_deck = [] # gui 中的操作需要 float frame, 因此与 list (int deck) 对应, 要有一个 float deck
         self.frame_avg = None
@@ -49,12 +73,11 @@ class FrameDeck(list):
         那么在 Desktop 存在并可写入, 且 frame deck 非空的情况下, 返回字符串形式的 stub
         "C:\\Users\\username\\Desktop\\2023-10-01-12-00-00"
         """
-        if self:
-            saveroot = MyPath(dpg.get_value("save path input field"))
-            if saveroot.is_dir() and saveroot.is_writable():
-                timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-                fpath_stub = str(saveroot / timestamp)
-                return fpath_stub
+        # self.data_root = MyPath(dpg.get_value("save path input field"))
+        if self.data_root.is_dir() and self.data_root.is_writable():
+            timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+            fpath_stub = str(self.data_root / timestamp)
+            return fpath_stub
     def append(self, frame: np.ndarray):
         """
         append a new frame to int & float decks
@@ -79,7 +102,7 @@ class FrameDeck(list):
         保存全部 frames, 并 push 成功/失败 message
         """
         fpath_stub = self._make_savename_stub()
-        if fpath_stub:
+        if self:
             for i, frame in enumerate(self):
                 fpath = fpath_stub + f"_{i}.tiff"
                 try:
@@ -90,14 +113,13 @@ class FrameDeck(list):
                 
             push_log("全部帧保存成功", is_good=True)
         else:
-            push_log("内存为空或者保存路径有问题", is_error=True)
-
+            push_log("内存中没有任何帧", is_error=True)
     def save_cid_frame(self)->bool:
         """
         保存 cid 指向的 frame, 并 push 成功/失败 message
         """
         fpath_stub = self._make_savename_stub()
-        if fpath_stub:
+        if self.cid: # 当前 cid 不是 None, 则说明 deck 非空
             fpath = fpath_stub + f"_{self.cid}.tiff"
             try:
                 tifffile.imwrite(fpath, self[self.cid])
@@ -106,7 +128,7 @@ class FrameDeck(list):
                             is_error=True)
             push_log("当前帧保存成功", is_good=True)
         else:
-            push_log("内存为空或者保存路径有问题", is_error=True)
+            push_log("内存中没有任何帧", is_error=True)
     def clear(self):
         """
         - clear int & float decks
@@ -126,11 +148,14 @@ class FrameDeck(list):
             if heatmapSlot:
                 heatSeries, = heatmapSlot
                 dpg.delete_item(heatSeries)
+    def _today_data_root_exists(self):
+        ...
+    def _mk_new_data_dir(self):
+        ...
     def get_all_tags_yaxes(self):
         lst_allyaxes = [yax for _, yax, *_ in self.llst_items_dupe_maps]
         lst_allyaxes.append("frame yax")
         return lst_allyaxes
-
     @staticmethod
     def _plot_frame(frame: np.ndarray, 
                     xax: str="frame xax", yax = "frame yax")->None:
@@ -204,13 +229,6 @@ class FrameDeck(list):
             else:
                 dpg.delete_item(yax, children_only=True)
 
-class MyPath(Path):
-    def is_readable(self):
-        return os.access(self, os.R_OK)
-    def is_writable(self):
-        return os.access(self, os.W_OK)
-    def is_executable(self):
-        return os.access(self, os.X_OK)
 
 def _dummy_feed_awg(frame):
     pass

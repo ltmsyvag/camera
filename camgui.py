@@ -206,8 +206,6 @@ with dpg.window(label= "控制面板", tag = winCtrlPanels):
                 with dpg.theme_component(dpg.mvChildWindow):
                     dpg.add_theme_color(dpg.mvThemeCol_ChildBg, (0,0,0))
             dpg.bind_item_theme(_cw, _thm)
-                # dpg.add_separator()
-                # dpg.add_separator()
             #====================================
             with dpg.group(tag = "expo and roi fields", enabled=False):
                 dpg.add_text("exposure time (ms):")
