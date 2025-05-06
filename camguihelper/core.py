@@ -29,14 +29,35 @@ class MyPath(Path):
 
 session_manager_root = MyPath("session_manager_root")
 """
-├└
 ├-- session_manager_root/
-|     ├--frames/ # data root
-|         ├-- 2025/
-                ├-- 一月/
-                ├-- 二月/
-          ├-- 2026/
-
+                    ├-- frames/ # data root
+                    |    ├-- 2025/
+                    |    |     ├-- 一月/
+                    |    |     |     ├-- 01/
+                    |    |     |     └-- 02/
+                    |    |     |          ├-- 0001/
+                    |    |     |          └-- 0002/
+                    |    |     |               ├-- 0002_0.tiff
+                    |    |     |               └-- 0002_1.tiff
+                    |    |     └-- 二月/
+                    |    |           ├-- 01/
+                    |    |           └-- 02/
+                    |    |                ├-- 0001/
+                    |    |                └-- 0002/
+                    |    └-- 2026/
+                    └-- camgui_configs
+                         ├-- 2025/
+                         |     ├-- 一月/
+                         |     |     ├-- 01/
+                         |     |     └-- 02/
+                         |     |          ├-- 0001.json
+                         |     |          └-- 0002.json
+                         |     └-- 二月/
+                         |           ├-- 01/
+                         |           └-- 02/
+                         |                ├-- 0001.json
+                         |                └-- 0002.json
+                         └-- 2026/
 """
 
 class FrameDeck(list):
@@ -149,7 +170,11 @@ class FrameDeck(list):
                 heatSeries, = heatmapSlot
                 dpg.delete_item(heatSeries)
     def _today_data_root_exists(self):
-        ...
+        if self.data_root.exists():
+            now = datetime.now()
+        else:
+            push_log("不存在!")
+
     def _mk_new_data_dir(self):
         ...
     def get_all_tags_yaxes(self):
@@ -182,15 +207,15 @@ class FrameDeck(list):
                             scale_min=fmin, scale_max=fmax,format="",
                             bounds_min= (0,nvrows), bounds_max= (nhcols, 0)
                             )
-    def plot_avg_frame(self, xax = "frame xax", yax= "frame yax"):
+    def plot_avg_frame(self, yax= "frame yax"):
         """
         与 plot_cid_frame 一起都是 绘制 main heatmap 的方法
         区别于 plot_frame_dwim (绘制所有 map, 包括 dupe maps)
         x/yax kwargs make it possible to plot else where when needed
         """
         if self.frame_avg is not None:
-            self._plot_frame(self.frame_avg, xax, yax)
-    def plot_cid_frame(self, xax = "frame xax", yax= "frame yax"):
+            self._plot_frame(self.frame_avg, yax)
+    def plot_cid_frame(self, yax= "frame yax"):
         """
         与 plot_avg_frame 一起都是 绘制 main heatmap 的方法
         区别于 plot_frame_dwim (绘制所有 map, 包括 dupe maps)
@@ -198,7 +223,7 @@ class FrameDeck(list):
         """
         if self.cid is not None:
             frame = self.float_deck[self.cid]
-            self._plot_frame(frame, xax, yax)
+            self._plot_frame(frame, yax)
     def plot_frame_dwim(self):
         """
         global update of all maps (main and dupes)
@@ -209,7 +234,7 @@ class FrameDeck(list):
             self.plot_cid_frame()
         for dupe_map_items in self.llst_items_dupe_maps: # update dupe windows
             self._update_dupe_map(*dupe_map_items)
-    def _update_dupe_map(self, xax, yax, inputInt, radioBtn, cBox):
+    def _update_dupe_map(self, yax, inputInt, radioBtn, cBox):
         """
         根据 duplicated map 的帧序号输入和 radio button 选择, 在给定的 xax, yax 中重绘热图
         这是搭配 llst_items_dupe_maps 使用的函数
@@ -218,7 +243,7 @@ class FrameDeck(list):
         radio_option = dpg.get_value(radioBtn)
         plot_avg_p = dpg.get_value(cBox)
         if plot_avg_p:
-            self.plot_avg_frame(xax, yax)
+            self.plot_avg_frame(yax)
         else:
             if radio_option == "正数帧":
                 plot_id = input_id
@@ -226,7 +251,7 @@ class FrameDeck(list):
                 plot_id = input_id+len(self) - 1
             if 0 <= plot_id < len(self):
                 frame = self.float_deck[plot_id]
-                self._plot_frame(frame, xax, yax)
+                self._plot_frame(frame, yax)
             else:
                 dpg.delete_item(yax, children_only=True)
 

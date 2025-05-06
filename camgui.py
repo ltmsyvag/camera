@@ -490,12 +490,12 @@ with dpg.window(label = "帧预览", tag=winFramePreview,
         heatmap_xkwargs = dict(label= "", opposite=True)
         heatmap_ykwargs = dict(label= "", invert=True)
         def _dupe_heatmap():
-            xax = dpg.generate_uuid() # 在实际创建这些 items 之前就要用到它们的 tag, 故先创建此 tag
+            # xax = dpg.generate_uuid() # 在实际创建这些 items 之前就要用到它们的 tag, 故先创建此 tag
             yax = dpg.generate_uuid() 
             inputInt = dpg.generate_uuid() 
             radioBtn = dpg.generate_uuid()
             cBox = dpg.generate_uuid()
-            dupe_map_items = xax, yax, inputInt, radioBtn, cBox
+            dupe_map_items = yax, inputInt, radioBtn, cBox
             def _on_close(sender, *args):
                 """
                 window 的 on close callback 貌似不同于普通 callback, 只能在创建 window 时设置, 
@@ -542,7 +542,7 @@ with dpg.window(label = "帧预览", tag=winFramePreview,
                     dpg.set_item_callback(radioBtn, _cb_radio)
                 with dpg.plot(**heatmap_plot_kwargs):
                     dpg.bind_colormap(dpg.last_item(), myCmap)
-                    dpg.add_plot_axis(dpg.mvXAxis, tag=xax, **heatmap_xkwargs, **heatmap_xyaxkwargs)
+                    xax = dpg.add_plot_axis(dpg.mvXAxis, **heatmap_xkwargs, **heatmap_xyaxkwargs)
                     dpg.add_plot_axis(dpg.mvYAxis, tag=yax, **heatmap_ykwargs, **heatmap_xyaxkwargs)
                     xaxlims_orig, yaxlims_orig = dpg.get_axis_limits("frame xax"), dpg.get_axis_limits("frame yax")
                     dpg.set_axis_limits(xax, *xaxlims_orig)
@@ -554,12 +554,12 @@ with dpg.window(label = "帧预览", tag=winFramePreview,
                 dpg.add_checkbox(pos = (8,62), tag = cBox) # 要画在 plot 上, 所以在 plot 后添加
                 @toggle_checkbox_and_disable(_grp)
                 def _toggle_id_and_avg_map_(sender, *args):
-                    frame_deck._update_dupe_map(xax,yax,inputInt, radioBtn, sender)
+                    frame_deck._update_dupe_map(yax,inputInt, radioBtn, sender)
                 dpg.set_item_callback(cBox, _toggle_id_and_avg_map_)
                 with dpg.tooltip(cBox, **ttpkwargs):
                     dpg.add_text("切换单帧/平均帧")
 
-            frame_deck.plot_cid_frame(xax, yax)    
+            frame_deck.plot_cid_frame(yax)    
         dpg.set_item_callback(cidIndcator, _dupe_heatmap)
         #==========================================
         rightArr = dpg.add_button(tag = "plot next frame", label=">", arrow=True, direction=dpg.mvDir_Right)
