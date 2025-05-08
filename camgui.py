@@ -24,7 +24,7 @@ from camguihelper.dpghelper import (
     factory_cb_yn_modal_dialog)
 
 controller = None # controller always has to exist, we can't wait for it to be created by a callback (like `cam`), since it is the argument of the func `start_flag_watching_acq` (and ultimately, the required arg of ZYL func `feed_AWG`) that runs in the thread thread_acq. When awg is off, `controller` won't be used and won't be created either, but the `controller` var still has to exist (as a global variable because I deem `controller` suitable to be a global var) as a formal argument (or placeholder) of `start_flag_watching_acq`. This is more or less an awkward situation because I want to put `start_flag_watching_acq` in a module file (where the functions do not have access to working script global vars), not in the working script. Essentailly, the func in a module py file has no closure access to the global varibles in the working script, unless I choose to explicitly pass the working script global var as an argument to the imported func
-frame_deck = FrameDeck(session_manager_root="") # the normal empty frame_deck creation
+frame_deck = FrameDeck() # the normal empty frame_deck creation
 
 # frame_deck = FrameDeck(flist) # the override to import fake data
 
@@ -391,12 +391,12 @@ with dpg.file_dialog( # file dialog 就是一个独立的 window, 因此在应�
                 frame_deck.append(e)
             frame_deck.plot_frame_dwim()
     dpg.set_item_callback(fileDialog, _ok_cb_)
-    
-    # dpg.add_button(label="stuff")
+
 
 with dpg.window(label = "帧预览", tag=winFramePreview,
                 height=700, width=700
                 ):
+    # dpg.add_button(label="hello", callback=lambda: frame_deck._update_session_data_dir())
     with dpg.menu_bar():
         with dpg.menu(label = "内存中的帧"):
             dpg.add_menu_item(label = "保存当前帧")
@@ -491,7 +491,7 @@ with dpg.window(label = "帧预览", tag=winFramePreview,
     dpg.add_text(tag = "frame deck display", default_value= frame_deck.memory_report())
     dpg.bind_item_font(dpg.last_item(), bold_font)
     with dpg.group(label = "热图上下限, 帧翻页", horizontal=True):
-        _inputInt = dpg.add_drag_intx(callback=_log, tag = "color scale lims",label = "", size = 2, width=100, default_value=[0,65535,0,0], enabled=False, max_value=65535, min_value=0, clamped=True)
+        _inputInt = dpg.add_drag_intx(tag = "color scale lims",label = "", size = 2, width=100, default_value=[0,65535,0,0], enabled=False, max_value=65535, min_value=0, clamped=True)
         with dpg.tooltip(_inputInt, **ttpkwargs): dpg.add_text("热图上下限, 最多 0-65535\n若未勾选'手动上下限', 则每次绘图自动用全帧最大/最小值作为上下限")
         def _set_color_scale(_, app_data, __):
             fmin, fmax, *_ = app_data

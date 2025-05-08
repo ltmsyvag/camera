@@ -4,13 +4,13 @@ camgui 相关的帮助函数
 #%%
 import math
 from datetime import datetime
-from pathlib import Path
+
 from pylablib.devices import DCAM
 import numpy as np
 import threading
 import colorsys
 import tifffile
-import os
+from .dirhelper import *
 import dearpygui.dearpygui as dpg
 import platform, uuid
 system = platform.system()
@@ -19,60 +19,20 @@ if (system == "Windows") and (hex(uuid.getnode()) != '0xf4ce2305b4c7'): # the co
     from AWG_module.no_with_func import DDSRampController
     from AWG_module.unified import feed_AWG
 
-class MyPath(Path):
-    def is_readable(self):
-        return os.access(self, os.R_OK)
-    def is_writable(self):
-        return os.access(self, os.W_OK)
-    def is_executable(self):
-        return os.access(self, os.X_OK)
-
-session_manager_root = MyPath("session_manager_root")
-"""
-├-- session_manager_root/
-                    ├-- frames/ # data root
-                    |    ├-- 2025/
-                    |    |     ├-- 一月/
-                    |    |     |     ├-- 01/
-                    |    |     |     └-- 02/
-                    |    |     |          ├-- 0001/
-                    |    |     |          └-- 0002/
-                    |    |     |               ├-- 0002_0.tiff
-                    |    |     |               └-- 0002_1.tiff
-                    |    |     └-- 二月/
-                    |    |           ├-- 01/
-                    |    |           └-- 02/
-                    |    |                ├-- 0001/
-                    |    |                └-- 0002/
-                    |    └-- 2026/
-                    └-- camgui_configs/
-                         ├-- 2025/
-                         |     ├-- 一月/
-                         |     |     ├-- 01/
-                         |     |     └-- 02/
-                         |     |          ├-- 0001.json
-                         |     |          └-- 0002.json
-                         |     └-- 二月/
-                         |           ├-- 01/
-                         |           └-- 02/
-                         |                ├-- 0001.json
-                         |                └-- 0002.json
-                         └-- 2026/
-"""
-
 class FrameDeck(list):
     """
     class of a special list with my own methods for manipulating the frames it stores
     """
+
     def __init__(self, 
-                 session_manager_root: MyPath=session_manager_root #允许 camgui.py 代码中 override 测试用的 sm root
+                #  frames_root_str: str=str(frames_root) #默认使用 dirhelper 中定义的 frames root, 但允许 camgui.py 代码中用其他路径 override, 以便测试
                  ):
         """
         将状态变量作为 instance attr 初始化
         好处(相对于 class attr 来说)是在不重启 kernel, 只重启 camgui.py 的情况下,
         frame_deck 的状态不会保留上一次启动的记忆
         """
-        self.data_root  = MyPath(session_manager_root) / "frames"
+        # self.frames_root  = MyPath(frames_root_str)
         self.cid = None # current heatmap's id in deck
         self.float_deck = [] # gui 中的操作需要 float frame, 因此与 list (int deck) 对应, 要有一个 float deck
         self.frame_avg = None
@@ -85,7 +45,6 @@ class FrameDeck(list):
         else:
             mbsize_1_int_frame = mbsize_1_float_frame = 0
         return f"内存: {len_deck} 帧 ({(mbsize_1_float_frame+mbsize_1_int_frame)*len_deck:.2f} MB)"
-    
     @classmethod
     def _make_savename_stub(self):
         """
@@ -101,17 +60,16 @@ class FrameDeck(list):
             fpath_stub = str(dpath / timestamp)
             return fpath_stub
         else:
-            push_log("data root does not exist or is non-writable", is_error=True)
-        # print(dpath)
-        # print(dpath.is_dir())
-    def _make_savename_stub_new(self):
-        # self.data_root = MyPath(dpg.get_value("save path input field"))
-        if self.data_root.is_dir() and self.data_root.is_writable():
-            timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-            fpath_stub = str(self.data_root / timestamp)
-            return fpath_stub
-        else:
-            push_log("data root does not exist or is non-writable", is_error=True)
+            push_log("输入的路径有问题", is_error=True)
+            raise Exception # 人工阻止后续程序运行. 因为 cb 是单独的线程, 所以 gui 不会崩
+    # def _make_savename_stub_new(self):
+    #     # self.data_root = MyPath(dpg.get_value("save path input field"))
+    #     if self.frames_root.is_dir() and self.frames_root.is_writable():
+    #         timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+    #         fpath_stub = str(self.frames_root / timestamp)
+    #         return fpath_stub
+    #     else:
+    #         push_log("data root does not exist or is non-writable", is_error=True)
     def append(self, frame: np.ndarray):
         """
         append a new frame to int & float decks
@@ -138,12 +96,11 @@ class FrameDeck(list):
         fpath_stub = self._make_savename_stub()
         if self:
             for i, frame in enumerate(self):
-                fpath = fpath_stub + f"_{i}.tiff"
+                fpath = fpath_stub + f"_{i}.tif"
                 try:
                     tifffile.imwrite(fpath, frame)
                 except Exception as e:
-                    push_log(f"帧 #{i} 保存失败.\nexception type: {type(e).__name__}\nexception msg: {e}",
-                             is_error=True)
+                    push_exception(e, f"帧 #{i} 保存失败.")
                 
             push_log("全部帧保存成功", is_good=True)
         else:
@@ -154,12 +111,11 @@ class FrameDeck(list):
         """
         fpath_stub = self._make_savename_stub()
         if self.cid: # 当前 cid 不是 None, 则说明 deck 非空
-            fpath = fpath_stub + f"_{self.cid}.tiff"
+            fpath = fpath_stub + f"_{self.cid}.tif"
             try:
                 tifffile.imwrite(fpath, self[self.cid])
             except Exception as e:
-                push_log(f"当前帧保存失败.\nexception type: {type(e).__name__}\nexception msg: {e}",
-                            is_error=True)
+                push_exception(e, "当前帧保存失败")
             push_log("当前帧保存成功", is_good=True)
         else:
             push_log("内存中没有任何帧", is_error=True)
@@ -182,17 +138,6 @@ class FrameDeck(list):
             if heatmapSlot:
                 heatSeries, = heatmapSlot
                 dpg.delete_item(heatSeries)
-    def _today_data_root_exists(self):
-        if self.data_root.exists():
-            now = datetime.now()
-        else:
-            push_log("不存在!")
-
-    def _update_session_data_dir(self):
-        if self.data_root.is_dir() and self.data_root.is_writable(): # `is_dir` 保证 dir 存在且是 dir (不是文件名), `is_writable` 保证 dir 可写. 这个 check 防止
-            ...
-        else:
-            push_log("data root does not exist or is non-writable", is_error=True)
     def get_all_tags_yaxes(self):
         lst_allyaxes = [yax for _, yax, *_ in self.llst_items_dupe_maps]
         lst_allyaxes.append("frame yax")
@@ -448,3 +393,15 @@ def push_log(msg:str, *,
 
     dpg.set_y_scroll(tagWin, dpg.get_y_scroll_max(tagWin)+20 # the +20 is necessary because IDK why the window does not scroll to the very bottom, there's a ~20 margin, strange. 
                      )
+
+def push_exception(
+        e: Exception, 
+        user_msg: str # force myself to give a user friendly comment about what error might have happened
+        ):
+    """
+    在 catch exception 的时候, 在 log window 显示 exception (因为 gui 没有 REPL)
+    """
+    push_log(user_msg 
+             + "\n" 
+             + f"exception type: {type(e).__name__}\nexception msg: {e}",
+                            is_error=True)
