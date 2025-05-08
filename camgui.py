@@ -7,6 +7,7 @@ item 和 (创建 containter item 的) context manager 之间用 `#====` 分隔
 item 常数用首字母小写的驼峰命名 e.g. myItem. 其他任何变量都不能用此驼峰命名 (类用首字母大写的驼峰命名, e.g. MyClass)
 cam 将会是全局变量, 由 callback 创建
 """
+from pathlib import Path
 from typing import Callable
 import dearpygui.dearpygui as dpg
 from pylablib.devices import DCAM
@@ -16,6 +17,7 @@ import math
 import tifffile
 from camguihelper import gui_open_awg, FrameDeck, start_flag_watching_acq
 from camguihelper.core import _log, _update_hist, _dummy_start_flag_watching_acq
+from camguihelper.dirhelper import mkdir_session_frames
 from camguihelper.dpghelper import (
     do_bind_my_global_theme,
     do_initialize_chinese_fonts,
@@ -200,7 +202,7 @@ with dpg.window(label= "控制面板", tag = winCtrlPanels):
                     _color = (255,0,255)
                     dpg.add_text("0000", color= _color)
                     dpg.bind_item_font(dpg.last_item(), large_font)
-                dpg.add_button(label="新 帧文件夹")
+                dpg.add_button(label="新 帧文件夹", callback=mkdir_session_frames)
             with dpg.theme() as _thm:
                 with dpg.theme_component(dpg.mvChildWindow):
                     dpg.add_theme_color(dpg.mvThemeCol_ChildBg, (0,0,0))
@@ -355,7 +357,8 @@ with dpg.window(label = "设置目标阵列", tag = winTgtArr,
 with dpg.file_dialog( # file dialog 就是一个独立的 window, 因此在应该在 root 定义, 与其他 window 内的元素在形式上解耦
     directory_selector=False, show=False, modal=True,
     tag="file dialog", width=700 ,height=400) as fileDialog:
-    dpg.add_file_extension("", color = (150,255,150,255)) # 让无后缀的项目(比如文件夹显示为绿色)
+    dpg.add_file_extension("", color = (150,255,150,255)) # 让文件夹显示为绿色
+    dpg.add_file_extension(".*") # 显示 _select_all
     # dpg.add_file_extension(".tif")
     # dpg.add_file_extension(".tiff")
     dpg.add_file_extension("tiff files (*.tif *.tiff){.tif,.tiff}") # the {} part is what the file dialog really parses, others are for human eyes
@@ -385,11 +388,14 @@ with dpg.file_dialog( # file dialog 就是一个独立的 window, 因此在应�
         """
         global frame_deck
         fname_dict = app_data["selections"]
-        if fname_dict:
-            frame_list = [tifffile.imread(e) for e in fname_dict.values()]
-            for e in frame_list:
-                frame_deck.append(e)
-            frame_deck.plot_frame_dwim()
+        if "_select_all" in fname_dict:
+            dpath = Path(app_data["current_path"])
+            frame_list = [tifffile.imread(e) for e in dpath.iterdir() if e.suffix in [".tif", ".tiff"]]       
+        else:
+            frame_list = [tifffile.imread(e) for e in fname_dict.values()]          
+        for e in frame_list:
+            frame_deck.append(e)
+        frame_deck.plot_frame_dwim()
     dpg.set_item_callback(fileDialog, _ok_cb_)
 
 

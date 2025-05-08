@@ -10,7 +10,7 @@ import numpy as np
 import threading
 import colorsys
 import tifffile
-from .dirhelper import *
+from .dirhelper import MyPath
 import dearpygui.dearpygui as dpg
 import platform, uuid
 system = platform.system()
