@@ -125,7 +125,6 @@ with dpg.window(label= "控制面板", tag = winCtrlPanels):
 
             dpg.set_item_callback(togCam,_cam_toggle_cb_)
             #===============================================================
-            # myflag = threading.Event()
             togAcq = dpg.add_button(tag="acquisition toggle", enabled=False,
                 width=_wid, height=_hi, user_data={
                     "is on" : False, 
@@ -152,10 +151,10 @@ with dpg.window(label= "控制面板", tag = winCtrlPanels):
                     thread_watching_a_flag = user_data["acq thread"]
                     flag.clear()
                     thread_watching_a_flag.join()
-                    user_data["acq thread"] = None
+                    user_data["acq thread"] = None # this is probably a sanity code, can do without
                     cam.stop_acquisition()
                     cam.set_trigger_mode("int")
-                    print("acq stopped")
+                    # print("acq stopped")
                 # dpg.set_item_user_data(sender, user_data) # the decor saves the user_data so I might not need to explicitly save it at all       
             @toggle_theming_and_enable(
                     "expo and roi fields", togCam,
@@ -188,10 +187,10 @@ with dpg.window(label= "控制面板", tag = winCtrlPanels):
             #==============================
             with dpg.child_window(height=122,no_scrollbar=True) as _cw:
                 with dpg.group(horizontal=True):
-                    dpg.add_text("配置文件夹:")
+                    dpg.add_text("参数文件夹:")
                     ttpkwargs = dict(delay=1, hide_on_activity= True)
                     with dpg.tooltip(dpg.last_item(), **ttpkwargs):
-                        dpg.add_text("当前面板中所有的配置在触发采集开始时\n会被保存到这个文件夹")
+                        dpg.add_text("当前面板中所有的参数在触发采集开始时\n会被保存到这个文件夹")
                     dpg.add_text("CA1")
                     dpg.bind_item_font(dpg.last_item(), large_font)
                 #===================================

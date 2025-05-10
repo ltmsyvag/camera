@@ -32,7 +32,8 @@
 """
 from pathlib import Path
 import os
-from datetime import datetime
+import datetime
+import dearpygui.dearpygui as dpg
 
 class MyPath(Path):
     def is_readable(self):
@@ -69,8 +70,7 @@ def mkdir_session_frames():
         """
         from .core import push_log # import inside this func to avoid circular importation error (happens when this import is put on top of .py). 这个 lazy loading 在这里是正当的权宜之计, 因为最终 make session dir 的是 session manager, 而不是 camgui, make session dir 失败时, 报错是在 session manager 中报错, 不是在 camgui 中, 因此最终 make session dir 时完全用不到 camgui 的 push_log 函数
         if session_frames_root.is_dir() and session_frames_root.is_writable(): # `is_dir` 保证 dir 存在且是 dir (不是文件名), `is_writable` 保证 dir 可写. 这个 check 用于在 Z 盘丢失 (或者换新 Z 盘的时候) 给用户一个信息, 要求用户重新连接 Z 盘, 或者 explicitly 设置好空的 frames root
-            now = datetime.now()
-            year_str, month_str, day_str = now.strftime("%Y-%m-%d").split("-")
+            year_str, month_str, day_str = datetime.date.today()
             month_str = month_dict[month_str] # convert to chinese
             dpath_day = session_frames_root / year_str / month_str / day_str
             if dpath_day.exists():
@@ -80,9 +80,9 @@ def mkdir_session_frames():
                     new_ses_num = int(str(final_ses_dpath)[-4:]) + 1 
                     new_ses_str = str(new_ses_num).zfill(4)
                 else:
-                     new_ses_str = "0001"
+                    new_ses_str = "0001"
             else:
-                 new_ses_str = "0001"
+                new_ses_str = "0001"
             dpath = dpath_day / new_ses_str
             dpath.mkdir(parents=True)
             select_all_fpath = dpath / "_select_all"

@@ -1,6 +1,6 @@
 #%%
-from pathlib import Path
-dpath = Path("session_data_root/session_frames/2025/五月/08/0006")
-flist = [e for e in dpath.iterdir() if e.suffix in [".ico", ".tiff"]]
-print(flist)
-# %%
+mylist = [0,1,2,3,4,5,6,7,8,9]
+while (l := len(mylist)) > 5:
+    print(l)
+    mylist.pop()
+len(mylist)

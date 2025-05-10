@@ -4,7 +4,7 @@ camgui 相关的帮助函数
 #%%
 import math
 from datetime import datetime
-
+from codetiming import Timer
 from pylablib.devices import DCAM
 import numpy as np
 import threading
@@ -26,12 +26,13 @@ class FrameDeck(list):
 
     def __init__(self, 
                 #  frames_root_str: str=str(frames_root) #默认使用 dirhelper 中定义的 frames root, 但允许 camgui.py 代码中用其他路径 override, 以便测试
-                 ):
+                 *args, **kwargs):
         """
         将状态变量作为 instance attr 初始化
         好处(相对于 class attr 来说)是在不重启 kernel, 只重启 camgui.py 的情况下,
         frame_deck 的状态不会保留上一次启动的记忆
         """
+        super().__init__(*args, **kwargs) # make sure I do not override the parent dunder init
         # self.frames_root  = MyPath(frames_root_str)
         self.cid = None # current heatmap's id in deck
         self.float_deck = [] # gui 中的操作需要 float frame, 因此与 list (int deck) 对应, 要有一个 float deck
@@ -89,7 +90,7 @@ class FrameDeck(list):
         self.frame_avg = sum(self.float_deck) / len(self.float_deck)
         dpg.set_value("frame deck display", self.memory_report())
         dpg.set_item_label("cid indicator", f"{self.cid}")
-    def save_deck(self):
+    def save_deck(self)->None:
         """
         保存全部 frames, 并 push 成功/失败 message
         """
@@ -105,10 +106,12 @@ class FrameDeck(list):
             push_log("全部帧保存成功", is_good=True)
         else:
             push_log("内存中没有任何帧", is_error=True)
-    def save_cid_frame(self)->bool:
+    
+    def save_cid_frame(self)->None:
         """
         保存 cid 指向的 frame, 并 push 成功/失败 message
         """
+        # with Timer():
         fpath_stub = self._make_savename_stub()
         if self.cid: # 当前 cid 不是 None, 则说明 deck 非空
             fpath = fpath_stub + f"_{self.cid}.tif"
@@ -116,10 +119,11 @@ class FrameDeck(list):
                 tifffile.imwrite(fpath, self[self.cid])
             except Exception as e:
                 push_exception(e, "当前帧保存失败")
+                return
             push_log("当前帧保存成功", is_good=True)
         else:
             push_log("内存中没有任何帧", is_error=True)
-    def clear(self):
+    def clear(self)->None:
         """
         - clear int & float decks
         - cid update
@@ -253,6 +257,35 @@ def _update_hist(hLhRvLvR: tuple, frame_deck: FrameDeck, yax = "hist plot yax")-
     dpg.add_histogram_series(
         histData, parent = yax, bins =nBins, 
         min_range=theMinInt,max_range=max_range)
+
+
+local_frame_buffer = []
+def start_flag_watching_acq_buffer_rearrange(
+    cam: DCAM.DCAM.DCAMCamera,
+    flag: threading.Event,
+    controller, # type is DDSRampController, not hinted because it acts funny on macOS
+    )-> None:
+    
+    cam.set_trigger_mode("ext")
+    cam.start_acquisition(mode="sequence", nframes=100)
+    awg_is_on = dpg.get_item_user_data("AWG toggle")["is on"]
+    awg_params = _collect_awg_params()
+    while flag.is_set():
+        try:
+            cam.wait_for_frame(timeout=0.2)
+        except DCAM.DCAMTimeoutError:
+            continue
+        this_frame = cam.read_oldest_image()
+        if awg_is_on:
+            feed_AWG(this_frame, controller, awg_params) # feed original uint16 format to AWG
+        local_frame_buffer.append()
+        # local_frame_buffer
+        # frame_deck.append(this_frame)
+        # frame_deck.plot_frame_dwim()
+        # hLhRvLvR = dpg.get_item_user_data("frame plot")
+        # if hLhRvLvR:
+        #     _update_hist(hLhRvLvR, frame_deck)
+        # # print("frame acquired")
 
 def start_flag_watching_acq(
     cam: DCAM.DCAM.DCAMCamera,
