@@ -658,7 +658,7 @@ with dpg.window(label = "帧预览", tag=winFramePreview,
                     dpg.set_item_user_data(sender, None)
             dpg.set_item_callback(framePlot,callback=_update_hist_on_query_)
     #===本 checkbox 需要画在 plot 上面, 因此在 plot 添加
-    dpg.add_checkbox(tag="toggle 积分/单张 map", pos = (85,153)) #
+    dpg.add_checkbox(tag="toggle 积分/单张 map", pos = (85,153))
     @toggle_checkbox_and_disable(leftArr, rightArr, 
                                 #  cidIndcator # commented because we want to duplicate map when the main map is showing avg frame
                                  )

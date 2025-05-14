@@ -63,14 +63,15 @@ month_dict = {
 
 def mkdir_session_frames():
         """
+        未来的 SESSION MANAGER 函数
         有两种 dir 被称为 session dir (camgui 创建的 dir 不配被叫做 session dir):
         1. frames dir, 保存每个 session 的 data
         2. parameters dir, 保存每个 session 的 session manager 面板数据
         本函数创建新的 session frames dir, 最终本函数的功能应该由 session manager 代码完成
         """
-        from .core import push_log # import inside this func to avoid circular importation error (happens when this import is put on top of .py). 这个 lazy loading 在这里是正当的权宜之计, 因为最终 make session dir 的是 session manager, 而不是 camgui, make session dir 失败时, 报错是在 session manager 中报错, 不是在 camgui 中, 因此最终 make session dir 时完全用不到 camgui 的 push_log 函数
+        from .core import push_log, UserInterrupt # import inside this func to avoid circular importation error (happens when this import is put on top of .py). 这个 lazy loading 在这里是正当的权宜之计, 因为最终 make session dir 的是 session manager, 而不是 camgui, make session dir 失败时, 报错是在 session manager 中报错, 不是在 camgui 中, 因此最终 make session dir 时完全用不到 camgui 的 push_log 函数
         if session_frames_root.is_dir() and session_frames_root.is_writable(): # `is_dir` 保证 dir 存在且是 dir (不是文件名), `is_writable` 保证 dir 可写. 这个 check 用于在 Z 盘丢失 (或者换新 Z 盘的时候) 给用户一个信息, 要求用户重新连接 Z 盘, 或者 explicitly 设置好空的 frames root
-            year_str, month_str, day_str = datetime.date.today()
+            year_str, month_str, day_str = datetime.date.today().strftime("%Y-%m-%d").split("-")
             month_str = month_dict[month_str] # convert to chinese
             dpath_day = session_frames_root / year_str / month_str / day_str
             if dpath_day.exists():
@@ -89,4 +90,5 @@ def mkdir_session_frames():
             select_all_fpath.touch() # create empty _select_all file for selecting all tiffs in file dialog
         else:
             push_log(f"找不到用于存放帧数据的文件夹 {str(session_frames_root)}", is_error=True)
-            raise Exception # 人工阻止后续程序运行. 因为本函数是一个 cb, cb 是单独的线程, 所以 gui 不会崩
+            raise UserInterrupt
+

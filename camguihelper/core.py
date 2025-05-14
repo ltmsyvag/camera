@@ -2,15 +2,16 @@
 camgui 相关的帮助函数
 """
 #%%
+import re
+from deprecated import deprecated
 import math
 from datetime import datetime
-from codetiming import Timer
 from pylablib.devices import DCAM
 import numpy as np
 import threading
 import colorsys
 import tifffile
-from .dirhelper import MyPath
+from .dirhelper import MyPath, session_frames_root, month_dict
 import dearpygui.dearpygui as dpg
 import platform, uuid
 system = platform.system()
@@ -18,6 +19,12 @@ if (system == "Windows") and (hex(uuid.getnode()) != '0xf4ce2305b4c7'): # the co
     import spcm
     from AWG_module.no_with_func import DDSRampController
     from AWG_module.unified import feed_AWG
+
+class UserInterrupt(Exception):
+    """
+    打断 callback 所用的 exception
+    """
+    pass
 
 class FrameDeck(list):
     """
@@ -46,6 +53,7 @@ class FrameDeck(list):
         else:
             mbsize_1_int_frame = mbsize_1_float_frame = 0
         return f"内存: {len_deck} 帧 ({(mbsize_1_float_frame+mbsize_1_int_frame)*len_deck:.2f} MB)"
+    @deprecated
     @classmethod
     def _make_savename_stub(self):
         """
@@ -62,15 +70,7 @@ class FrameDeck(list):
             return fpath_stub
         else:
             push_log("输入的路径有问题", is_error=True)
-            raise Exception # 人工阻止后续程序运行. 因为 cb 是单独的线程, 所以 gui 不会崩
-    # def _make_savename_stub_new(self):
-    #     # self.data_root = MyPath(dpg.get_value("save path input field"))
-    #     if self.frames_root.is_dir() and self.frames_root.is_writable():
-    #         timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-    #         fpath_stub = str(self.frames_root / timestamp)
-    #         return fpath_stub
-    #     else:
-    #         push_log("data root does not exist or is non-writable", is_error=True)
+            raise UserInterrupt # 人工阻止后续程序运行. 因为 cb 是单独的线程, 所以 gui 不会崩
     def append(self, frame: np.ndarray):
         """
         append a new frame to int & float decks
@@ -90,6 +90,7 @@ class FrameDeck(list):
         self.frame_avg = sum(self.float_deck) / len(self.float_deck)
         dpg.set_value("frame deck display", self.memory_report())
         dpg.set_item_label("cid indicator", f"{self.cid}")
+    @deprecated
     def save_deck(self)->None:
         """
         保存全部 frames, 并 push 成功/失败 message
@@ -106,7 +107,7 @@ class FrameDeck(list):
             push_log("全部帧保存成功", is_good=True)
         else:
             push_log("内存中没有任何帧", is_error=True)
-    
+    @deprecated
     def save_cid_frame(self)->None:
         """
         保存 cid 指向的 frame, 并 push 成功/失败 message
@@ -123,6 +124,92 @@ class FrameDeck(list):
             push_log("当前帧保存成功", is_good=True)
         else:
             push_log("内存中没有任何帧", is_error=True)
+    def _find_lastest_sesframes_folder_and_save_frame(self):
+        """
+        本函数会做非常 redundant 的 check,
+        除非奇怪的事情发生, 比如数据丢失,
+        否则创建 session frames 目录下不会出现会被报错的情况,
+        比如有 2025 年下是空的, 连一月文件夹都没有. 
+        这种情况在用 mkdir_session_frames() 当前 session 文件夹时不会发生
+        """
+        ### 开始 redundant check
+        if not session_frames_root.exist():
+            push_log("没有找到 session dir, 请检查 Z 盘是否连接", is_error=True)
+            raise UserInterrupt
+        if not session_frames_root.is_writable():
+            push_log("目标路径不可写", is_error=True)
+            raise UserInterrupt
+        ### find latest year dpath
+        year_pattern = r"2\d{3}$" # A105 不可能存活到 3000 年
+        def _year_sorter(dpath: MyPath):
+            if re.match(year_pattern, dpath.name):
+                return int(dpath.name)
+            else:
+                return -1 # 其他我不关心的东西都排最前面
+        lst_year_dirs = sorted(list(session_frames_root.iterdir()), key= _year_sorter)
+        if not lst_year_dirs:
+            push_log("帧数据路径是空的", is_error=True)
+            raise UserInterrupt
+        dpath_year = lst_year_dirs[-1]
+        if not re.match(year_pattern, dpath_year.name):
+            push_log("帧数据路径中没有任何文件夹", is_error=True)
+            raise UserInterrupt
+        ### find latest month dpath
+        month_sort_dict = dict()
+        for key, val in month_dict.items():
+            month_sort_dict[val] = int(key)
+        def _month_sorter(dpath: MyPath):
+            if dpath.name in month_sort_dict:
+                return month_sort_dict[dpath.name]
+            else:
+                return -1
+        lst_month_dirs = sorted(list(dpath_year.iterdir()), key= _month_sorter)
+        if not lst_month_dirs:
+            push_log("当年文件夹是空的", is_error=True)
+            raise UserInterrupt
+        dpath_month = lst_month_dirs[-1]
+        if dpath_month.name not in month_sort_dict:
+            push_log("当年文件夹中没有任何月份文件夹", is_error=True)
+            raise UserInterrupt
+        ### find latest day dpath
+        day_pattern = r"^\d{2}$"
+        def _day_sorter(dpath: MyPath):
+            if re.match(day_pattern, dpath.name):
+                return int(dpath.name)
+            else:
+                return -1
+        lst_day_dirs = sorted(list(dpath_month.iterdir()), key= _day_sorter)
+        if not lst_day_dirs:
+            push_log("当月文件夹是空的", is_error=True)
+            raise UserInterrupt
+        dpath_day = lst_day_dirs[-1]
+        if not re.match(day_pattern, dpath_day.name):
+            push_log("当月文件夹中没有任何日期文件夹", is_error=True)
+            raise UserInterrupt
+        ### find latest session dpath
+        session_pattern = r"^\d{4}$"
+        def _session_sorter(dpath: MyPath):
+            if re.match(session_pattern, dpath.name):
+                return int(dpath.name)
+            else:
+                return -1
+        lst_ses_dirs = sorted(list(dpath_day.iterdir()), key= _session_sorter)
+        if not lst_ses_dirs:
+            push_log("当日文件夹是空的", is_error=True)
+            raise UserInterrupt
+        dpath_ses = lst_ses_dirs[-1]
+        if not re.match(session_pattern, dpath_ses.name):
+            push_log("当日文件夹中没有任何 session 文件夹", is_error=True)
+            raise UserInterrupt
+        ### 结束 redundant check 并得到最新的 session dpath
+        now = datetime.now()
+        timestamp = now.strftime("%Y-%m-%d-%H-%M-%S-") + f"{now.microsecond//1000:03d}"
+        fpath = dpath_ses / timestamp + ".tif"
+        try: # again, this is a redundant check, I don't think the save will fail, unless there's a Z disk connection problem
+            tifffile.imwrite(fpath, self[self.cid])
+        except Exception as e:
+            push_exception(e, "当前帧保存失败")
+            raise UserInterrupt
     def clear(self)->None:
         """
         - clear int & float decks
@@ -259,10 +346,11 @@ def _update_hist(hLhRvLvR: tuple, frame_deck: FrameDeck, yax = "hist plot yax")-
         min_range=theMinInt,max_range=max_range)
 
 
-local_frame_buffer = []
+
 def start_flag_watching_acq_buffer_rearrange(
     cam: DCAM.DCAM.DCAMCamera,
     flag: threading.Event,
+    frame_deck: FrameDeck,
     controller, # type is DDSRampController, not hinted because it acts funny on macOS
     )-> None:
     
@@ -278,14 +366,13 @@ def start_flag_watching_acq_buffer_rearrange(
         this_frame = cam.read_oldest_image()
         if awg_is_on:
             feed_AWG(this_frame, controller, awg_params) # feed original uint16 format to AWG
-        local_frame_buffer.append()
-        # local_frame_buffer
-        # frame_deck.append(this_frame)
-        # frame_deck.plot_frame_dwim()
-        # hLhRvLvR = dpg.get_item_user_data("frame plot")
-        # if hLhRvLvR:
-        #     _update_hist(hLhRvLvR, frame_deck)
-        # # print("frame acquired")
+
+        frame_deck.append(this_frame)
+        frame_deck.plot_frame_dwim()
+        hLhRvLvR = dpg.get_item_user_data("frame plot")
+        if hLhRvLvR:
+            _update_hist(hLhRvLvR, frame_deck)
+        # print("frame acquired")
 
 def start_flag_watching_acq(
     cam: DCAM.DCAM.DCAMCamera,
@@ -398,6 +485,7 @@ def _collect_awg_params() -> tuple:
 #     with dpg.theme_component(dpg.mvChildWindow):
 #         dpg.add_theme_color(dpg.mvThemeCol_FrameBg, )
 
+
 def push_log(msg:str, *, 
              is_error: bool=False, is_good: bool=False):
     """
@@ -438,3 +526,5 @@ def push_exception(
              + "\n" 
              + f"exception type: {type(e).__name__}\nexception msg: {e}",
                             is_error=True)
+
+    
