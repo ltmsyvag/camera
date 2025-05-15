@@ -1,7 +1,10 @@
+# pyright: reportOptionalSubscript=false
 """
 camgui 相关的帮助函数
 """
 #%%
+import numpy.typing as npt
+from typing import List, Dict
 import re
 from deprecated import deprecated
 import math
@@ -41,10 +44,10 @@ class FrameDeck(list):
         """
         super().__init__(*args, **kwargs) # make sure I do not override the parent dunder init
         # self.frames_root  = MyPath(frames_root_str)
-        self.cid = None # current heatmap's id in deck
-        self.float_deck = [] # gui 中的操作需要 float frame, 因此与 list (int deck) 对应, 要有一个 float deck
-        self.frame_avg = None
-        self.llst_items_dupe_maps = [] # 保存 duplicated heatmaps window 中的 item tuple
+        self.cid: int | None = None # current heatmap's id in deck
+        self.float_deck: List[npt.NDArray[np.floating]] = [] # gui 中的操作需要 float frame, 因此与 list (int deck) 对应, 要有一个 float deck
+        self.frame_avg: npt.NDArray[np.floating] | None = None
+        self.llst_items_dupe_maps : List[List[int | str]] = [] # 保存 duplicated heatmaps window 中的 item tuple
     def memory_report(self) -> str:
         len_deck = len(self)
         if len_deck > 0:
@@ -54,8 +57,8 @@ class FrameDeck(list):
             mbsize_1_int_frame = mbsize_1_float_frame = 0
         return f"内存: {len_deck} 帧 ({(mbsize_1_float_frame+mbsize_1_int_frame)*len_deck:.2f} MB)"
     @deprecated
-    @classmethod
-    def _make_savename_stub(self):
+    @staticmethod
+    def _make_savename_stub():
         """
         如果想保存的文件时间是
         "C:\\Users\\username\\Desktop\\2023-10-01-12-00-00_id.tiff",
@@ -87,7 +90,8 @@ class FrameDeck(list):
         super().append(frame)
         self.float_deck.append(frame.astype(float))
         self.cid = len(self) - 1
-        self.frame_avg = sum(self.float_deck) / len(self.float_deck)
+        # self.frame_avg = sum(self.float_deck) / len(self.float_deck)
+        self.frame_avg = np.mean(self.float_deck, axis=0)
         dpg.set_value("frame deck display", self.memory_report())
         dpg.set_item_label("cid indicator", f"{self.cid}")
     @deprecated
@@ -133,7 +137,7 @@ class FrameDeck(list):
         这种情况在用 mkdir_session_frames() 当前 session 文件夹时不会发生
         """
         ### 开始 redundant check
-        if not session_frames_root.exist():
+        if not session_frames_root.exists():
             push_log("没有找到 session dir, 请检查 Z 盘是否连接", is_error=True)
             raise UserInterrupt
         if not session_frames_root.is_writable():
@@ -204,9 +208,9 @@ class FrameDeck(list):
         ### 结束 redundant check 并得到最新的 session dpath
         now = datetime.now()
         timestamp = now.strftime("%Y-%m-%d-%H-%M-%S-") + f"{now.microsecond//1000:03d}"
-        fpath = dpath_ses / timestamp + ".tif"
+        fpath = dpath_ses /( timestamp + ".tif")
         try: # again, this is a redundant check, I don't think the save will fail, unless there's a Z disk connection problem
-            tifffile.imwrite(fpath, self[self.cid])
+            tifffile.imwrite(fpath, self[self.cid]) # type: ignore
         except Exception as e:
             push_exception(e, "当前帧保存失败")
             raise UserInterrupt
@@ -225,7 +229,7 @@ class FrameDeck(list):
         dpg.set_value("frame deck display", self.memory_report())
         dpg.set_item_label("cid indicator", "N/A")
         for yax in self.get_all_tags_yaxes():
-            heatmapSlot = dpg.get_item_children(yax)[1]
+            heatmapSlot: List[int] = dpg.get_item_children(yax)[1] # type: ignore
             if heatmapSlot:
                 heatSeries, = heatmapSlot
                 dpg.delete_item(heatSeries)
@@ -234,9 +238,9 @@ class FrameDeck(list):
         lst_allyaxes.append("frame yax")
         return lst_allyaxes
     @staticmethod
-    def _plot_frame(frame: np.ndarray, 
+    def _plot_frame(frame: npt.NDArray[np.floating], 
                     # xax: str="frame xax", 
-                    yax = "frame yax")->None:
+                    yax: str | int = "frame yax")->None:
         assert np.issubdtype(frame.dtype, float), "heatmap frame can only be float!"
         colorbar="frame colorbar"
         fmin, fmax, (nvrows, nhcols) = frame.min(), frame.max(), frame.shape
@@ -252,10 +256,10 @@ class FrameDeck(list):
         if plot_mainframe_p: # always update color bar lims when doing main plot, whether the manual scale checkbox is checked or not
             dpg.configure_item(colorbar, min_scale = fmin, max_scale = fmax)
         
-        had_series_child_p = dpg.get_item_children(yax)[1] # plot new series 之前 check 是否有老 series
+        had_series_child_p = dpg.get_item_children(yax)[1] # type: ignore # plot new series 之前 check 是否有老 series
         if had_series_child_p:
             dpg.delete_item(yax, children_only=True) # this is necessary!
-        dpg.add_heat_series(frame, nvrows, nhcols, parent=yax, 
+        dpg.add_heat_series(frame, nvrows, nhcols, parent=yax, # type: ignore
                             scale_min=fmin, scale_max=fmax,format="",
                             bounds_min= (0,nvrows), bounds_max= (nhcols, 0)
                             )
@@ -363,7 +367,7 @@ def start_flag_watching_acq_buffer_rearrange(
             cam.wait_for_frame(timeout=0.2)
         except DCAM.DCAMTimeoutError:
             continue
-        this_frame = cam.read_oldest_image()
+        this_frame: npt.NDArray[np.uint16] = cam.read_oldest_image() # type: ignore
         if awg_is_on:
             feed_AWG(this_frame, controller, awg_params) # feed original uint16 format to AWG
 
@@ -382,14 +386,14 @@ def start_flag_watching_acq(
     )-> None:
     cam.set_trigger_mode("ext")
     cam.start_acquisition(mode="sequence", nframes=100)
-    awg_is_on = dpg.get_item_user_data("AWG toggle")["is on"]
+    awg_is_on = dpg.get_item_user_data("AWG toggle")["is on"] 
     awg_params = _collect_awg_params()
     while flag.is_set():
         try:
             cam.wait_for_frame(timeout=0.2)
         except DCAM.DCAMTimeoutError:
             continue
-        this_frame = cam.read_oldest_image()
+        this_frame :npt.NDArray[np.uint16] = cam.read_oldest_image() # type: ignore
         if awg_is_on:
             feed_AWG(this_frame, controller, awg_params) # feed original uint16 format to AWG
         frame_deck.append(this_frame)
@@ -503,10 +507,10 @@ def push_log(msg:str, *,
         color = None
     dpg.add_text("- "+timestamp+"\n"+msg, 
                  parent= tagWin, 
-                 color = color,
+                 color = color, # type: ignore
                  wrap= 150)
     
-    win_children = dpg.get_item_children(tagWin)
+    win_children: Dict[int, List[int]] = dpg.get_item_children(tagWin) # type: ignore
     lst_tags_msgs = win_children[1]
     if len(lst_tags_msgs)>100: # log 最多 100 条
         oldestTxt = lst_tags_msgs.pop(0)

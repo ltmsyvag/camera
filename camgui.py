@@ -1,4 +1,7 @@
 #%%
+# pyright: reportRedeclaration=false
+# pyright: reportOptionalMemberAccess=false
+# pyright: reportArgumentType=false
 """
 在代码顺序上, 永远先创建 item (e.g. dpg.add_button()), 再配置 item (def callback, bind callback, etc.)
 不同 item 设置的区块之间用 `#====` 分隔, 保证特定 item 的所有设置永远集中于一个区块之内, 不要分散在四处
@@ -8,7 +11,7 @@ item 常数用首字母小写的驼峰命名 e.g. myItem. 其他任何变量都�
 cam 将会是全局变量, 由 callback 创建
 """
 from pathlib import Path
-from typing import Callable
+from typing import Callable, List, Dict
 import dearpygui.dearpygui as dpg
 from pylablib.devices import DCAM
 import threading
@@ -112,7 +115,7 @@ with dpg.window(label= "控制面板", tag = winCtrlPanels):
                     do_set_cam_roi_using_6fields_roi()
                     do_set_6fields_roi_using_cam_roi()
                 else:
-                    cam.close()
+                    cam.close() # type: ignore
                     # cam = None # commented, because I actually want to retain a closed cam object after toggling off the cam, for cam checks that might be useful
             @toggle_theming_and_enable("expo and roi fields", "acquisition toggle")
             def _dummy_cam_toggle_cb_(_, __, user_data):
@@ -189,14 +192,14 @@ with dpg.window(label= "控制面板", tag = winCtrlPanels):
                 with dpg.group(horizontal=True):
                     dpg.add_text("参数文件夹:")
                     ttpkwargs = dict(delay=1, hide_on_activity= True)
-                    with dpg.tooltip(dpg.last_item(), **ttpkwargs):
+                    with dpg.tooltip(dpg.last_item(), **ttpkwargs): # type: ignore
                         dpg.add_text("当前面板中所有的参数在触发采集开始时\n会被保存到这个文件夹")
                     dpg.add_text("CA1")
                     dpg.bind_item_font(dpg.last_item(), large_font)
                 #===================================
                 with dpg.group(horizontal=True):
                     dpg.add_text("帧文件夹:")
-                    with dpg.tooltip(dpg.last_item(), **ttpkwargs):
+                    with dpg.tooltip(dpg.last_item(), **ttpkwargs): # type: ignore
                         dpg.add_text("当前采集的所有帧文件(tiff)\n会被保存到这个文件夹")
                     _color = (255,0,255)
                     dpg.add_text("0000", color= _color)
@@ -225,15 +228,15 @@ with dpg.window(label= "控制面板", tag = winCtrlPanels):
                 #==下面的 6 roi fields 由于在 cam 中必须同时 update, 因此其共用一个 callback. 我们将相关 field items 设置代码放在一个区块内====
                 dpg.add_spacer(height=10)
                 dpg.add_separator(label="ROI")
-                with dpg.tooltip(dpg.last_item(), **ttpkwargs):
+                with dpg.tooltip(dpg.last_item(), **ttpkwargs): # type: ignore
                         dpg.add_text("max h 4096, max v 2304")
                 dpg.add_text("h start & h length:")
                 _indent = 20
                 fldsROIh = dpg.add_input_intx(size=2, indent= _indent,width=100, default_value=[1352, 240,0,0])
                 dpg.add_text("v start & v length:")
-                fldsROIv = dpg.add_input_intx(size=2, indent = _indent ,width=dpg.get_item_width(fldsROIh), default_value=[948,240,0,0])
+                fldsROIv = dpg.add_input_intx(size=2, indent = _indent ,width=dpg.get_item_width(fldsROIh), default_value=[948,240,0,0]) # type: ignore
                 dpg.add_text("h binning & v binning")
-                fldsBinning = dpg.add_input_intx(size=2, indent = _indent ,width=dpg.get_item_width(fldsROIh), default_value=[1,1,0,0])
+                fldsBinning = dpg.add_input_intx(size=2, indent = _indent ,width=dpg.get_item_width(fldsROIh), default_value=[1,1,0,0]) # type: ignore
                 def do_set_cam_roi_using_6fields_roi():
                     hstart, hwid, *_ = dpg.get_value(fldsROIh)
                     vstart, vwid, *_ = dpg.get_value(fldsROIv)
@@ -270,54 +273,54 @@ with dpg.window(label= "控制面板", tag = winCtrlPanels):
                     if next_state:
                         raw_card, controller = gui_open_awg() # raw_card is opened upon being returned by gui_open_awg()
                     else:
-                        raw_card.close()
+                        raw_card.close() # type: ignore
                         controller = None # controller always has to exist, since its the argument of the func start_acqloop that runs in the thread thread_acq
                 dpg.set_item_callback(togAwg, _awg_toggle_cb_)
                 dpg.add_separator()
                 _width=100
                 _spcheight=10
                 dpg.add_input_intx(label= "x1 y1", tag= "x1 y1", size=2, width=_width, default_value = [36,23,0,0])
-                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("基矢起点 x y 坐标")
+                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("基矢起点 x y 坐标") #type:ignore
                 dpg.add_input_intx(label= "x2 y2", tag= "x2 y2", size=2, width=_width, default_value = [124,25,0,0])
-                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("x 方向基矢 x y 坐标")
+                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("x 方向基矢 x y 坐标") #type:ignore
                 dpg.add_input_intx(label= "x3 y3", tag= "x3 y3", size=2, width=_width, default_value = [34,112,0,0])
-                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("y 方向基矢 x y 坐标")
+                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("y 方向基矢 x y 坐标") #type:ignore
                 dpg.add_input_intx(label= "nx ny", tag= "nx ny", size=2, width=_width, default_value = [16,16,0,0])
-                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("阵列 x y 方向尺寸")
+                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("阵列 x y 方向尺寸") #type:ignore
                 dpg.add_input_intx(label= "x0 y0", tag= "x0 y0", size=2, width=_width, default_value = [34,21,0,0])
-                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("选择起点")
+                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("选择起点") #type:ignore
                 dpg.add_input_intx(label= "rec_x rec_y", tag= "rec_x rec_y", size=2, width=_width, default_value=[4,4,0,0])
-                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("每个点位选择统计光子数的 mask 大小")
-                dpg.add_input_int(label="count_threshold",tag="count_threshold",step=0, width=_width/2, default_value=30)
-                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("判断是否有光子的阈值")
-                dpg.add_input_int(label="n_packed",tag="n_packed",step=0, width=_width/2, default_value=3)
-                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("决定了每次移动的原子数")
+                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("每个点位选择统计光子数的 mask 大小") #type:ignore
+                dpg.add_input_int(label="count_threshold",tag="count_threshold",step=0, width=_width/2, default_value=30) #type:ignore
+                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("判断是否有光子的阈值") #type:ignore
+                dpg.add_input_int(label="n_packed",tag="n_packed",step=0, width=_width/2, default_value=3) #type:ignore
+                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("决定了每次移动的原子数") #type:ignore
                 dpg.add_spacer(height=_spcheight)
                 dpg.add_text("start_frequency_on_row(col)")
-                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("行(列)方向的起始频率，即第一行(列)对应的频率")
-                dpg.add_input_floatx(tag = "start_frequency_on_row(col)", size=2, width=_width*1.2, default_value=[90.8,111.4,0,0], label="MHz")
+                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("行(列)方向的起始频率，即第一行(列)对应的频率") #type:ignore
+                dpg.add_input_floatx(tag = "start_frequency_on_row(col)", size=2, width=_width*1.2, default_value=[90.8,111.4,0,0], label="MHz") #type:ignore
                 dpg.add_text("end_frequency_on_row(col)")
-                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("行(列)方向的终止频率")
-                dpg.add_input_floatx(tag = "end_frequency_on_row(col)", size=2, width=_width*1.2, default_value=[111.3,90.8,0,0], label= "MHz")
+                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("行(列)方向的终止频率") #type:ignore
+                dpg.add_input_floatx(tag = "end_frequency_on_row(col)", size=2, width=_width*1.2, default_value=[111.3,90.8,0,0], label= "MHz") #type:ignore
                 dpg.add_text("start_site_on_row(col)")
-                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("行(列)方向的原子起始坐标")
+                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("行(列)方向的原子起始坐标") #type:ignore
                 dpg.add_input_intx(tag = "start_site_on_row(col)", size=2, width=_width, default_value=[0,0,0,0])
                 dpg.add_text("end_site_on_row(col)")
-                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("行(列)方向的原子终止坐标")
+                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("行(列)方向的原子终止坐标") #type:ignore
                 dpg.add_input_intx(tag = "end_site_on_row(col)", size=2, width=_width, default_value=[15,15,0,0])
                 dpg.add_spacer(height=_spcheight)
-                dpg.add_input_int(label="num_segments", tag="num_segments",step=0, width=_width/2, default_value=16)
-                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("决定了 s 曲线 ramp 的平滑程度")
-                dpg.add_input_float(label="power_ramp_time (ms)", tag="power_ramp_time (ms)",step=0, width=_width/2, default_value=4)
-                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("功率 ramp 的时间")
-                dpg.add_input_float(label="move_time (ms)", tag="move_time (ms)", step=0, width=_width/2, default_value=2)
-                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("频率 ramp 的速度，也就是单个光镊移动的速度")
+                dpg.add_input_int(label="num_segments", tag="num_segments",step=0, width=_width/2, default_value=16) #type:ignore
+                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("决定了 s 曲线 ramp 的平滑程度") #type:ignore
+                dpg.add_input_float(label="power_ramp_time (ms)", tag="power_ramp_time (ms)",step=0, width=_width/2, default_value=4) #type:ignore
+                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("功率 ramp 的时间") #type:ignore
+                dpg.add_input_float(label="move_time (ms)", tag="move_time (ms)", step=0, width=_width/2, default_value=2) #type:ignore
+                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("频率 ramp 的速度，也就是单个光镊移动的速度") #type:ignore
                 dpg.add_spacer(height=_spcheight)
                 dpg.add_text("percentage_total_power_for_list")
-                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("送入aod每个轴的最大功率，是一个百分数，代表最终上升到awg设定最大电平的多少")
-                dpg.add_input_float(tag = "percentage_total_power_for_list", step=0, width=_width/2, default_value=0.5)
+                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("送入aod每个轴的最大功率，是一个百分数，代表最终上升到awg设定最大电平的多少") #type:ignore
+                dpg.add_input_float(tag = "percentage_total_power_for_list", step=0, width=_width/2, default_value=0.5) #type:ignore
                 dpg.add_input_text(label = "ramp_type", tag = "ramp_type", width=_width, default_value="5th-order")
-                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("决定了扫频的曲线形式")
+                with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("决定了扫频的曲线形式") #type:ignore
                 dpg.add_spacer(height=_spcheight)
                 _btn = dpg.add_button(label="设置目标阵列")
                 dpg.set_item_callback(_btn, # strange, dpg.last_item() does not work here
@@ -428,8 +431,8 @@ with dpg.window(label = "帧预览", tag=winFramePreview,
                     for xax, *_ in frame_deck.llst_items_dupe_maps:
                         tagPlot = dpg.get_item_parent(xax)
                         dpg.bind_colormap(tagPlot, cmap)
-                    lst_other_menu_items = dpg.get_item_children(dpg.get_item_parent(sender))[1]
-                    lst_other_menu_items.remove(sender)
+                    lst_other_menu_items: Dict[int, List] = dpg.get_item_children(dpg.get_item_parent(sender))[1]
+                    lst_other_menu_items.remove(sender) # type: ignore
                     dpg.set_value(sender, True)
                     for item in lst_other_menu_items:
                         dpg.set_value(item, False)

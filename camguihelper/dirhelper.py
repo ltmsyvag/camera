@@ -35,6 +35,7 @@ import os
 import datetime
 import dearpygui.dearpygui as dpg
 
+
 class MyPath(Path):
     def is_readable(self):
         return os.access(self, os.R_OK)
@@ -92,3 +93,5 @@ def mkdir_session_frames():
             push_log(f"找不到用于存放帧数据的文件夹 {str(session_frames_root)}", is_error=True)
             raise UserInterrupt
 
+if __name__ == "__main__":
+    issubclass(MyPath, Path)
