@@ -3,6 +3,7 @@
 camgui 相关的帮助函数
 """
 #%%
+import queue
 import time
 import numpy.typing as npt
 from typing import List, Dict
@@ -153,11 +154,11 @@ class FrameDeck(list):
                 return -1 # 其他我不关心的东西都排最前面
         lst_year_dirs = sorted(list(session_frames_root.iterdir()), key= _year_sorter)
         if not lst_year_dirs:
-            push_log("帧数据路径是空的", is_error=True)
+            push_log("保存失败: 帧数据路径是空的", is_error=True)
             raise UserInterrupt
         dpath_year = lst_year_dirs[-1]
         if not re.match(year_pattern, dpath_year.name):
-            push_log("帧数据路径中没有任何文件夹", is_error=True)
+            push_log("保存失败: 帧数据路径中没有任何文件夹", is_error=True)
             raise UserInterrupt
         ### find latest month dpath
         month_sort_dict = dict()
@@ -170,11 +171,11 @@ class FrameDeck(list):
                 return -1
         lst_month_dirs = sorted(list(dpath_year.iterdir()), key= _month_sorter)
         if not lst_month_dirs:
-            push_log("当年文件夹是空的", is_error=True)
+            push_log("保存失败: 当年文件夹是空的", is_error=True)
             raise UserInterrupt
         dpath_month = lst_month_dirs[-1]
         if dpath_month.name not in month_sort_dict:
-            push_log("当年文件夹中没有任何月份文件夹", is_error=True)
+            push_log("保存失败: 当年文件夹中没有任何月份文件夹", is_error=True)
             raise UserInterrupt
         ### find latest day dpath
         day_pattern = r"^\d{2}$"
@@ -185,11 +186,11 @@ class FrameDeck(list):
                 return -1
         lst_day_dirs = sorted(list(dpath_month.iterdir()), key= _day_sorter)
         if not lst_day_dirs:
-            push_log("当月文件夹是空的", is_error=True)
+            push_log("保存失败: 当月文件夹是空的", is_error=True)
             raise UserInterrupt
         dpath_day = lst_day_dirs[-1]
         if not re.match(day_pattern, dpath_day.name):
-            push_log("当月文件夹中没有任何日期文件夹", is_error=True)
+            push_log("保存失败: 当月文件夹中没有任何日期文件夹", is_error=True)
             raise UserInterrupt
         ### find latest session dpath
         session_pattern = r"^\d{4}$"
@@ -200,11 +201,11 @@ class FrameDeck(list):
                 return -1
         lst_ses_dirs = sorted(list(dpath_day.iterdir()), key= _session_sorter)
         if not lst_ses_dirs:
-            push_log("当日文件夹是空的", is_error=True)
+            push_log("保存失败: 当日文件夹是空的", is_error=True)
             raise UserInterrupt
         dpath_ses = lst_ses_dirs[-1]
         if not re.match(session_pattern, dpath_ses.name):
-            push_log("当日文件夹中没有任何 session 文件夹", is_error=True)
+            push_log("保存失败: 当日文件夹中没有任何 session 文件夹", is_error=True)
             raise UserInterrupt
         ### 结束 redundant check 并得到最新的 session dpath
         now = datetime.now()
@@ -378,16 +379,15 @@ def _update_hist(hLhRvLvR: tuple, frame_deck: FrameDeck, yax = "hist plot yax")-
 #             _update_hist(hLhRvLvR, frame_deck)
 #         # print("frame acquired")
 
-def fworker_flag_watching_acq(
+def workerf_flag_watching_acq(
     cam: DCAM.DCAM.DCAMCamera,
     flag: threading.Event,
     frame_deck: FrameDeck,
     controller, # type is DDSRampController, not hinted because it acts funny on macOS
     )-> None:
     """
-    fworker means a worker function. 
-    有两个 worker 概念 worker function, worker thread
-    worker thread 中运行着 worker function
+    workerf means a worker function. 
+    一个线程中运行一个 worker function
     """
     cam.set_trigger_mode("ext")
     cam.start_acquisition(mode="sequence", nframes=100)
@@ -412,7 +412,7 @@ def fworker_flag_watching_acq(
 
 
 from fake_frames_imports import frame_list
-def _dummy_fworker_flag_watching_acq(flag, frame_deck):
+def _dummy_workerf_flag_watching_acq(flag: threading.Event, frame_deck: FrameDeck):
     while flag.is_set():
         time.sleep(1)
         if frame_list:
@@ -428,6 +428,81 @@ def _dummy_fworker_flag_watching_acq(flag, frame_deck):
         else:
             break
 
+_dummy_remote_buffer = queue.Queue(maxsize=1) # dummy buffer 放在 helper 里, 实验中也不会用, 实际要用的 local buffer (SimpleQueue) 在 main script 中定义
+def workerf_dummy_remote_buffer_filler(
+        dummy_remote_buffer: queue.Queue):
+    while True:
+        time.sleep(1)
+        if frame_list:
+            this_frame = frame_list.pop()
+            dummy_remote_buffer.put(this_frame)
+        else:
+            break
+def _dummy_workerf_flagged_snap_rearrange_deposit(
+        dummy_remote_buffer: queue.Queue,
+        local_buffer: queue.SimpleQueue,
+        flag: threading.Event,
+        )->None:
+    """
+    从 dummy remote buffer 中取 frame, 放入 local buffer
+    """
+    while flag.is_set():
+        try:
+            this_frame: npt.NDArray[np.uint16] = dummy_remote_buffer.get(timeout=0.2)
+        except queue.Empty:
+            continue
+        local_buffer.put(this_frame)
+    local_buffer.put(None) # poison pill
+
+def workerf_local_buffer_consumer(local_buffer: queue.SimpleQueue, 
+                                  frame_deck: FrameDeck,
+                                  )->None:
+    """
+    从 local buffer 中取 frame, 然后:
+    1. 放入 frame deck
+    2. 绘图
+    3. 保存帧
+    """
+    while True:
+        this_frame = local_buffer.get()
+        if this_frame is None: # poison pill
+            break # looping worker killed
+        frame_deck.append(this_frame)
+        frame_deck.plot_frame_dwim()
+        hLhRvLvR = dpg.get_item_user_data("frame plot")
+        if hLhRvLvR:
+            _update_hist(hLhRvLvR, frame_deck)
+        try:
+            frame_deck._find_lastest_sesframes_folder_and_save_frame()
+        except UserInterrupt:
+            pass
+
+
+def workerf_flagged_snap_rearrange_deposit(
+        cam: DCAM.DCAM.DCAMCamera,
+        local_buffer: queue.SimpleQueue,
+        flag: threading.Event,
+        controller, # type is DDSRampController, not hinted because it acts funny on macOS
+        )->None:
+    """
+    从 camera 中取 frame, 放入 local buffer
+    """
+    cam.set_trigger_mode("ext")
+    cam.start_acquisition(mode="sequence", nframes=100)
+    awg_is_on = dpg.get_item_user_data("AWG toggle")["is on"] 
+    awg_params = _collect_awg_params()
+    while flag.is_set():
+        try:
+            cam.wait_for_frame(timeout=0.2)
+        except DCAM.DCAMTimeoutError:
+            continue
+        this_frame: npt.NDArray[np.uint16] = cam.read_oldest_image()
+        if awg_is_on:
+            feed_AWG(this_frame, controller, awg_params)
+        local_buffer.put(this_frame)
+    local_buffer.put(None) # poison pill    
+    cam.stop_acquisition()
+    cam.set_trigger_mode("int")
 
 
 def _log(sender, app_data, user_data):

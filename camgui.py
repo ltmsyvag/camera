@@ -18,8 +18,8 @@ import threading
 import time
 import math
 import tifffile
-from camguihelper import gui_open_awg, FrameDeck, fworker_flag_watching_acq
-from camguihelper.core import _log, _update_hist, _dummy_fworker_flag_watching_acq
+from camguihelper import gui_open_awg, FrameDeck, workerf_flag_watching_acq
+from camguihelper.core import _log, _update_hist, _dummy_workerf_flag_watching_acq
 from camguihelper.dirhelper import mkdir_session_frames
 from camguihelper.dpghelper import (
     do_bind_my_global_theme,
@@ -146,14 +146,14 @@ with dpg.window(label= "控制面板", tag = winCtrlPanels):
                 next_state = not state
                 flag = user_data["acq thread flag"]
                 if next_state:
-                    thread_worker = threading.Thread(target=fworker_flag_watching_acq, args=(cam, flag, frame_deck, controller))
-                    user_data["acq thread"] = thread_worker
+                    thread = threading.Thread(target=workerf_flag_watching_acq, args=(cam, flag, frame_deck, controller))
+                    user_data["acq thread"] = thread
                     flag.set()
-                    thread_worker.start()
+                    thread.start()
                 else:
-                    thread_worker = user_data["acq thread"]
+                    thread = user_data["acq thread"]
                     flag.clear()
-                    thread_worker.join()
+                    thread.join()
                     user_data["acq thread"] = None # this is probably a sanity code, can do without
                     # cam.stop_acquisition()
                     # cam.set_trigger_mode("int")
@@ -169,15 +169,15 @@ with dpg.window(label= "控制面板", tag = winCtrlPanels):
                 next_state = not state
                 flag = user_data["acq thread flag"]
                 if next_state:
-                    thread_worker = threading.Thread(
-                        target=_dummy_fworker_flag_watching_acq, args=(flag, frame_deck))
-                    user_data["acq thread"] = thread_worker
+                    thread = threading.Thread(
+                        target=_dummy_workerf_flag_watching_acq, args=(flag, frame_deck))
+                    user_data["acq thread"] = thread
                     flag.set()
-                    thread_worker.start()
+                    thread.start()
                 else:
-                    thread_worker = user_data["acq thread"]
+                    thread = user_data["acq thread"]
                     flag.clear()
-                    thread_worker.join()
+                    thread.join()
                     user_data["acq thread"] = None
                     # print("acq stopped")
                 # dpg.set_item_user_data(sender, user_data)
