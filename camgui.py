@@ -18,8 +18,8 @@ import threading
 import time
 import math
 import tifffile
-from camguihelper import gui_open_awg, FrameDeck, start_flag_watching_acq
-from camguihelper.core import _log, _update_hist, _dummy_start_flag_watching_acq
+from camguihelper import gui_open_awg, FrameDeck, fworker_flag_watching_acq
+from camguihelper.core import _log, _update_hist, _dummy_fworker_flag_watching_acq
 from camguihelper.dirhelper import mkdir_session_frames
 from camguihelper.dpghelper import (
     do_bind_my_global_theme,
@@ -146,17 +146,17 @@ with dpg.window(label= "控制面板", tag = winCtrlPanels):
                 next_state = not state
                 flag = user_data["acq thread flag"]
                 if next_state:
-                    thread_watching_a_flag = threading.Thread(target=start_flag_watching_acq, args=(cam, flag, frame_deck, controller))
-                    user_data["acq thread"] = thread_watching_a_flag
+                    thread_worker = threading.Thread(target=fworker_flag_watching_acq, args=(cam, flag, frame_deck, controller))
+                    user_data["acq thread"] = thread_worker
                     flag.set()
-                    thread_watching_a_flag.start()
+                    thread_worker.start()
                 else:
-                    thread_watching_a_flag = user_data["acq thread"]
+                    thread_worker = user_data["acq thread"]
                     flag.clear()
-                    thread_watching_a_flag.join()
+                    thread_worker.join()
                     user_data["acq thread"] = None # this is probably a sanity code, can do without
-                    cam.stop_acquisition()
-                    cam.set_trigger_mode("int")
+                    # cam.stop_acquisition()
+                    # cam.set_trigger_mode("int")
                     # print("acq stopped")
                 # dpg.set_item_user_data(sender, user_data) # the decor saves the user_data so I might not need to explicitly save it at all       
             @toggle_theming_and_enable(
@@ -169,20 +169,17 @@ with dpg.window(label= "控制面板", tag = winCtrlPanels):
                 next_state = not state
                 flag = user_data["acq thread flag"]
                 if next_state:
-                    try:
-                        thread_watching_a_flag = threading.Thread(
-                            target=_dummy_start_flag_watching_acq, args=(cam, flag, frame_deck, controller))
-                        user_data["acq thread"] = thread_watching_a_flag
-                        flag.set()
-                        thread_watching_a_flag.start()
-                    except:
-                        print("HERE!")
+                    thread_worker = threading.Thread(
+                        target=_dummy_fworker_flag_watching_acq, args=(flag, frame_deck))
+                    user_data["acq thread"] = thread_worker
+                    flag.set()
+                    thread_worker.start()
                 else:
-                    thread_watching_a_flag = user_data["acq thread"]
+                    thread_worker = user_data["acq thread"]
                     flag.clear()
-                    thread_watching_a_flag.join()
+                    thread_worker.join()
                     user_data["acq thread"] = None
-                    print("acq stopped")
+                    # print("acq stopped")
                 # dpg.set_item_user_data(sender, user_data)
 
             dpg.bind_item_font(togAcq, large_font)

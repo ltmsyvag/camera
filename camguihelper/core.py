@@ -3,6 +3,7 @@
 camgui 相关的帮助函数
 """
 #%%
+import time
 import numpy.typing as npt
 from typing import List, Dict
 import re
@@ -207,10 +208,10 @@ class FrameDeck(list):
             raise UserInterrupt
         ### 结束 redundant check 并得到最新的 session dpath
         now = datetime.now()
-        timestamp = now.strftime("%Y-%m-%d-%H-%M-%S-") + f"{now.microsecond//1000:03d}"
+        timestamp: str = now.strftime("%Y-%m-%d-%H-%M-%S-") + f"{now.microsecond//1000:03d}"
         fpath = dpath_ses /( timestamp + ".tif")
         try: # again, this is a redundant check, I don't think the save will fail, unless there's a Z disk connection problem
-            tifffile.imwrite(fpath, self[self.cid]) # type: ignore
+            tifffile.imwrite(fpath, self[self.cid])
         except Exception as e:
             push_exception(e, "当前帧保存失败")
             raise UserInterrupt
@@ -350,40 +351,44 @@ def _update_hist(hLhRvLvR: tuple, frame_deck: FrameDeck, yax = "hist plot yax")-
         min_range=theMinInt,max_range=max_range)
 
 
-
-def start_flag_watching_acq_buffer_rearrange(
-    cam: DCAM.DCAM.DCAMCamera,
-    flag: threading.Event,
-    frame_deck: FrameDeck,
-    controller, # type is DDSRampController, not hinted because it acts funny on macOS
-    )-> None:
+# def start_flag_watching_acq_buffer_rearrange(
+#     cam: DCAM.DCAM.DCAMCamera,
+#     flag: threading.Event,
+#     frame_deck: FrameDeck,
+#     controller, # type is DDSRampController, not hinted because it acts funny on macOS
+#     )-> None:
     
-    cam.set_trigger_mode("ext")
-    cam.start_acquisition(mode="sequence", nframes=100)
-    awg_is_on = dpg.get_item_user_data("AWG toggle")["is on"]
-    awg_params = _collect_awg_params()
-    while flag.is_set():
-        try:
-            cam.wait_for_frame(timeout=0.2)
-        except DCAM.DCAMTimeoutError:
-            continue
-        this_frame: npt.NDArray[np.uint16] = cam.read_oldest_image() # type: ignore
-        if awg_is_on:
-            feed_AWG(this_frame, controller, awg_params) # feed original uint16 format to AWG
+#     cam.set_trigger_mode("ext")
+#     cam.start_acquisition(mode="sequence", nframes=100)
+#     awg_is_on = dpg.get_item_user_data("AWG toggle")["is on"]
+#     awg_params = _collect_awg_params()
+#     while flag.is_set():
+#         try:
+#             cam.wait_for_frame(timeout=0.2)
+#         except DCAM.DCAMTimeoutError:
+#             continue
+#         this_frame: npt.NDArray[np.uint16] = cam.read_oldest_image()
+#         if awg_is_on:
+#             feed_AWG(this_frame, controller, awg_params) # feed original uint16 format to AWG
 
-        frame_deck.append(this_frame)
-        frame_deck.plot_frame_dwim()
-        hLhRvLvR = dpg.get_item_user_data("frame plot")
-        if hLhRvLvR:
-            _update_hist(hLhRvLvR, frame_deck)
-        # print("frame acquired")
+#         frame_deck.append(this_frame)
+#         frame_deck.plot_frame_dwim()
+#         hLhRvLvR = dpg.get_item_user_data("frame plot")
+#         if hLhRvLvR:
+#             _update_hist(hLhRvLvR, frame_deck)
+#         # print("frame acquired")
 
-def start_flag_watching_acq(
+def fworker_flag_watching_acq(
     cam: DCAM.DCAM.DCAMCamera,
     flag: threading.Event,
     frame_deck: FrameDeck,
     controller, # type is DDSRampController, not hinted because it acts funny on macOS
     )-> None:
+    """
+    fworker means a worker function. 
+    有两个 worker 概念 worker function, worker thread
+    worker thread 中运行着 worker function
+    """
     cam.set_trigger_mode("ext")
     cam.start_acquisition(mode="sequence", nframes=100)
     awg_is_on = dpg.get_item_user_data("AWG toggle")["is on"] 
@@ -393,7 +398,7 @@ def start_flag_watching_acq(
             cam.wait_for_frame(timeout=0.2)
         except DCAM.DCAMTimeoutError:
             continue
-        this_frame :npt.NDArray[np.uint16] = cam.read_oldest_image() # type: ignore
+        this_frame :npt.NDArray[np.uint16] = cam.read_oldest_image()
         if awg_is_on:
             feed_AWG(this_frame, controller, awg_params) # feed original uint16 format to AWG
         frame_deck.append(this_frame)
@@ -401,12 +406,13 @@ def start_flag_watching_acq(
         hLhRvLvR = dpg.get_item_user_data("frame plot")
         if hLhRvLvR:
             _update_hist(hLhRvLvR, frame_deck)
-        # print("frame acquired")
 
-import time
+    cam.stop_acquisition()
+    cam.set_trigger_mode("int")
+
 
 from fake_frames_imports import frame_list
-def _dummy_start_flag_watching_acq(cam, flag, frame_deck, controller):
+def _dummy_fworker_flag_watching_acq(flag, frame_deck):
     while flag.is_set():
         time.sleep(1)
         if frame_list:
