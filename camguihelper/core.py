@@ -3,6 +3,7 @@
 camgui 相关的帮助函数
 """
 #%%
+import traceback
 import queue
 import time
 import numpy.typing as npt
@@ -379,15 +380,18 @@ def _update_hist(hLhRvLvR: tuple, frame_deck: FrameDeck, yax = "hist plot yax")-
 #             _update_hist(hLhRvLvR, frame_deck)
 #         # print("frame acquired")
 
-def workerf_flag_watching_acq(
+def st_workerf_flagged_do_all(
     cam: DCAM.DCAM.DCAMCamera,
     flag: threading.Event,
     frame_deck: FrameDeck,
     controller, # type is DDSRampController, not hinted because it acts funny on macOS
     )-> None:
     """
-    workerf means a worker function. 
-    一个线程中运行一个 worker function
+    single-thread approach worker function which is flagged and does everythig:
+    1. acquire frame from camera
+    2. feed frame to AWG
+    3. append frame to frame_deck
+    4. plot frame
     """
     cam.set_trigger_mode("ext")
     cam.start_acquisition(mode="sequence", nframes=100)
@@ -410,9 +414,10 @@ def workerf_flag_watching_acq(
     cam.stop_acquisition()
     cam.set_trigger_mode("int")
 
-
 from fake_frames_imports import frame_list
-def _dummy_workerf_flag_watching_acq(flag: threading.Event, frame_deck: FrameDeck):
+def _dummy_st_workerf_flagged_do_all(
+        flag: threading.Event, 
+        frame_deck: FrameDeck):
     while flag.is_set():
         time.sleep(1)
         if frame_list:
@@ -428,43 +433,56 @@ def _dummy_workerf_flag_watching_acq(flag: threading.Event, frame_deck: FrameDec
         else:
             break
 
-_dummy_remote_buffer = queue.Queue(maxsize=1) # dummy buffer 放在 helper 里, 实验中也不会用, 实际要用的 local buffer (SimpleQueue) 在 main script 中定义
-def workerf_dummy_remote_buffer_filler(
-        dummy_remote_buffer: queue.Queue):
+#### objects for dual thread approach
+_dummy_remote_buffer = queue.Queue(maxsize=1) # 假相机 buffer
+_local_buffer = queue.SimpleQueue()
+def _workerf_dummy_remote_buffer_feeder(
+        q: queue.Queue = _dummy_remote_buffer)-> None:
+    """
+    假相机 buffer 的 filler, 由假触发 checkbox 控制是否向假相机 buffer 中放 frame
+    """
+    print("feeder launched")
     while True:
-        time.sleep(1)
-        if frame_list:
-            this_frame = frame_list.pop()
-            dummy_remote_buffer.put(this_frame)
-        else:
-            break
-def _dummy_workerf_flagged_snap_rearrange_deposit(
-        dummy_remote_buffer: queue.Queue,
-        local_buffer: queue.SimpleQueue,
+        time.sleep(1) # simulate snap rate
+        if dpg.get_value("假触发"):
+            if frame_list:
+                this_frame = frame_list.pop()
+                q.put(this_frame)
+                print("fake snap done")
+            else:
+                push_log("已向假相机 buffer 发送 500 帧", is_error=True)
+                break
+def _dummy_dt_producerf_flagged_do_snap_rearrange_deposit(
         flag: threading.Event,
+        q: queue.Queue = _dummy_remote_buffer,
+        qlocal: queue.SimpleQueue = _local_buffer,
         )->None:
     """
-    从 dummy remote buffer 中取 frame, 放入 local buffer
+    假 producer
+    从假相机 buffer 中取 frame, 放入 local buffer
     """
     while flag.is_set():
         try:
-            this_frame: npt.NDArray[np.uint16] = dummy_remote_buffer.get(timeout=0.2)
+            this_frame: npt.NDArray[np.uint16] = q.get(timeout=0.2)
         except queue.Empty:
             continue
-        local_buffer.put(this_frame)
-    local_buffer.put(None) # poison pill
+        time.sleep(0.1) # 模拟重排耗时
+        qlocal.put(this_frame)
+    qlocal.put(None) # poison pill
 
-def workerf_local_buffer_consumer(local_buffer: queue.SimpleQueue, 
-                                  frame_deck: FrameDeck,
-                                  )->None:
+def consumerf_local_buffer(
+        frame_deck: FrameDeck,
+        qlocal: queue.SimpleQueue = _local_buffer, 
+        )->None:
     """
+    consumer
     从 local buffer 中取 frame, 然后:
     1. 放入 frame deck
     2. 绘图
     3. 保存帧
     """
     while True:
-        this_frame = local_buffer.get()
+        this_frame = qlocal.get()
         if this_frame is None: # poison pill
             break # looping worker killed
         frame_deck.append(this_frame)
@@ -477,15 +495,16 @@ def workerf_local_buffer_consumer(local_buffer: queue.SimpleQueue,
         except UserInterrupt:
             pass
 
-
-def workerf_flagged_snap_rearrange_deposit(
+def dt_producerf_flagged_do_snap_rearrange_deposit(
         cam: DCAM.DCAM.DCAMCamera,
-        local_buffer: queue.SimpleQueue,
         flag: threading.Event,
         controller, # type is DDSRampController, not hinted because it acts funny on macOS
+        local_buffer: queue.SimpleQueue = _local_buffer,
         )->None:
     """
+    双线程 worker1,
     从 camera 中取 frame, 放入 local buffer
+    watching a flag, flag clear 时, 投毒, 终止
     """
     cam.set_trigger_mode("ext")
     cam.start_acquisition(mode="sequence", nframes=100)
@@ -610,5 +629,13 @@ def push_exception(
              + "\n" 
              + f"exception type: {type(e).__name__}\nexception msg: {e}",
                             is_error=True)
+def push_exception2(user_msg: str=""):
+    """
+    在 catch exception 的时候, 在 log window 显示 exception (因为 gui 没有 REPL)
+    """
+
+    push_log(user_msg 
+             + "\n" 
+             + traceback.format_exc(), is_error=True)
 
     

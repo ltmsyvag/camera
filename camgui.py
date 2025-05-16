@@ -18,8 +18,8 @@ import threading
 import time
 import math
 import tifffile
-from camguihelper import gui_open_awg, FrameDeck, workerf_flag_watching_acq
-from camguihelper.core import _log, _update_hist, _dummy_workerf_flag_watching_acq
+from camguihelper import gui_open_awg, FrameDeck, st_workerf_flagged_do_all, consumerf_local_buffer
+from camguihelper.core import _log, _update_hist
 from camguihelper.dirhelper import mkdir_session_frames
 from camguihelper.dpghelper import (
     do_bind_my_global_theme,
@@ -43,7 +43,7 @@ dpg.configure_app(#docking = True, docking_space=True, docking_shift_only=True,
 
 do_bind_my_global_theme()
 _, bold_font, large_font = do_initialize_chinese_fonts()
-toggle_theming_and_enable = do_extend_add_button()
+toggle_state_and_enable = do_extend_add_button()
 myCmap = dpg.mvPlotColormap_Viridis
 
 
@@ -73,6 +73,16 @@ with dpg.viewport_menu_bar():
             dpg.configure_item(winHist, show=True, collapsed = False)
             dpg.focus_item(winHist)
         dpg.set_item_callback(dpg.last_item(), _show_and_highlight_win)
+    with dpg.menu(label="并发方式") as menuConcurrency:
+        def _set_exclusive_True(sender, *args):
+            lst_other_menu_items: list = dpg.get_item_children(dpg.get_item_parent(sender))[1]
+            lst_other_menu_items.remove(sender)
+            dpg.set_value(sender, True)
+            for item in lst_other_menu_items:
+                dpg.set_value(item, False)
+        mItemSingleThread = dpg.add_menu_item(label="无并发: 单线程采集重排绘图保存", check=True, callback=_set_exclusive_True, default_value=True)
+        mItemDualThreads = dpg.add_menu_item(label="双线程: 采集重拍 & 绘图保存",  check=True, callback=_set_exclusive_True)
+        mItemDualProcesses = dpg.add_menu_item(label="双进程: 采集重拍 & 绘图保存",  check=True, callback=_set_exclusive_True)
     dpg.add_menu_item(label = "软件信息")
     dpg.set_item_callback(dpg.last_item(),
                             factory_cb_yn_modal_dialog(
@@ -95,7 +105,7 @@ with dpg.window(label= "控制面板", tag = winCtrlPanels):
                     "on label" : "相机已开启",
                     })
             dpg.bind_item_font(togCam, large_font)
-            @toggle_theming_and_enable("expo and roi fields", "acquisition toggle")
+            @toggle_state_and_enable("expo and roi fields", "acquisition toggle")
             def _cam_toggle_cb_(__, _, user_data):
                 state = user_data["is on"] 
                 next_state = not state # state after toggle
@@ -117,7 +127,7 @@ with dpg.window(label= "控制面板", tag = winCtrlPanels):
                 else:
                     cam.close() # type: ignore
                     # cam = None # commented, because I actually want to retain a closed cam object after toggling off the cam, for cam checks that might be useful
-            @toggle_theming_and_enable("expo and roi fields", "acquisition toggle")
+            @toggle_state_and_enable("expo and roi fields", "acquisition toggle")
             def _dummy_cam_toggle_cb_(_, __, user_data):
                 state = user_data["is on"]
                 next_state = not state # state after toggle
@@ -134,19 +144,19 @@ with dpg.window(label= "控制面板", tag = winCtrlPanels):
                     "off label" : "触发采集已停止",
                     "on label" : "触发采集进行中",
                     "acq thread flag": threading.Event(),
-                    "acq thread": None,
+                    # "acq thread": None,
                     })
-            @toggle_theming_and_enable(
+            @toggle_state_and_enable(
                     "expo and roi fields", togCam,
                     "awg panel",
-                    "target array binary text input",
+                    "target array binary text input", menuConcurrency,
                     on_and_enable= False)
             def _toggle_acq_cb_(sender, _, user_data):
                 state = user_data["is on"]
                 next_state = not state
                 flag = user_data["acq thread flag"]
                 if next_state:
-                    thread = threading.Thread(target=workerf_flag_watching_acq, args=(cam, flag, frame_deck, controller))
+                    thread = threading.Thread(target=st_workerf_flagged_do_all, args=(cam, flag, frame_deck, controller))
                     user_data["acq thread"] = thread
                     flag.set()
                     thread.start()
@@ -159,28 +169,59 @@ with dpg.window(label= "控制面板", tag = winCtrlPanels):
                     # cam.set_trigger_mode("int")
                     # print("acq stopped")
                 # dpg.set_item_user_data(sender, user_data) # the decor saves the user_data so I might not need to explicitly save it at all       
-            @toggle_theming_and_enable(
+            @toggle_state_and_enable(
                     "expo and roi fields", togCam,
                     "awg panel",
-                    "target array binary text input",
+                    "target array binary text input", menuConcurrency,
                     on_and_enable= False)
             def _dummy_toggle_acq_cb(sender, _ , user_data):
+                from camguihelper.core import (
+                    _dummy_st_workerf_flagged_do_all,
+                    _dummy_dt_producerf_flagged_do_snap_rearrange_deposit,
+                    )
                 state = user_data["is on"]
                 next_state = not state
                 flag = user_data["acq thread flag"]
-                if next_state:
-                    thread = threading.Thread(
-                        target=_dummy_workerf_flag_watching_acq, args=(flag, frame_deck))
-                    user_data["acq thread"] = thread
-                    flag.set()
-                    thread.start()
-                else:
-                    thread = user_data["acq thread"]
-                    flag.clear()
-                    thread.join()
-                    user_data["acq thread"] = None
-                    # print("acq stopped")
-                # dpg.set_item_user_data(sender, user_data)
+                if dpg.get_value(mItemSingleThread):
+                    if next_state:
+                        thread = threading.Thread(
+                            target=_dummy_st_workerf_flagged_do_all, args=(flag, frame_deck))
+                        user_data["thread1"] = thread
+                        flag.set()
+                        thread.start()
+                    else:
+                        thread = user_data["thread1"]
+                        flag.clear()
+                        thread.join()
+                        user_data["thread1"] = None
+                        # print("acq stopped")
+                    # dpg.set_item_user_data(sender, user_data)
+                elif dpg.get_value(mItemDualThreads):
+                    ...
+                    if next_state:
+                        # thread_feeder = threading.Thread(target=_workerf_dummy_remote_buffer_feeder)
+                        thread_producer = threading.Thread(target=_dummy_dt_producerf_flagged_do_snap_rearrange_deposit, args=(flag,))
+                        thread_consumer = threading.Thread(target=consumerf_local_buffer, args=(frame_deck,))
+                        # user_data["thread1"] = thread_feeder
+                        user_data["thread2"] = thread_producer
+                        user_data["thread3"] = thread_consumer
+                        flag.set()
+                        # thread_feeder.start()
+                        thread_producer.start()
+                        thread_consumer.start()
+                    else:
+                        # thread_feeder = user_data["thread1"]
+                        thread_producer = user_data["thread2"]
+                        thread_consumer = user_data["thread3"]
+                        flag.clear()
+                        # thread_feeder.join()
+                        thread_producer.join()
+                        thread_consumer.join()
+                        user_data["thread1"] = None
+                        user_data["thread2"] = None
+                        user_data["thread3"] = None
+                else: # dual processes
+                    raise Exception("dual processes not implemented yet")
 
             dpg.bind_item_font(togAcq, large_font)
             dpg.set_item_callback(togAcq, _toggle_acq_cb_)
@@ -202,10 +243,10 @@ with dpg.window(label= "控制面板", tag = winCtrlPanels):
                     dpg.add_text("0000", color= _color)
                     dpg.bind_item_font(dpg.last_item(), large_font)
                 dpg.add_button(label="新 帧文件夹", callback=mkdir_session_frames)
-            with dpg.theme() as _thm:
+            with dpg.theme() as thmBlackBG:
                 with dpg.theme_component(dpg.mvChildWindow):
                     dpg.add_theme_color(dpg.mvThemeCol_ChildBg, (0,0,0))
-            dpg.bind_item_theme(_cw, _thm)
+            dpg.bind_item_theme(_cw, thmBlackBG)
             #====================================
             with dpg.group(tag = "expo and roi fields", enabled=False):
                 dpg.add_text("exposure time (ms):")
@@ -251,6 +292,7 @@ with dpg.window(label= "控制面板", tag = winCtrlPanels):
                     dpg.bind_item_handler_registry(_item, _irhUpdate6FlsOnLeave)
             dpg.add_separator(label="log")
             winLog = dpg.add_child_window(tag = "log window")
+            dpg.bind_item_theme(winLog, thmBlackBG)
             # dpg.add_button(label="msg", before=winLog, callback = lambda : push_log("hellohellohellohellohellohellohellohellohellohellohellohellohello"))
             # dpg.add_button(label="error", before=winLog, callback = lambda : push_log("hell", is_error=True))
         with dpg.child_window(label = "awg panel"):
@@ -262,7 +304,7 @@ with dpg.window(label= "控制面板", tag = winCtrlPanels):
                         "on label" : "AWG 已开启",
                         })
                 dpg.bind_item_font(togAwg, large_font)
-                @toggle_theming_and_enable()
+                @toggle_state_and_enable()
                 def _awg_toggle_cb_(_,__,user_data):
                     global raw_card, controller
                     state = user_data["is on"]
@@ -428,8 +470,8 @@ with dpg.window(label = "帧预览", tag=winFramePreview,
                     for xax, *_ in frame_deck.llst_items_dupe_maps:
                         tagPlot = dpg.get_item_parent(xax)
                         dpg.bind_colormap(tagPlot, cmap)
-                    lst_other_menu_items: Dict[int, List] = dpg.get_item_children(dpg.get_item_parent(sender))[1]
-                    lst_other_menu_items.remove(sender) # type: ignore
+                    lst_other_menu_items: list = dpg.get_item_children(dpg.get_item_parent(sender))[1]
+                    lst_other_menu_items.remove(sender)
                     dpg.set_value(sender, True)
                     for item in lst_other_menu_items:
                         dpg.set_value(item, False)
@@ -495,7 +537,7 @@ with dpg.window(label = "帧预览", tag=winFramePreview,
     #========================================
     dpg.add_text(tag = "frame deck display", default_value= frame_deck.memory_report())
     dpg.bind_item_font(dpg.last_item(), bold_font)
-    with dpg.group(label = "热图上下限, 帧翻页", horizontal=True):
+    with dpg.group(label = "热图上下限, 帧翻页", horizontal=True) as grpPaging:
         _inputInt = dpg.add_drag_intx(tag = "color scale lims",label = "", size = 2, width=100, default_value=[0,65535,0,0], enabled=False, max_value=65535, min_value=0, clamped=True)
         with dpg.tooltip(_inputInt, **ttpkwargs): dpg.add_text("热图上下限, 最多 0-65535\n若未勾选'手动上下限', 则每次绘图自动用全帧最大/最小值作为上下限")
         def _set_color_scale(_, app_data, __):
@@ -613,6 +655,7 @@ with dpg.window(label = "帧预览", tag=winFramePreview,
         dpg.set_item_callback(rightArr, _right_arrow_cb_)
         # dpg.add_spacer(width = 10)
         #============================================
+        
     with dpg.group(horizontal=True):
         frameColBar = dpg.add_colormap_scale(tag = "frame colorbar", min_scale=0, max_scale=500, 
                             height=-1
@@ -686,7 +729,11 @@ if True: # do dummy acquisition
     dpg.set_item_callback(togCam,_dummy_cam_toggle_cb_)
     dpg.set_item_callback(togAcq, _dummy_toggle_acq_cb)
     cam = None # probably needed for dummy acquisition, the same reason as needing controller = None
-
+    dpg.add_checkbox(tag = "假触发", label = "假触发", parent=grpPaging, callback=_log)
+    from camguihelper.core import _workerf_dummy_remote_buffer_feeder
+    thread_remote_buffer_feeder = threading.Thread(target = _workerf_dummy_remote_buffer_feeder)
+    thread_remote_buffer_feeder.start()
+    # dpg.set_frame_callback(3, lambda:thread_remote_buffer_feeder.start())
 # dpg.show_style_editor()
 dpg.setup_dearpygui()
 dpg.show_viewport()
