@@ -529,7 +529,6 @@ def gui_open_awg():
     raw_card = spcm.Card(card_type = spcm.SPCM_TYPE_AO)
     raw_card.open()
     controller = DDSRampController(raw_card)
-    print("AWG is opened")
     return raw_card, controller
 
 def _collect_awg_params() -> tuple:

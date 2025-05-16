@@ -270,7 +270,7 @@ with dpg.window(label= "控制面板", tag = winCtrlPanels):
                     if next_state:
                         raw_card, controller = gui_open_awg() # raw_card is opened upon being returned by gui_open_awg()
                     else:
-                        raw_card.close() # type: ignore
+                        raw_card.close()
                         controller = None # controller always has to exist, since its the argument of the func start_acqloop that runs in the thread thread_acq
                 dpg.set_item_callback(togAwg, _awg_toggle_cb_)
                 dpg.add_separator()
