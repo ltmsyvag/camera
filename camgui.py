@@ -165,10 +165,6 @@ with dpg.window(label= "控制面板", tag = winCtrlPanels):
                     flag.clear()
                     thread.join()
                     user_data["acq thread"] = None # this is probably a sanity code, can do without
-                    # cam.stop_acquisition()
-                    # cam.set_trigger_mode("int")
-                    # print("acq stopped")
-                # dpg.set_item_user_data(sender, user_data) # the decor saves the user_data so I might not need to explicitly save it at all       
             @toggle_state_and_enable(
                     "expo and roi fields", togCam,
                     "awg panel",
@@ -194,32 +190,23 @@ with dpg.window(label= "控制面板", tag = winCtrlPanels):
                         flag.clear()
                         thread.join()
                         user_data["thread1"] = None
-                        # print("acq stopped")
-                    # dpg.set_item_user_data(sender, user_data)
                 elif dpg.get_value(mItemDualThreads):
-                    ...
                     if next_state:
-                        # thread_feeder = threading.Thread(target=_workerf_dummy_remote_buffer_feeder)
                         thread_producer = threading.Thread(target=_dummy_dt_producerf_flagged_do_snap_rearrange_deposit, args=(flag,))
                         thread_consumer = threading.Thread(target=consumerf_local_buffer, args=(frame_deck,))
-                        # user_data["thread1"] = thread_feeder
-                        user_data["thread2"] = thread_producer
-                        user_data["thread3"] = thread_consumer
+                        user_data["thread1"] = thread_producer
+                        user_data["thread2"] = thread_consumer
                         flag.set()
-                        # thread_feeder.start()
                         thread_producer.start()
                         thread_consumer.start()
                     else:
-                        # thread_feeder = user_data["thread1"]
-                        thread_producer = user_data["thread2"]
-                        thread_consumer = user_data["thread3"]
+                        thread_producer = user_data["thread1"]
+                        thread_consumer = user_data["thread2"]
                         flag.clear()
-                        # thread_feeder.join()
                         thread_producer.join()
                         thread_consumer.join()
                         user_data["thread1"] = None
                         user_data["thread2"] = None
-                        user_data["thread3"] = None
                 else: # dual processes
                     raise Exception("dual processes not implemented yet")
 
@@ -439,17 +426,19 @@ with dpg.file_dialog( # file dialog 就是一个独立的 window, 因此在应�
         frame_deck.plot_frame_dwim()
     dpg.set_item_callback(fileDialog, _ok_cb_)
 
-
 with dpg.window(label = "帧预览", tag=winFramePreview,
                 height=700, width=700
                 ):
     # dpg.add_button(label="hello", callback=lambda: frame_deck._update_session_data_dir())
     with dpg.menu_bar():
         with dpg.menu(label = "内存中的帧"):
-            dpg.add_menu_item(label = "保存当前帧")
+            fldSavePath = dpg.add_input_text(tag="save path input field",
+                        hint="path to save tiff, e.g. C:\\Users\\username\\Desktop\\",
+                        )
+            dpg.add_menu_item(label = "保存当前帧到指定路径")
             dpg.set_item_callback(dpg.last_item(), lambda: frame_deck.save_cid_frame())
             #=============================
-            dpg.add_menu_item(label = "保存所有帧")
+            dpg.add_menu_item(label = "保存所有帧到指定路径")
             dpg.set_item_callback(dpg.last_item(), lambda: frame_deck.save_deck())
             #================================
             dpg.add_menu_item(label = "清空所有帧")
@@ -528,13 +517,6 @@ with dpg.window(label = "帧预览", tag=winFramePreview,
             dpg.add_menu_item(label="PiYG_r", callback= factory_cb_bind_heatmap_cmap(dpg.mvPlotColormap_PiYG_r), check=True)
             dpg.add_menu_item(label="Spectral_r", callback= factory_cb_bind_heatmap_cmap(dpg.mvPlotColormap_Spectral_r), check=True)
             dpg.add_menu_item(label="Greys_r", callback= factory_cb_bind_heatmap_cmap(dpg.mvPlotColormap_Greys_r), check=True)
-    #=========================================   
-    fldSavePath = dpg.add_input_text(tag="save path input field",
-                            hint="path to save tiff, e.g. C:\\Users\\username\\Desktop\\"
-                            # ,callback=frame_deck._make_savename_stub
-                            )
-    # frame_deck._make_savename_stub()
-    #========================================
     dpg.add_text(tag = "frame deck display", default_value= frame_deck.memory_report())
     dpg.bind_item_font(dpg.last_item(), bold_font)
     with dpg.group(label = "热图上下限, 帧翻页", horizontal=True) as grpPaging:

@@ -53,7 +53,6 @@ class FrameDeck(list):
         else:
             mbsize_1_int_frame = mbsize_1_float_frame = 0
         return f"内存: {len_deck} 帧 ({(mbsize_1_float_frame+mbsize_1_int_frame)*len_deck:.2f} MB)"
-    @deprecated
     @staticmethod
     def _make_savename_stub():
         """
@@ -91,7 +90,6 @@ class FrameDeck(list):
         self.frame_avg = np.mean(self.float_deck, axis=0)
         dpg.set_value("frame deck display", self.memory_report())
         dpg.set_item_label("cid indicator", f"{self.cid}")
-    @deprecated
     def save_deck(self)->None:
         """
         保存全部 frames, 并 push 成功/失败 message
@@ -108,7 +106,6 @@ class FrameDeck(list):
             push_log("全部帧保存成功", is_good=True)
         else:
             push_log("内存中没有任何帧", is_error=True)
-    @deprecated
     def save_cid_frame(self)->None:
         """
         保存 cid 指向的 frame, 并 push 成功/失败 message
@@ -589,10 +586,10 @@ def push_log(msg:str, *,
         color = None
     dpg.add_text(next(_bullets)+timestamp+"\n"+msg, 
                  parent= tagWin, 
-                 color = color, # type: ignore
+                 color = color,
                  wrap= 150)
     
-    win_children: Dict[int, List[int]] = dpg.get_item_children(tagWin) # type: ignore
+    win_children: Dict[int, List[int]] = dpg.get_item_children(tagWin)
     lst_tags_msgs = win_children[1]
     if len(lst_tags_msgs)>100: # log 最多 100 条
         oldestTxt = lst_tags_msgs.pop(0)
@@ -601,17 +598,17 @@ def push_log(msg:str, *,
     dpg.set_y_scroll(tagWin, dpg.get_y_scroll_max(tagWin)+20 # the +20 is necessary because IDK why the window does not scroll to the very bottom, there's a ~20 margin, strange. 
                      )
 
-def push_exception3(
-        e: Exception, 
-        user_msg: str # force myself to give a user friendly comment about what error might have happened
-        ):
-    """
-    在 catch exception 的时候, 在 log window 显示 exception (因为 gui 没有 REPL)
-    """
-    push_log(user_msg 
-             + "\n" 
-             + f"exception type: {type(e).__name__}\nexception msg: {e}",
-                            is_error=True)
+# def push_exception3(
+#         e: Exception, 
+#         user_msg: str # force myself to give a user friendly comment about what error might have happened
+#         ):
+#     """
+#     在 catch exception 的时候, 在 log window 显示 exception (因为 gui 没有 REPL)
+#     """
+#     push_log(user_msg 
+#              + "\n" 
+#              + f"exception type: {type(e).__name__}\nexception msg: {e}",
+#                             is_error=True)
 def push_exception(user_msg: str=""):
     """
     在 camgui log window 中显示 traceback 的 exception
