@@ -435,14 +435,23 @@ with dpg.window(label = "帧预览", tag=winFramePreview,
     with dpg.menu_bar():
         with dpg.menu(label = "帧保存"):
             _mItemAutoSave = dpg.add_menu_item(label = "自动保存", check=True, default_value=True)
-            with dpg.theme() as _thmOrangeAlert:
-                with dpg.theme_component(dpg.mvAll):
-                    dpg.add_theme_color(dpg.mvThemeCol_FrameBg, (204, 102, 0))
+            with dpg.theme() as _thmNoSave:
+                with dpg.theme_component(dpg.mvWindowAppItem):
+                    dpg.add_theme_color(dpg.mvThemeCol_TitleBg, (204, 102, 0))
+                    dpg.add_theme_color(dpg.mvThemeCol_TitleBgCollapsed, (204, 102, 0))
+                    dpg.add_theme_color(dpg.mvThemeCol_TitleBgActive, (255, 165, 0))
+            with dpg.theme() as _thmAutoSave:
+                with dpg.theme_component(dpg.mvWindowAppItem):
+                    dpg.add_theme_color(dpg.mvThemeCol_TitleBg, (37, 37, 38))
+                    dpg.add_theme_color(dpg.mvThemeCol_TitleBgCollapsed, (37, 37, 38))
+                    dpg.add_theme_color(dpg.mvThemeCol_TitleBgActive, (15, 86, 135))
             def _theme_toggle(sender, *args):
                 if dpg.get_value(sender):
-                    do_bind_my_global_theme()
+                    dpg.set_viewport_clear_color([0,0,0])
+                    dpg.bind_theme(_thmAutoSave)
                 else:
-                    dpg.bind_theme(_thmOrangeAlert)
+                    dpg.set_viewport_clear_color([204,102,0])
+                    dpg.bind_theme(_thmNoSave)
             dpg.set_item_callback(_mItemAutoSave, _theme_toggle)
             fldSavePath = dpg.add_input_text(tag="save path input field",
                         hint="path to save tiff, e.g. C:\\Users\\username\\Desktop\\",
@@ -725,7 +734,7 @@ if True: # do dummy acquisition
     thread_remote_buffer_feeder = threading.Thread(target = _workerf_dummy_remote_buffer_feeder)
     thread_remote_buffer_feeder.start()
     # dpg.set_frame_callback(3, lambda:thread_remote_buffer_feeder.start())
-# dpg.show_style_editor()
+dpg.show_style_editor()
 dpg.setup_dearpygui()
 dpg.show_viewport()
 dpg.start_dearpygui()
