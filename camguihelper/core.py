@@ -4,7 +4,9 @@ camgui 相关的帮助函数
 """
 #%%
 from itertools import cycle
+import multiprocessing.connection
 import traceback
+import multiprocessing
 import queue
 import time
 import numpy.typing as npt
@@ -388,6 +390,8 @@ def st_workerf_flagged_do_all(
     cam.set_trigger_mode("int")
 
 from fake_frames_imports import frame_list
+import copy
+_frame_list_copy = copy.deepcopy(frame_list)
 def _dummy_st_workerf_flagged_do_all(
         flag: threading.Event, 
         frame_deck: FrameDeck):
@@ -411,10 +415,11 @@ def _dummy_st_workerf_flagged_do_all(
             break
 
 #### objects for dual thread approach
-_dummy_remote_buffer = queue.Queue(maxsize=500) # 假相机 buffer
-_local_buffer = queue.SimpleQueue()
+_dt_dummy_remote_buffer = queue.Queue(maxsize=500) # 假相机 buffer, 双线程方案
+_dp_dummy_remote_buffer = queue.Queue(maxsize=500) # 假相机 buffer, 双进程方案
+_local_buffer = queue.SimpleQueue() # 双进程和双线程通用
 def _workerf_dummy_remote_buffer_feeder(
-        q: queue.Queue = _dummy_remote_buffer)-> None:
+        q: queue.Queue = _dt_dummy_remote_buffer)-> None:
     """
     假相机 buffer 的 filler, 由假触发 checkbox 控制是否向假相机 buffer 中放 frame
     """
@@ -430,20 +435,17 @@ def _workerf_dummy_remote_buffer_feeder(
                 break
 def _dummy_dt_producerf_flagged_do_snap_rearrange_deposit(
         flag: threading.Event,
-        q: queue.Queue = _dummy_remote_buffer,
+        q: queue.Queue = _dt_dummy_remote_buffer,
         qlocal: queue.SimpleQueue = _local_buffer,
         )->None:
     """
     假 producer
     从假相机 buffer 中取 frame, 放入 local buffer
     """
-    on_streak = True
-    while flag.is_set() or on_streak:
+    while flag.is_set():
         try:
             this_frame: npt.NDArray[np.uint16] = q.get(timeout=0.2)
-            on_streak = True
         except queue.Empty:
-            on_streak = False
             continue
         time.sleep(0.01) # 模拟重排耗时
         qlocal.put(this_frame)
@@ -454,7 +456,7 @@ def consumerf_local_buffer(
         qlocal: queue.SimpleQueue = _local_buffer, 
         )->None:
     """
-    consumer
+    consumer (双线程和双进程通用)
     从 local buffer 中取 frame, 然后:
     1. 放入 frame deck
     2. 绘图
@@ -499,9 +501,45 @@ def dt_producerf_flagged_do_snap_rearrange_deposit(
         if awg_is_on:
             feed_AWG(this_frame, controller, awg_params)
         local_buffer.put(this_frame)
-    local_buffer.put(None) # poison pill    
     cam.stop_acquisition()
     cam.set_trigger_mode("int")
+    local_buffer.put(None) # poison pill    
+
+### dual processes approach 需要的 objects:
+# conn_sig_main, conn_sig_child = multiprocessing.Pipe()
+# conn_frame_main, conn_frame_child = multiprocessing.Pipe()
+
+def _dp_workerf_dummy_remote_buffer_feeder(
+        q: queue.Queue = _dp_dummy_remote_buffer)-> None:
+    """
+    假相机 buffer 的 filler, 由假触发 checkbox 控制是否向假相机 buffer 中放 frame
+    """
+    while True:
+        time.sleep(1) # simulate snap rate
+        if dpg.get_value("假触发"):
+            if _frame_list_copy:
+                this_frame = _frame_list_copy.pop()
+                q.put(this_frame)
+            else:
+                push_log("已向假相机 buffer 发送 500 帧", is_error=True)
+                break
+
+def _dummy_dp_producerf__do_snap_rearrange_send(
+        conn_data: multiprocessing.connection.Connection,
+        conn_sig: multiprocessing.connection.Connection,
+        q: queue.Queue = _dp_dummy_remote_buffer
+        ):
+    while not conn_sig.poll():
+        try:
+            this_frame: npt.NDArray[np.uint16] = q.get(timeout=0.2)
+        except queue.Empty:
+            continue
+        time.sleep(0.01) # 模拟重排耗时
+        conn_data.send(this_frame)
+    conn_sig.close()
+    conn_data.send(None) # poison pill
+    conn_data.close()
+
 
 
 def _log(sender, app_data, user_data):
