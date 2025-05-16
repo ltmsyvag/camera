@@ -230,10 +230,10 @@ with dpg.window(label= "控制面板", tag = winCtrlPanels):
                     dpg.add_text("0000", color= _color)
                     dpg.bind_item_font(dpg.last_item(), large_font)
                 dpg.add_button(label="新 帧文件夹", callback=mkdir_session_frames)
-            with dpg.theme() as thmBlackBG:
+            with dpg.theme() as _thmDarkGreenBG:
                 with dpg.theme_component(dpg.mvChildWindow):
-                    dpg.add_theme_color(dpg.mvThemeCol_ChildBg, (0,0,0))
-            dpg.bind_item_theme(_cw, thmBlackBG)
+                    dpg.add_theme_color(dpg.mvThemeCol_ChildBg, (0, 30, 0))
+            dpg.bind_item_theme(_cw, _thmDarkGreenBG)
             #====================================
             with dpg.group(tag = "expo and roi fields", enabled=False):
                 dpg.add_text("exposure time (ms):")
@@ -279,7 +279,10 @@ with dpg.window(label= "控制面板", tag = winCtrlPanels):
                     dpg.bind_item_handler_registry(_item, _irhUpdate6FlsOnLeave)
             dpg.add_separator(label="log")
             winLog = dpg.add_child_window(tag = "log window")
-            dpg.bind_item_theme(winLog, thmBlackBG)
+            with dpg.theme() as _thmBlackBG:
+                with dpg.theme_component(dpg.mvChildWindow):
+                    dpg.add_theme_color(dpg.mvThemeCol_ChildBg, (0,0,0))
+            dpg.bind_item_theme(winLog, _thmBlackBG)
             # dpg.add_button(label="msg", before=winLog, callback = lambda : push_log("hellohellohellohellohellohellohellohellohellohellohellohellohello"))
             # dpg.add_button(label="error", before=winLog, callback = lambda : push_log("hell", is_error=True))
         with dpg.child_window(label = "awg panel"):
@@ -429,19 +432,28 @@ with dpg.file_dialog( # file dialog 就是一个独立的 window, 因此在应�
 with dpg.window(label = "帧预览", tag=winFramePreview,
                 height=700, width=700
                 ):
-    # dpg.add_button(label="hello", callback=lambda: frame_deck._update_session_data_dir())
     with dpg.menu_bar():
-        with dpg.menu(label = "内存中的帧"):
+        with dpg.menu(label = "帧保存"):
+            _mItemAutoSave = dpg.add_menu_item(label = "自动保存", check=True, default_value=True)
+            with dpg.theme() as _thmOrangeAlert:
+                with dpg.theme_component(dpg.mvAll):
+                    dpg.add_theme_color(dpg.mvThemeCol_FrameBg, (204, 102, 0))
+            def _theme_toggle(sender, *args):
+                if dpg.get_value(sender):
+                    do_bind_my_global_theme()
+                else:
+                    dpg.bind_theme(_thmOrangeAlert)
+            dpg.set_item_callback(_mItemAutoSave, _theme_toggle)
             fldSavePath = dpg.add_input_text(tag="save path input field",
                         hint="path to save tiff, e.g. C:\\Users\\username\\Desktop\\",
                         )
-            dpg.add_menu_item(label = "保存当前帧到指定路径")
+            dpg.add_menu_item(label = "保存内存中的当前帧到指定路径")
             dpg.set_item_callback(dpg.last_item(), lambda: frame_deck.save_cid_frame())
             #=============================
-            dpg.add_menu_item(label = "保存所有帧到指定路径")
+            dpg.add_menu_item(label = "保存内存中的所有帧到指定路径")
             dpg.set_item_callback(dpg.last_item(), lambda: frame_deck.save_deck())
             #================================
-            dpg.add_menu_item(label = "清空所有帧")
+            dpg.add_menu_item(label = "清空内存中的帧")
             def _on_confirm(sender):
                 frame_deck.clear()
                 dpg.delete_item(
