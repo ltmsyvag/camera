@@ -20,7 +20,7 @@ import math
 import tifffile
 from camguihelper import gui_open_awg, FrameDeck, st_workerf_flagged_do_all, consumerf_local_buffer
 from camguihelper.core import _log, _update_hist
-from camguihelper.dirhelper import mkdir_session_frames
+from camguihelper.utils import mkdir_session_frames
 from camguihelper.dpghelper import (
     do_bind_my_global_theme,
     do_initialize_chinese_fonts,
@@ -653,9 +653,6 @@ with dpg.window(label = "帧预览", tag=winFramePreview,
                 frame_deck.plot_cid_frame()
                 dpg.set_item_label(cidIndcator, f"{frame_deck.cid}")
         dpg.set_item_callback(rightArr, _right_arrow_cb_)
-        # dpg.add_spacer(width = 10)
-        #============================================
-        
     with dpg.group(horizontal=True):
         frameColBar = dpg.add_colormap_scale(tag = "frame colorbar", min_scale=0, max_scale=500, 
                             height=-1

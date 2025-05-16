@@ -3,6 +3,7 @@
 camgui 相关的帮助函数
 """
 #%%
+from itertools import cycle
 import traceback
 import queue
 import time
@@ -17,20 +18,14 @@ import numpy as np
 import threading
 import colorsys
 import tifffile
-from .dirhelper import MyPath, session_frames_root, month_dict
+from .utils import MyPath, UserInterrupt, session_frames_root, month_dict
 import dearpygui.dearpygui as dpg
 import platform, uuid
 system = platform.system()
-if (system == "Windows") and (hex(uuid.getnode()) != '0xf4ce2305b4c7'): # the code stands for A402 computer
+if (system == "Windows") and (hex(uuid.getnode()) != '0xf4ce2305b4c7'): # code is A402 computer
     import spcm
     from AWG_module.no_with_func import DDSRampController
     from AWG_module.unified import feed_AWG
-
-class UserInterrupt(Exception):
-    """
-    打断 callback 所用的 exception
-    """
-    pass
 
 class FrameDeck(list):
     """
@@ -46,7 +41,6 @@ class FrameDeck(list):
         frame_deck 的状态不会保留上一次启动的记忆
         """
         super().__init__(*args, **kwargs) # make sure I do not override the parent dunder init
-        # self.frames_root  = MyPath(frames_root_str)
         self.cid: int | None = None # current heatmap's id in deck
         self.float_deck: List[npt.NDArray[np.floating]] = [] # gui 中的操作需要 float frame, 因此与 list (int deck) 对应, 要有一个 float deck
         self.frame_avg: npt.NDArray[np.floating] | None = None
@@ -353,33 +347,6 @@ def _update_hist(hLhRvLvR: tuple, frame_deck: FrameDeck, yax = "hist plot yax")-
         min_range=theMinInt,max_range=max_range)
 
 
-# def start_flag_watching_acq_buffer_rearrange(
-#     cam: DCAM.DCAM.DCAMCamera,
-#     flag: threading.Event,
-#     frame_deck: FrameDeck,
-#     controller, # type is DDSRampController, not hinted because it acts funny on macOS
-#     )-> None:
-    
-#     cam.set_trigger_mode("ext")
-#     cam.start_acquisition(mode="sequence", nframes=100)
-#     awg_is_on = dpg.get_item_user_data("AWG toggle")["is on"]
-#     awg_params = _collect_awg_params()
-#     while flag.is_set():
-#         try:
-#             cam.wait_for_frame(timeout=0.2)
-#         except DCAM.DCAMTimeoutError:
-#             continue
-#         this_frame: npt.NDArray[np.uint16] = cam.read_oldest_image()
-#         if awg_is_on:
-#             feed_AWG(this_frame, controller, awg_params) # feed original uint16 format to AWG
-
-#         frame_deck.append(this_frame)
-#         frame_deck.plot_frame_dwim()
-#         hLhRvLvR = dpg.get_item_user_data("frame plot")
-#         if hLhRvLvR:
-#             _update_hist(hLhRvLvR, frame_deck)
-#         # print("frame acquired")
-
 def st_workerf_flagged_do_all(
     cam: DCAM.DCAM.DCAMCamera,
     flag: threading.Event,
@@ -404,13 +371,22 @@ def st_workerf_flagged_do_all(
             continue
         this_frame :npt.NDArray[np.uint16] = cam.read_oldest_image()
         if awg_is_on:
+            beg = time.time()
             feed_AWG(this_frame, controller, awg_params) # feed original uint16 format to AWG
+            end = time.time()
+            push_log(f"重排前序计算耗时 {(end-beg)*1e3:.3f} ms")
+        beg = time.time()
         frame_deck.append(this_frame)
         frame_deck.plot_frame_dwim()
         hLhRvLvR = dpg.get_item_user_data("frame plot")
         if hLhRvLvR:
             _update_hist(hLhRvLvR, frame_deck)
-
+        try:
+            frame_deck._find_lastest_sesframes_folder_and_save_frame()
+        except UserInterrupt:
+            pass
+        end = time.time()
+        push_log(f"绘图和存储耗时{(end-beg)*1e3:.3f} ms")
     cam.stop_acquisition()
     cam.set_trigger_mode("int")
 
@@ -422,14 +398,18 @@ def _dummy_st_workerf_flagged_do_all(
         time.sleep(1)
         if frame_list:
             this_frame = frame_list.pop()
-            beg = time.time()            
+            beg = time.time()          
             frame_deck.append(this_frame)
             frame_deck.plot_frame_dwim()
             hLhRvLvR = dpg.get_item_user_data("frame plot")
             if hLhRvLvR:
                 _update_hist(hLhRvLvR, frame_deck)
+            try:
+                frame_deck._find_lastest_sesframes_folder_and_save_frame()
+            except UserInterrupt:
+                pass
             end = time.time()
-            push_log(f"绘图耗时{(end-beg)*1e3:.3f} ms")
+            push_log(f"绘图和存储耗时{(end-beg)*1e3:.3f} ms")
         else:
             break
 
@@ -469,7 +449,7 @@ def _dummy_dt_producerf_flagged_do_snap_rearrange_deposit(
         except queue.Empty:
             on_streak = False
             continue
-        time.sleep(0.1) # 模拟重排耗时
+        time.sleep(0.01) # 模拟重排耗时
         qlocal.put(this_frame)
     qlocal.put(None) # poison pill
 
@@ -485,7 +465,7 @@ def consumerf_local_buffer(
     3. 保存帧
     """
     while True:
-        time.sleep(0.1)
+        time.sleep(0.01)
         this_frame = qlocal.get()
         if this_frame is None: # poison pill
             break # looping worker killed
@@ -592,7 +572,7 @@ def _collect_awg_params() -> tuple:
 #     with dpg.theme_component(dpg.mvChildWindow):
 #         dpg.add_theme_color(dpg.mvThemeCol_FrameBg, )
 
-
+_bullets = cycle(["-", "*", "+", "•", "°"])
 def push_log(msg:str, *, 
              is_error: bool=False, is_good: bool=False):
     """
@@ -608,7 +588,7 @@ def push_log(msg:str, *,
         color = (0,255,0)
     else:
         color = None
-    dpg.add_text("- "+timestamp+"\n"+msg, 
+    dpg.add_text(next(_bullets)+timestamp+"\n"+msg, 
                  parent= tagWin, 
                  color = color, # type: ignore
                  wrap= 150)
