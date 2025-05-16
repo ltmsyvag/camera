@@ -102,8 +102,8 @@ class FrameDeck(list):
                 fpath = fpath_stub + f"_{i}.tif"
                 try:
                     tifffile.imwrite(fpath, frame)
-                except Exception as e:
-                    push_exception(e, f"帧 #{i} 保存失败.")
+                except Exception:
+                    push_exception(f"帧 #{i} 保存失败.")
                 
             push_log("全部帧保存成功", is_good=True)
         else:
@@ -119,8 +119,8 @@ class FrameDeck(list):
             fpath = fpath_stub + f"_{self.cid}.tif"
             try:
                 tifffile.imwrite(fpath, self[self.cid])
-            except Exception as e:
-                push_exception(e, "当前帧保存失败")
+            except Exception:
+                push_exception("当前帧保存失败")
                 return
             push_log("当前帧保存成功", is_good=True)
         else:
@@ -208,8 +208,8 @@ class FrameDeck(list):
         fpath = dpath_ses /( timestamp + ".tif")
         try: # again, this is a redundant check, I don't think the save will fail, unless there's a Z disk connection problem
             tifffile.imwrite(fpath, self[self.cid])
-        except Exception as e:
-            push_exception(e, "当前帧保存失败")
+        except Exception:
+            push_exception("当前帧保存失败")
             raise UserInterrupt
     def clear(self)->None:
         """
@@ -423,12 +423,11 @@ def _workerf_dummy_remote_buffer_feeder(
     """
     # print("feeder launched")
     while True:
-        time.sleep(0.01) # simulate snap rate
+        time.sleep(1) # simulate snap rate
         if dpg.get_value("假触发"):
             if frame_list:
                 this_frame = frame_list.pop()
                 q.put(this_frame)
-                # print("fake snap done")
             else:
                 push_log("已向假相机 buffer 发送 500 帧", is_error=True)
                 break
@@ -476,7 +475,7 @@ def consumerf_local_buffer(
             _update_hist(hLhRvLvR, frame_deck)
         try:
             frame_deck._find_lastest_sesframes_folder_and_save_frame()
-        except UserInterrupt:
+        except UserInterrupt: # UserInterrupts are exceptions with well known cause, we keep acquisition without interruption. Strange exceptions would still interrupt acquisition
             pass
 
 def dt_producerf_flagged_do_snap_rearrange_deposit(
@@ -602,7 +601,7 @@ def push_log(msg:str, *,
     dpg.set_y_scroll(tagWin, dpg.get_y_scroll_max(tagWin)+20 # the +20 is necessary because IDK why the window does not scroll to the very bottom, there's a ~20 margin, strange. 
                      )
 
-def push_exception(
+def push_exception3(
         e: Exception, 
         user_msg: str # force myself to give a user friendly comment about what error might have happened
         ):
@@ -613,11 +612,11 @@ def push_exception(
              + "\n" 
              + f"exception type: {type(e).__name__}\nexception msg: {e}",
                             is_error=True)
-def push_exception2(user_msg: str=""):
+def push_exception(user_msg: str=""):
     """
-    在 catch exception 的时候, 在 log window 显示 exception (因为 gui 没有 REPL)
+    在 camgui log window 中显示 traceback 的 exception
     """
-
+    traceback.print_exc() # for REPL review
     push_log(user_msg 
              + "\n" 
              + traceback.format_exc(), is_error=True)

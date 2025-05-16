@@ -4,7 +4,7 @@ dpg 相关的帮助函数, 主要用于个人初始化和 batch processing
 """
 import traceback
 import platform
-from .core import rgb_opposite, push_exception2
+from .core import rgb_opposite, push_exception
 import dearpygui.dearpygui as dpg
 from typing import Callable
 def _do_fix_disabled_components()->None:
@@ -206,8 +206,7 @@ def do_extend_add_button() -> Callable:
                         dpg.configure_item(item, enabled=state if on_and_enable else not state)
                 except Exception:
                     dpg.set_item_label(sender, "错误!")
-                    traceback.print_exc() # for REPL review
-                    push_exception2("相机错误")
+                    push_exception("相机错误")
                     return
 
                 if state:
