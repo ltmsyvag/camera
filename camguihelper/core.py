@@ -434,21 +434,21 @@ def _dummy_st_workerf_flagged_do_all(
             break
 
 #### objects for dual thread approach
-_dummy_remote_buffer = queue.Queue(maxsize=1) # 假相机 buffer
+_dummy_remote_buffer = queue.Queue(maxsize=500) # 假相机 buffer
 _local_buffer = queue.SimpleQueue()
 def _workerf_dummy_remote_buffer_feeder(
         q: queue.Queue = _dummy_remote_buffer)-> None:
     """
     假相机 buffer 的 filler, 由假触发 checkbox 控制是否向假相机 buffer 中放 frame
     """
-    print("feeder launched")
+    # print("feeder launched")
     while True:
-        time.sleep(1) # simulate snap rate
+        time.sleep(0.01) # simulate snap rate
         if dpg.get_value("假触发"):
             if frame_list:
                 this_frame = frame_list.pop()
                 q.put(this_frame)
-                print("fake snap done")
+                # print("fake snap done")
             else:
                 push_log("已向假相机 buffer 发送 500 帧", is_error=True)
                 break
@@ -461,10 +461,13 @@ def _dummy_dt_producerf_flagged_do_snap_rearrange_deposit(
     假 producer
     从假相机 buffer 中取 frame, 放入 local buffer
     """
-    while flag.is_set():
+    on_streak = True
+    while flag.is_set() or on_streak:
         try:
             this_frame: npt.NDArray[np.uint16] = q.get(timeout=0.2)
+            on_streak = True
         except queue.Empty:
+            on_streak = False
             continue
         time.sleep(0.1) # 模拟重排耗时
         qlocal.put(this_frame)
@@ -482,6 +485,7 @@ def consumerf_local_buffer(
     3. 保存帧
     """
     while True:
+        time.sleep(0.1)
         this_frame = qlocal.get()
         if this_frame is None: # poison pill
             break # looping worker killed
