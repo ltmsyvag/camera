@@ -546,7 +546,6 @@ def _dummy_mp_producerf_polling_do_snag_rearrange_send(
     conn_data.send(None) # poison pill
     conn_data.close()
 
-
 def mp_producerf_polling_do_snag_rearrange_send(
         cam: DCAM.DCAM.DCAMCamera,
         conn_sig: multiprocessing.connection.Connection,
@@ -559,6 +558,7 @@ def mp_producerf_polling_do_snag_rearrange_send(
     polling signal pipe, 当收到 signal 时, 投毒, 终止
     TODO
     """
+    cam = DCAM.DCAMCamera()
     cam.set_trigger_mode("ext")
     cam.start_acquisition(mode="sequence", nframes = 100)
     awg_is_on = dpg.get_item_user_data("AWG toggle")["is on"] 

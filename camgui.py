@@ -7,26 +7,27 @@ item 和 (创建 containter item 的) context manager 之间用 `#====` 分隔
 item 常数用首字母小写的驼峰命名 e.g. myItem. 其他任何变量都不能用此驼峰命名 (类用首字母大写的驼峰命名, e.g. MyClass)
 cam 将会是全局变量, 由 callback 创建
 """
-import multiprocessing
-from pathlib import Path
-from typing import Callable
-import dearpygui.dearpygui as dpg
-from pylablib.devices import DCAM
-import threading
-import time
-import math
-import tifffile
-from camguihelper import gui_open_awg, FrameDeck, st_workerf_flagged_do_all, consumerf_local_buffer, rgb_opposite
-from camguihelper.core import _log, _update_hist, _mp_pass_hello
-from camguihelper.utils import mkdir_session_frames
-from camguihelper.dpghelper import (
-    do_bind_my_global_theme,
-    do_initialize_chinese_fonts,
-    do_extend_add_button,
-    toggle_checkbox_and_disable,
-    factory_cb_yn_modal_dialog)
-
+from camguihelper.core import _mp_pass_hello
 if __name__ == '__main__':
+    import multiprocessing
+    from pathlib import Path
+    from typing import Callable
+    import dearpygui.dearpygui as dpg
+    from pylablib.devices import DCAM
+    import threading
+    import time
+    import math
+    import tifffile
+    from camguihelper import gui_open_awg, FrameDeck, st_workerf_flagged_do_all, consumerf_local_buffer, rgb_opposite
+    from camguihelper.core import _log, _update_hist
+    from camguihelper.utils import mkdir_session_frames
+    from camguihelper.dpghelper import (
+        do_bind_my_global_theme,
+        do_initialize_chinese_fonts,
+        do_extend_add_button,
+        toggle_checkbox_and_disable,
+        factory_cb_yn_modal_dialog)
+
     controller = None # controller always has to exist, we can't wait for it to be created by a callback (like `cam`), since it is the argument of the func `start_flag_watching_acq` (and ultimately, the required arg of ZYL func `feed_AWG`) that runs in the thread thread_acq. When awg is off, `controller` won't be used and won't be created either, but the `controller` var still has to exist (as a global variable because I deem `controller` suitable to be a global var) as a formal argument (or placeholder) of `start_flag_watching_acq`. This is more or less an awkward situation because I want to put `start_flag_watching_acq` in a module file (where the functions do not have access to working script global vars), not in the working script. Essentailly, the func in a module py file has no closure access to the global varibles in the working script, unless I choose to explicitly pass the working script global var as an argument to the imported func
     frame_deck = FrameDeck() # the normal empty frame_deck creation
 
