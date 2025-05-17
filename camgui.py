@@ -8,17 +8,21 @@ item 常数用首字母小写的驼峰命名 e.g. myItem. 其他任何变量都�
 cam 将会是全局变量, 由 callback 创建
 """
 from camguihelper.core import _mp_pass_hello
+from camguihelper import (
+    FrameDeck, st_workerf_flagged_do_all, collect_awg_params, gui_open_awg,
+    mp_producerf_polling_do_snag_rearrange_send, passerf, consumerf_local_buffer,
+                          )
+from pylablib.devices import DCAM
 if __name__ == '__main__':
     import multiprocessing
     from pathlib import Path
     from typing import Callable
     import dearpygui.dearpygui as dpg
-    from pylablib.devices import DCAM
     import threading
     import time
     import math
     import tifffile
-    from camguihelper import gui_open_awg, FrameDeck, st_workerf_flagged_do_all, consumerf_local_buffer, rgb_opposite
+    # from camguihelper import FrameDeck, st_workerf_flagged_do_all, collect_awg_params
     from camguihelper.core import _log, _update_hist
     from camguihelper.utils import mkdir_session_frames
     from camguihelper.dpghelper import (
@@ -28,7 +32,7 @@ if __name__ == '__main__':
         toggle_checkbox_and_disable,
         factory_cb_yn_modal_dialog)
 
-    controller = None # controller always has to exist, we can't wait for it to be created by a callback (like `cam`), since it is the argument of the func `start_flag_watching_acq` (and ultimately, the required arg of ZYL func `feed_AWG`) that runs in the thread thread_acq. When awg is off, `controller` won't be used and won't be created either, but the `controller` var still has to exist (as a global variable because I deem `controller` suitable to be a global var) as a formal argument (or placeholder) of `start_flag_watching_acq`. This is more or less an awkward situation because I want to put `start_flag_watching_acq` in a module file (where the functions do not have access to working script global vars), not in the working script. Essentailly, the func in a module py file has no closure access to the global varibles in the working script, unless I choose to explicitly pass the working script global var as an argument to the imported func
+    # controller = None # controller always has to exist, we can't wait for it to be created by a callback (like `cam`), since it is the argument of the func `start_flag_watching_acq` (and ultimately, the required arg of ZYL func `feed_AWG`) that runs in the thread thread_acq. When awg is off, `controller` won't be used and won't be created either, but the `controller` var still has to exist (as a global variable because I deem `controller` suitable to be a global var) as a formal argument (or placeholder) of `start_flag_watching_acq`. This is more or less an awkward situation because I want to put `start_flag_watching_acq` in a module file (where the functions do not have access to working script global vars), not in the working script. Essentailly, the func in a module py file has no closure access to the global varibles in the working script, unless I choose to explicitly pass the working script global var as an argument to the imported func
     frame_deck = FrameDeck() # the normal empty frame_deck creation
 
     # frame_deck = FrameDeck(flist) # the override to import fake data
@@ -104,6 +108,16 @@ if __name__ == '__main__':
                         "off label" : "相机已关闭",
                         "on label" : "相机已开启",
                         })
+                def do_cam_open_sequence():
+                    global cam
+                    cam = DCAM.DCAMCamera()
+                    cam.open()
+                    expFieldValInMs = dpg.get_value(fldExposure) 
+                    cam.set_exposure(expFieldValInMs*1e-3)
+                    expoCamValInS = cam.cav["exposure_time"]
+                    dpg.set_value(fldExposure, expoCamValInS*1e3)
+                    do_set_cam_roi_using_6fields_roi()
+                    do_set_6fields_roi_using_cam_roi()
                 dpg.bind_item_font(togCam, large_font)
                 @toggle_state_and_enable("expo and roi fields", "acquisition toggle")
                 def _cam_toggle_cb_(__, _, user_data):
@@ -111,21 +125,22 @@ if __name__ == '__main__':
                     next_state = not state # state after toggle
                     global cam
                     if next_state:
-                        if "cam" not in globals():
-                            cam = DCAM.DCAMCamera()
-                        if cam.is_opened():
-                            cam.close()
-                        cam.open()
-                        print("cam is opened")
-                        expFieldValInMs = dpg.get_value(fldExposure) 
-                        cam.set_exposure(expFieldValInMs*1e-3)
-                        expoCamValInS = cam.cav["exposure_time"]
-                        dpg.set_value(fldExposure, expoCamValInS*1e3)
+                        do_cam_open_sequence()
+                        # # if "cam" not in globals():
+                        # cam = DCAM.DCAMCamera()
+                        # # if cam.is_opened():
+                        # # cam.close()
+                        # cam.open()
+                        # # print("cam is opened")
+                        # expFieldValInMs = dpg.get_value(fldExposure) 
+                        # cam.set_exposure(expFieldValInMs*1e-3)
+                        # expoCamValInS = cam.cav["exposure_time"]
+                        # dpg.set_value(fldExposure, expoCamValInS*1e3)
                         
-                        do_set_cam_roi_using_6fields_roi()
-                        do_set_6fields_roi_using_cam_roi()
+                        # do_set_cam_roi_using_6fields_roi()
+                        # do_set_6fields_roi_using_cam_roi()
                     else:
-                        cam.close() # type: ignore
+                        cam.close()
                         # cam = None # commented, because I actually want to retain a closed cam object after toggling off the cam, for cam checks that might be useful
                 @toggle_state_and_enable("expo and roi fields", "acquisition toggle")
                 def _dummy_cam_toggle_cb_(_, __, user_data):
@@ -155,16 +170,51 @@ if __name__ == '__main__':
                     state = user_data["is on"]
                     next_state = not state
                     flag = user_data["acq thread flag"]
-                    if next_state:
-                        thread = threading.Thread(target=st_workerf_flagged_do_all, args=(cam, flag, frame_deck, controller))
-                        user_data["acq thread"] = thread
-                        flag.set()
-                        thread.start()
-                    else:
-                        thread = user_data["acq thread"]
-                        flag.clear()
-                        thread.join()
-                        user_data["acq thread"] = None # this is probably a sanity code, can do without
+                    if dpg.get_value(mItemSingleThread):
+                        if next_state:
+                            thread = threading.Thread(target=st_workerf_flagged_do_all, args=(cam, flag, frame_deck, controller))
+                            user_data["acq thread"] = thread
+                            flag.set()
+                            thread.start()
+                        else:
+                            thread = user_data["acq thread"]
+                            flag.clear()
+                            thread.join()
+                            user_data["acq thread"] = None # this is probably a sanity code, can do without
+                    elif dpg.get_value(mItemDualThreads):
+                        ...
+                    else: # dual processes
+                        # from camguihelper.core import _mp_access_camgui_panels
+                        global raw_card
+                        global controller
+                        if next_state:
+                            exposure = cam.cav["exposure time"] # 为了将这些 cam 参数 carry 到新进程中, 在关闭 cam 前, 先取得这些参数
+                            hstart, hend, vstart, vend, hbin, vbin = cam.get_roi()
+                            cam.close() # close everything, to allow the new process properly reopen them
+                            awg_is_on = dpg.get_item_user_data("AWG toggle")["is on"]
+                            if awg_is_on:
+                                raw_card.close()
+                                controller = None
+                            conn_sig_main, conn_sig_child = multiprocessing.Pipe()
+                            conn_data_main, conn_data_child = multiprocessing.Pipe()
+                            p = multiprocessing.Process(
+                                target =mp_producerf_polling_do_snag_rearrange_send, 
+                                args=(conn_sig_child, conn_data_child,
+                                      (exposure, hstart, hend, vstart, vend, hbin, vbin),
+                                      awg_is_on, collect_awg_params()))
+                            t_passer = threading.Thread(
+                                target=passerf, 
+                                args = (conn_data_main, ))
+                            user_data["process1"] = p
+                            p.start()
+                            
+                        else:
+                            p = user_data["process1"]
+                            p.join()
+
+                            do_cam_open_sequence()
+                            if dpg.get_item_user_data("AWG toggle")["is on"]:
+                                raw_card, controller = gui_open_awg()
                 @toggle_state_and_enable(
                         "expo and roi fields", togCam,
                         "awg panel",
@@ -174,6 +224,7 @@ if __name__ == '__main__':
                     from camguihelper.core import (
                         _dummy_st_workerf_flagged_do_all,
                         _dummy_mt_producerf_polling_do_snag_rearrange_deposit,
+                        _dummy_mp_producerf_polling_do_snag_rearrange_send,
                         )
                     state = user_data["is on"]
                     next_state = not state
@@ -207,10 +258,15 @@ if __name__ == '__main__':
                             t_consumer.join()
                             user_data["thread1"] = None
                             user_data["thread2"] = None
-                    else: # dual processes
+                    else: # dual processes TODO
                         # from camguihelper.core import _mp_access_camgui_panels
-
+                        global raw_card, controller
                         if next_state:
+                            cam.close() # close everything, to allow the new process properly reopen them
+                            if dpg.get_item_user_data("AWG toggle")["is on"]:
+                                raw_card.close()
+                                controller = None
+
                             conn_main, conn_child = multiprocessing.Pipe()
                             p = multiprocessing.Process(target = _mp_pass_hello, args=(conn_child,))
                             user_data["process1"] = p
@@ -220,6 +276,10 @@ if __name__ == '__main__':
                         else:
                             p = user_data["process1"]
                             p.join()
+
+                            do_cam_open_sequence()
+                            if dpg.get_item_user_data("AWG toggle")["is on"]:
+                                raw_card, controller = gui_open_awg()
 
                 dpg.bind_item_font(togAcq, large_font)
                 dpg.set_item_callback(togAcq, _toggle_acq_cb_)
@@ -248,7 +308,7 @@ if __name__ == '__main__':
                 #====================================
                 with dpg.group(tag = "expo and roi fields", enabled=False):
                     dpg.add_text("exposure time (ms):")
-                    fldExposure = dpg.add_input_float(
+                    fldExposure = dpg.add_input_float(tag="exposure field",
                         width = 120, step=0, format="%.4f",
                         default_value= 100)
                     def _set_cam_exposure(_, app_data, __): # the app_data in this case is the same as dpg.get_value(fldExposure)
@@ -399,6 +459,7 @@ if __name__ == '__main__':
     with dpg.file_dialog( # file dialog 就是一个独立的 window, 因此在应该在 root 定义, 与其他 window 内的元素在形式上解耦
         directory_selector=False, show=False, modal=True,
         tag="file dialog", width=700 ,height=400) as fileDialog:
+        # dpg.add_button(label="log", callback = _log)
         dpg.add_file_extension("", color = (150,255,150,255)) # 让文件夹显示为绿色
         dpg.add_file_extension(".*") # 显示 _select_all
         # dpg.add_file_extension(".tif")
@@ -428,7 +489,6 @@ if __name__ == '__main__':
             'max_size': [30000.0, 30000.0], 
             'selections': {'Image_00101.tif': 'c:\\Users\\DELL\\Desktop\\baslercam\\20by20 images\\Image_00101.tif'}}
             """
-            global frame_deck
             fname_dict = app_data["selections"]
             if "_select_all" in fname_dict:
                 dpath = Path(app_data["current_path"])
@@ -694,7 +754,7 @@ if __name__ == '__main__':
                     """
                     log geometric centers of box selected pixels
                         h->
-                    #1------+
+                      #1------+
                     v  |      |
                     ↓  +-----#2
                     app_data: (h1, v1, h2, v2)
@@ -741,7 +801,7 @@ if __name__ == '__main__':
         dpg.set_item_callback(togAcq, _dummy_toggle_acq_cb)
         cam = None # probably needed for dummy acquisition, the same reason as needing controller = None
         dpg.add_checkbox(tag = "假触发", label = "假触发", parent=grpPaging, callback=_log)
-        from camguihelper.core import _workerf_dummy_remote_buffer_feeder
+        from camguihelper.core import _workerf_dummy_remote_buffer_feeder, _mp_workerf_dummy_remote_buffer_feeder
         thread_remote_buffer_feeder = threading.Thread(target = _workerf_dummy_remote_buffer_feeder)
         thread_remote_buffer_feeder.start()
         # dpg.set_frame_callback(3, lambda:thread_remote_buffer_feeder.start())

@@ -10,7 +10,7 @@ import multiprocessing
 import queue
 import time
 import numpy.typing as npt
-from typing import List, Dict
+from typing import List, Dict, Sequence
 import re
 # from deprecated import deprecated
 import math
@@ -306,7 +306,22 @@ class FrameDeck(list):
                 self._plot_frame(frame, yax)
             else:
                 dpg.delete_item(yax, children_only=True)
-
+    def _append_plot_save(self, this_frame: npt.NDArray[np.uint16]):
+        """
+        在双线程/双进程并发中, 本函数是 consumer 取得 frame 后的全套任务
+        """
+        beg = time.time()
+        self.append(this_frame)
+        self.plot_frame_dwim()
+        hLhRvLvR = dpg.get_item_user_data("frame plot")
+        if hLhRvLvR:
+            _update_hist(hLhRvLvR, self)
+        try:
+            self._find_lastest_sesframes_folder_and_save_frame()
+        except UserInterrupt:
+            pass
+        end = time.time()
+        push_log(f"绘图和存储耗时{(end-beg)*1e3:.3f} ms")
 
 def _dummy_feed_awg(frame):
     pass
@@ -346,6 +361,7 @@ def _update_hist(hLhRvLvR: tuple, frame_deck: FrameDeck, yax = "hist plot yax")-
         min_range=theMinInt,max_range=max_range)
 
 
+
 def st_workerf_flagged_do_all(
     cam: DCAM.DCAM.DCAMCamera,
     flag: threading.Event,
@@ -362,7 +378,7 @@ def st_workerf_flagged_do_all(
     cam.set_trigger_mode("ext")
     cam.start_acquisition(mode="sequence", nframes=100)
     awg_is_on = dpg.get_item_user_data("AWG toggle")["is on"] 
-    awg_params = _collect_awg_params()
+    awg_params = collect_awg_params()
     while flag.is_set():
         try:
             cam.wait_for_frame(timeout=0.2)
@@ -374,18 +390,19 @@ def st_workerf_flagged_do_all(
             feed_AWG(this_frame, controller, awg_params) # feed original uint16 format to AWG
             end = time.time()
             push_log(f"重排前序计算耗时 {(end-beg)*1e3:.3f} ms")
-        beg = time.time()
-        frame_deck.append(this_frame)
-        frame_deck.plot_frame_dwim()
-        hLhRvLvR = dpg.get_item_user_data("frame plot")
-        if hLhRvLvR:
-            _update_hist(hLhRvLvR, frame_deck)
-        try:
-            frame_deck._find_lastest_sesframes_folder_and_save_frame()
-        except UserInterrupt:
-            pass
-        end = time.time()
-        push_log(f"绘图和存储耗时{(end-beg)*1e3:.3f} ms")
+        # beg = time.time()
+        # frame_deck.append(this_frame)
+        # frame_deck.plot_frame_dwim()
+        # hLhRvLvR = dpg.get_item_user_data("frame plot")
+        # if hLhRvLvR:
+        #     _update_hist(hLhRvLvR, frame_deck)
+        # try:
+        #     frame_deck._find_lastest_sesframes_folder_and_save_frame()
+        # except UserInterrupt:
+        #     pass
+        # end = time.time()
+        # push_log(f"绘图和存储耗时{(end-beg)*1e3:.3f} ms")
+        frame_deck._append_plot_save(this_frame)
     cam.stop_acquisition()
     cam.set_trigger_mode("int")
 
@@ -398,18 +415,19 @@ def _dummy_st_workerf_flagged_do_all(
         time.sleep(1)
         if frame_list:
             this_frame = frame_list.pop()
-            beg = time.time()          
-            frame_deck.append(this_frame)
-            frame_deck.plot_frame_dwim()
-            hLhRvLvR = dpg.get_item_user_data("frame plot")
-            if hLhRvLvR:
-                _update_hist(hLhRvLvR, frame_deck)
-            try:
-                frame_deck._find_lastest_sesframes_folder_and_save_frame()
-            except UserInterrupt:
-                pass
-            end = time.time()
-            push_log(f"绘图和存储耗时{(end-beg)*1e3:.3f} ms")
+            # beg = time.time()          
+            # frame_deck.append(this_frame)
+            # frame_deck.plot_frame_dwim()
+            # hLhRvLvR = dpg.get_item_user_data("frame plot")
+            # if hLhRvLvR:
+            #     _update_hist(hLhRvLvR, frame_deck)
+            # try:
+            #     frame_deck._find_lastest_sesframes_folder_and_save_frame()
+            # except UserInterrupt:
+            #     pass
+            # end = time.time()
+            # push_log(f"绘图和存储耗时{(end-beg)*1e3:.3f} ms")
+            frame_deck._append_plot_save(this_frame)
         else:
             break
 
@@ -466,15 +484,16 @@ def consumerf_local_buffer(
         this_frame = qlocal.get()
         if this_frame is None: # poison pill
             break # looping worker killed
-        frame_deck.append(this_frame)
-        frame_deck.plot_frame_dwim()
-        hLhRvLvR = dpg.get_item_user_data("frame plot")
-        if hLhRvLvR:
-            _update_hist(hLhRvLvR, frame_deck)
-        try:
-            frame_deck._find_lastest_sesframes_folder_and_save_frame()
-        except UserInterrupt: # UserInterrupts are exceptions with well known cause, we keep acquisition without interruption. Strange exceptions would still interrupt acquisition
-            pass
+        # frame_deck.append(this_frame)
+        # frame_deck.plot_frame_dwim()
+        # hLhRvLvR = dpg.get_item_user_data("frame plot")
+        # if hLhRvLvR:
+        #     _update_hist(hLhRvLvR, frame_deck)
+        # try:
+        #     frame_deck._find_lastest_sesframes_folder_and_save_frame()
+        # except UserInterrupt: # UserInterrupts are exceptions with well known cause, we keep acquisition without interruption. Strange exceptions would still interrupt acquisition
+        #     pass
+        frame_deck._append_plot_save(this_frame)
 
 def mt_producerf_polling_do_snag_rearrange_deposit(
         cam: DCAM.DCAM.DCAMCamera,
@@ -490,7 +509,7 @@ def mt_producerf_polling_do_snag_rearrange_deposit(
     cam.set_trigger_mode("ext")
     cam.start_acquisition(mode="sequence", nframes=100)
     awg_is_on = dpg.get_item_user_data("AWG toggle")["is on"] 
-    awg_params = _collect_awg_params()
+    awg_params = collect_awg_params()
     while flag.is_set():
         try:
             cam.wait_for_frame(timeout=0.2)
@@ -546,25 +565,54 @@ def _dummy_mp_producerf_polling_do_snag_rearrange_send(
     conn_data.send(None) # poison pill
     conn_data.close()
 
+
 def mp_producerf_polling_do_snag_rearrange_send(
-        cam: DCAM.DCAM.DCAMCamera,
         conn_sig: multiprocessing.connection.Connection,
         conn_data: multiprocessing.connection.Connection,
-        controller,  # type is DDSRampController, not hinted because it acts funny on macOS
-):
+        cam_params: Sequence[float],
+        awg_is_on: bool, # 这个 bool 不能在放 body 中获取, 因为 body 是在新进程中运行, 而在新进程中, main guard 阻止了这个 producer 接触一切 gui 相关代码
+        awg_params: Sequence # 无论 awg 是否开启都必须加上, 因为 multiprocessing.Process 的 args 参数是固定的
+        ):
     """
     双进程 producer, 运行于从进程
-    从 camera 中取 frame, 重排, 然后放入 data pipe
-    polling signal pipe, 当收到 signal 时, 投毒, 终止
-    TODO
+    打开 cam, 设置 camera, 打开 awg (如果 gui 开了)
+    从 camera 中取 frame, 重排 (如果 gui 开了), 然后放入 data pipe
+    polling signal pipe, 当收到 signal 时, 关闭 cam, 关闭 awg (如果 gui 开了), 投毒
     """
-    cam = DCAM.DCAMCamera()
+    if awg_is_on:
+        raw_card, controller = gui_open_awg()
+    exposure, hstart, hend, vstart, vend, hbin, vbin = cam_params
+    cam = DCAM.DCAMCamera() # 无论是否需要 awg, cam obj 是一定需要的
+    cam.open()
+    cam.set_exposure(exposure)
+    cam.set_roi(hstart, hend, vstart, vend, hbin, vbin)
     cam.set_trigger_mode("ext")
     cam.start_acquisition(mode="sequence", nframes = 100)
-    awg_is_on = dpg.get_item_user_data("AWG toggle")["is on"] 
-    awg_params = _collect_awg_params()
     while not conn_sig.poll():
-        ...
+        try:
+            cam.wait_for_frame(timeout = 0.2)
+        except DCAM.DCAMTimeoutError:
+            continue
+        this_frame: npt.NDArray[np.uint16] = cam.read_oldest_image()
+        if awg_is_on:
+            feed_AWG(this_frame, controller, awg_params)
+        conn_data.send(this_frame)
+    if awg_is_on:
+        raw_card.close()
+        controller = None # for possible garbage collection
+    cam.close()
+    conn_sig.close()
+    conn_data.send(None) # poison pill
+
+def passerf(
+        conn: multiprocessing.connection.Connection,
+        q: queue.SimpleQueue = _local_buffer):
+    while True:
+        this_frame = conn.recv()
+        q.put(this_frame)
+        if this_frame is None:
+            conn.close()
+            break
 
 def _log(sender, app_data, user_data):
     """
@@ -592,7 +640,7 @@ def gui_open_awg():
     controller = DDSRampController(raw_card)
     return raw_card, controller
 
-def _collect_awg_params() -> tuple:
+def collect_awg_params() -> tuple:
     x1, y1, *_ = dpg.get_value("x1 y1")
     x2, y2, *_ = dpg.get_value("x2 y2")
     x3, y3, *_ = dpg.get_value("x3 y3")
