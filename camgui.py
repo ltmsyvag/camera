@@ -97,7 +97,7 @@ if __name__ == '__main__':
     repo: https://github.com/ltmsyvag/camera
                                     """, 
                                     win_label="info", just_close=True))
-
+    _mp_dummy_remote_buffer = multiprocessing.Queue()
     with dpg.window(label= "控制面板", tag = winCtrlPanels):
         with dpg.group(label = "col panels", horizontal=True):
             with dpg.child_window(label = "cam panel", width=190):
@@ -170,6 +170,7 @@ if __name__ == '__main__':
                     state = user_data["is on"]
                     next_state = not state
                     flag = user_data["acq thread flag"]
+                    global raw_card, controller
                     if dpg.get_value(mItemSingleThread):
                         if next_state:
                             thread = threading.Thread(target=st_workerf_flagged_do_all, args=(cam, flag, frame_deck, controller))
@@ -185,8 +186,6 @@ if __name__ == '__main__':
                         ...
                     else: # dual processes
                         # from camguihelper.core import _mp_access_camgui_panels
-                        global raw_card
-                        global controller
                         if next_state:
                             exposure = cam.cav["exposure time"] # 为了将这些 cam 参数 carry 到新进程中, 在关闭 cam 前, 先取得这些参数
                             hstart, hend, vstart, vend, hbin, vbin = cam.get_roi()
@@ -258,28 +257,48 @@ if __name__ == '__main__':
                             t_consumer.join()
                             user_data["thread1"] = None
                             user_data["thread2"] = None
-                    else: # dual processes TODO
-                        # from camguihelper.core import _mp_access_camgui_panels
-                        global raw_card, controller
+                    else: # dual processes
                         if next_state:
-                            cam.close() # close everything, to allow the new process properly reopen them
-                            if dpg.get_item_user_data("AWG toggle")["is on"]:
-                                raw_card.close()
-                                controller = None
-
-                            conn_main, conn_child = multiprocessing.Pipe()
-                            p = multiprocessing.Process(target = _mp_pass_hello, args=(conn_child,))
-                            user_data["process1"] = p
-                            p.start()
-                            print(conn_main.recv())
-                            conn_main.close()
+                            conn_sig_main, conn_sig_child = multiprocessing.Pipe()
+                            conn_data_main, conn_data_child = multiprocessing.Pipe()
+                            conn_debug_main, conn_debug_child = multiprocessing.Pipe()
+                            p_producer = multiprocessing.Process(
+                                target=_dummy_mp_producerf_polling_do_snag_rearrange_send,
+                                args=(conn_sig_child, 
+                                      conn_data_child,
+                                      conn_debug_child,
+                                      _mp_dummy_remote_buffer)
+                                )
+                            t_passer = threading.Thread(
+                                target=passerf,
+                                args= (conn_data_main,))
+                            t_consumer = threading.Thread(
+                                target=consumerf_local_buffer,
+                                args=(frame_deck,))
+                            user_data["signal connection"] = conn_sig_main # 投毒通道
+                            user_data["process1"] = p_producer
+                            user_data["thread1"] = t_passer
+                            user_data["thread2"] = t_consumer
+                            p_producer.start()
+                            t_passer.start()
+                            t_consumer.start()
+                            # for _ in range(100):
+                            #     print(conn_debug_main.recv())
+                            # conn_debug_main.close()
                         else:
-                            p = user_data["process1"]
-                            p.join()
+                            conn_sig_main = user_data["signal connection"] # 投毒通道
+                            p_producer = user_data["process1"]
+                            t_passer = user_data["thread1"]
+                            t_consumer = user_data["thread2"]
+                            conn_sig_main.send(None) # 投毒
+                            conn_sig_main.close()
+                            p_producer.join()
+                            t_passer.join()
+                            t_consumer.join()
 
-                            do_cam_open_sequence()
-                            if dpg.get_item_user_data("AWG toggle")["is on"]:
-                                raw_card, controller = gui_open_awg()
+                            # do_cam_open_sequence()
+                            # if dpg.get_item_user_data("AWG toggle")["is on"]:
+                            #     raw_card, controller = gui_open_awg()
 
                 dpg.bind_item_font(togAcq, large_font)
                 dpg.set_item_callback(togAcq, _toggle_acq_cb_)
@@ -802,10 +821,12 @@ if __name__ == '__main__':
         cam = None # probably needed for dummy acquisition, the same reason as needing controller = None
         dpg.add_checkbox(tag = "假触发", label = "假触发", parent=grpPaging, callback=_log)
         from camguihelper.core import _workerf_dummy_remote_buffer_feeder, _mp_workerf_dummy_remote_buffer_feeder
-        thread_remote_buffer_feeder = threading.Thread(target = _workerf_dummy_remote_buffer_feeder)
-        thread_remote_buffer_feeder.start()
+        t_mt_remote_buffer_feeder = threading.Thread(target = _workerf_dummy_remote_buffer_feeder)
+        t_mt_remote_buffer_feeder.start()
+        t_mp_remote_buffer_feeder = threading.Thread(target = _mp_workerf_dummy_remote_buffer_feeder, args=(_mp_dummy_remote_buffer,))
+        t_mp_remote_buffer_feeder.start()
         # dpg.set_frame_callback(3, lambda:thread_remote_buffer_feeder.start())
-    dpg.show_style_editor()
+    # dpg.show_style_editor()
     dpg.setup_dearpygui()
     dpg.show_viewport()
     dpg.start_dearpygui()

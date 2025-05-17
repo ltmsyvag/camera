@@ -528,9 +528,9 @@ def mt_producerf_polling_do_snag_rearrange_deposit(
 # conn_frame_main, conn_frame_child = multiprocessing.Pipe()
 import copy
 _frame_list_copy = copy.deepcopy(frame_list) # mp 方案专用的假数据
-_mp_dummy_remote_buffer = multiprocessing.Queue()
+# _mp_dummy_remote_buffer = multiprocessing.Queue()
 def _mp_workerf_dummy_remote_buffer_feeder(
-        q: multiprocessing.Queue=_mp_dummy_remote_buffer)-> None:
+        q: multiprocessing.Queue)-> None:
     """
     假相机 buffer 的 feeder, 这里的假 buffer 是一个 multiprocessing.Queue,
     由主线程填充, 由假触发 checkbox 控制是否向假 buffer 中放 frame
@@ -541,6 +541,7 @@ def _mp_workerf_dummy_remote_buffer_feeder(
             if _frame_list_copy:
                 this_frame = _frame_list_copy.pop()
                 q.put(this_frame)
+                # print("fed frame")
             else:
                 push_log("已向假相机 mp buffer 发送 500 帧", is_good=True)
                 break
@@ -550,13 +551,17 @@ def _mp_pass_hello(conn: multiprocessing.connection.Connection):
     conn.close()
 
 def _dummy_mp_producerf_polling_do_snag_rearrange_send(
-        conn_data: multiprocessing.connection.Connection,
         conn_sig: multiprocessing.connection.Connection,
-        q: queue.Queue = _mp_dummy_remote_buffer
+        conn_data: multiprocessing.connection.Connection,
+        conn_debug: multiprocessing.connection.Connection,
+        q: multiprocessing.Queue
         ):
+    # conn_debug.send("inside")
     while not conn_sig.poll():
+        # conn_debug.send("looping")
         try:
             this_frame: npt.NDArray[np.uint16] = q.get(timeout=0.2)
+            # conn_debug.send("produced frame")
         except queue.Empty:
             continue
         time.sleep(0.01) # 模拟重排耗时
@@ -564,6 +569,7 @@ def _dummy_mp_producerf_polling_do_snag_rearrange_send(
     conn_sig.close()
     conn_data.send(None) # poison pill
     conn_data.close()
+    conn_debug.close()
 
 
 def mp_producerf_polling_do_snag_rearrange_send(
