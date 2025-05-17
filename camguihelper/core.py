@@ -12,7 +12,7 @@ import time
 import numpy.typing as npt
 from typing import List, Dict
 import re
-from deprecated import deprecated
+# from deprecated import deprecated
 import math
 from datetime import datetime
 from pylablib.devices import DCAM
@@ -390,8 +390,7 @@ def st_workerf_flagged_do_all(
     cam.set_trigger_mode("int")
 
 from fake_frames_imports import frame_list
-import copy
-_frame_list_copy = copy.deepcopy(frame_list)
+
 def _dummy_st_workerf_flagged_do_all(
         flag: threading.Event, 
         frame_deck: FrameDeck):
@@ -415,11 +414,10 @@ def _dummy_st_workerf_flagged_do_all(
             break
 
 #### objects for dual thread approach
-_dt_dummy_remote_buffer = queue.Queue(maxsize=500) # 假相机 buffer, 双线程方案
-_dp_dummy_remote_buffer = queue.Queue(maxsize=500) # 假相机 buffer, 双进程方案
+_mt_dummy_remote_buffer = queue.Queue(maxsize=500) # 假相机 buffer, 双线程方案
 _local_buffer = queue.SimpleQueue() # 双进程和双线程通用
 def _workerf_dummy_remote_buffer_feeder(
-        q: queue.Queue = _dt_dummy_remote_buffer)-> None:
+        q: queue.Queue = _mt_dummy_remote_buffer)-> None:
     """
     假相机 buffer 的 filler, 由假触发 checkbox 控制是否向假相机 buffer 中放 frame
     """
@@ -431,16 +429,17 @@ def _workerf_dummy_remote_buffer_feeder(
                 this_frame = frame_list.pop()
                 q.put(this_frame)
             else:
-                push_log("已向假相机 buffer 发送 500 帧", is_error=True)
+                push_log("已向假相机 mt buffer 发送 500 帧", is_good=True)
                 break
-def _dummy_dt_producerf_flagged_do_snap_rearrange_deposit(
+def _dummy_mt_producerf_polling_do_snag_rearrange_deposit(
         flag: threading.Event,
-        q: queue.Queue = _dt_dummy_remote_buffer,
+        q: queue.Queue = _mt_dummy_remote_buffer,
         qlocal: queue.SimpleQueue = _local_buffer,
         )->None:
     """
     假 producer
     从假相机 buffer 中取 frame, 放入 local buffer
+    polling a flag. flag clear 时, 投毒, 停止循环
     """
     while flag.is_set():
         try:
@@ -477,16 +476,16 @@ def consumerf_local_buffer(
         except UserInterrupt: # UserInterrupts are exceptions with well known cause, we keep acquisition without interruption. Strange exceptions would still interrupt acquisition
             pass
 
-def dt_producerf_flagged_do_snap_rearrange_deposit(
+def mt_producerf_polling_do_snag_rearrange_deposit(
         cam: DCAM.DCAM.DCAMCamera,
         flag: threading.Event,
         controller, # type is DDSRampController, not hinted because it acts funny on macOS
         local_buffer: queue.SimpleQueue = _local_buffer,
         )->None:
     """
-    双线程 worker1,
+    双线程 producer,
     从 camera 中取 frame, 放入 local buffer
-    watching a flag, flag clear 时, 投毒, 终止
+    polling a flag, flag clear 时, 投毒, 终止
     """
     cam.set_trigger_mode("ext")
     cam.start_acquisition(mode="sequence", nframes=100)
@@ -508,11 +507,14 @@ def dt_producerf_flagged_do_snap_rearrange_deposit(
 ### dual processes approach 需要的 objects:
 # conn_sig_main, conn_sig_child = multiprocessing.Pipe()
 # conn_frame_main, conn_frame_child = multiprocessing.Pipe()
-
-def _dp_workerf_dummy_remote_buffer_feeder(
-        q: queue.Queue = _dp_dummy_remote_buffer)-> None:
+import copy
+_frame_list_copy = copy.deepcopy(frame_list) # mp 方案专用的假数据
+_mp_dummy_remote_buffer = multiprocessing.Queue()
+def _mp_workerf_dummy_remote_buffer_feeder(
+        q: multiprocessing.Queue=_mp_dummy_remote_buffer)-> None:
     """
-    假相机 buffer 的 filler, 由假触发 checkbox 控制是否向假相机 buffer 中放 frame
+    假相机 buffer 的 feeder, 这里的假 buffer 是一个 multiprocessing.Queue,
+    由主线程填充, 由假触发 checkbox 控制是否向假 buffer 中放 frame
     """
     while True:
         time.sleep(1) # simulate snap rate
@@ -521,13 +523,17 @@ def _dp_workerf_dummy_remote_buffer_feeder(
                 this_frame = _frame_list_copy.pop()
                 q.put(this_frame)
             else:
-                push_log("已向假相机 buffer 发送 500 帧", is_error=True)
+                push_log("已向假相机 mp buffer 发送 500 帧", is_good=True)
                 break
 
-def _dummy_dp_producerf__do_snap_rearrange_send(
+def _mp_pass_hello(conn: multiprocessing.connection.Connection):
+    conn.send("hello")
+    conn.close()
+
+def _dummy_mp_producerf_polling_do_snag_rearrange_send(
         conn_data: multiprocessing.connection.Connection,
         conn_sig: multiprocessing.connection.Connection,
-        q: queue.Queue = _dp_dummy_remote_buffer
+        q: queue.Queue = _mp_dummy_remote_buffer
         ):
     while not conn_sig.poll():
         try:
@@ -541,6 +547,24 @@ def _dummy_dp_producerf__do_snap_rearrange_send(
     conn_data.close()
 
 
+def mp_producerf_polling_do_snag_rearrange_send(
+        cam: DCAM.DCAM.DCAMCamera,
+        conn_sig: multiprocessing.connection.Connection,
+        conn_data: multiprocessing.connection.Connection,
+        controller,  # type is DDSRampController, not hinted because it acts funny on macOS
+):
+    """
+    双进程 producer, 运行于从进程
+    从 camera 中取 frame, 重排, 然后放入 data pipe
+    polling signal pipe, 当收到 signal 时, 投毒, 终止
+    TODO
+    """
+    cam.set_trigger_mode("ext")
+    cam.start_acquisition(mode="sequence", nframes = 100)
+    awg_is_on = dpg.get_item_user_data("AWG toggle")["is on"] 
+    awg_params = _collect_awg_params()
+    while not conn_sig.poll():
+        ...
 
 def _log(sender, app_data, user_data):
     """
