@@ -5,8 +5,16 @@ camgui 相关的帮助函数
 #%%
 from itertools import cycle
 from collections import namedtuple
-DupeMap = namedtuple(typename='DupeMap', 
+DupeMap = namedtuple(typename='DupeMap', # class for useful dpg items in a dupe heatmap window
                         field_names=['yAx', 'inputInt', 'radioBtn', 'cBox'])
+CamguiParams = namedtuple(typename='CamguiParams',
+                          field_names=[
+                              '并发方式',
+                              'cam面板参数',
+                              'awg面板参数',
+                              'Camgui 版本',
+                              ],
+                              default = ["1.3-pre"])
 import multiprocessing.connection
 import traceback
 import multiprocessing
@@ -275,7 +283,7 @@ class FrameDeck(list):
         had_series_child_p = dpg.get_item_children(yax)[1] # plot new series 之前 check 是否有老 series
         if had_series_child_p:
             dpg.delete_item(yax, children_only=True) # this is necessary!
-        dpg.add_heat_series(frame, nvrows, nhcols, parent=yax, # type: ignore
+        dpg.add_heat_series(frame, nvrows, nhcols, parent=yax,
                             scale_min=fmin, scale_max=fmax,format="",
                             bounds_min= (0,nvrows), bounds_max= (nhcols, 0)
                             )
@@ -522,7 +530,6 @@ def st_workerf_flagged_do_all(
     cam.stop_acquisition()
     cam.set_trigger_mode("int")
 
-
 def _dummy_st_workerf_flagged_do_all(
         flag: threading.Event, 
         frame_deck: FrameDeck):
@@ -636,7 +643,10 @@ def mt_producerf_polling_do_snag_rearrange_deposit(
             continue
         this_frame: npt.NDArray[np.uint16] = cam.read_oldest_image()
         if awg_is_on:
+            beg = time.time()
             feed_AWG(this_frame, controller, awg_params)
+            end = time.time()
+            push_log(f"重排前序计算耗时 {(end-beg)*1e3:.3f} ms")
         local_buffer.put(this_frame)
     cam.stop_acquisition()
     cam.set_trigger_mode("int")

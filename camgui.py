@@ -9,7 +9,7 @@ cam 将会是全局变量, 由 callback 创建
 """
 # from camguihelper.core import _mp_pass_hello
 from camguihelper import (
-    FrameDeck, DupeMap, st_workerf_flagged_do_all, collect_awg_params, gui_open_awg,
+    FrameDeck, DupeMap, CamguiParams, st_workerf_flagged_do_all, collect_awg_params, gui_open_awg,
     mt_producerf_polling_do_snag_rearrange_deposit, find_latest_sesframes_folder,
     mp_producerf_polling_do_snag_rearrange_send, mp_passerf, consumerf_local_buffer,
     push_exception)
@@ -862,6 +862,39 @@ if __name__ == '__main__':
                     height=-1, width=-1, no_mouse_pos=True):
             dpg.add_plot_axis(dpg.mvXAxis, label = "converted counts ((<frame pixel counts>-200)*0.1/0.9)")
             dpg.add_plot_axis(dpg.mvYAxis, label = "frequency", tag = "hist plot yax")
+    def create_sesfolder_for_camgui_params_and_save_params():
+        panel_params = CamguiParams(
+            并发方式 = [mItemSingleThread, mItemDualThreads, mItemDualProcesses],
+            cam面板参数 = {
+                'exposure field' : dpg.get_value(fldExposure),
+                'h start & h length' : dpg.get_value(fldsROIh),
+                'v start & v length' : dpg.get_value(fldsROIv),
+                'h binning & v binning' : dpg.get_value(fldsBinning),
+            },
+            awg面板参数 = {
+                'awg is on' : dpg.get_item_user_data(togAwg)['is on']
+            }
+        )
+        awgDict = panel_params.awg面板参数
+        if awgDict['awg is on']:
+            awgDict['x1 y1'] = dpg.get_value("x1 y1")
+            awgDict['x2 y2'] = dpg.get_value("x2 y2")
+            awgDict['x3 y3'] = dpg.get_value("x3 y3")
+            awgDict['nx ny'] = dpg.get_value("nx ny")
+            awgDict['x0 y0'] = dpg.get_value("x0 y0")
+            awgDict['rec_x rec_y'] = dpg.get_value("rec_x rec_y")
+            awgDict['count_threshold'] = dpg.get_value("count_threshold"),
+            awgDict['n_packed'] = dpg.get_value("n_packed"),
+            awgDict["start_frequency_on_row(col)"] = dpg.get_value("start_frequency_on_row(col)")
+            awgDict["end_frequency_on_row(col)"] = dpg.get_value("end_frequency_on_row(col)")
+            awgDict["start_site_on_row(col)"] = dpg.get_value("start_site_on_row(col)")
+            awgDict["end_site_on_row(col)"] = dpg.get_value("end_site_on_row(col)")
+            awgDict['num_segments'] = dpg.get_value("num_segments")
+            awgDict['power_ramp_time (ms)'] = dpg.get_value("power_ramp_time (ms)")
+            awgDict['move_time (ms)'] = dpg.get_value("move_time (ms)")
+            awgDict['percentage_total_power_for_list'] = dpg.get_value("percentage_total_power_for_list")
+            awgDict['ramp_type'] = dpg.get_value("ramp_type")
+            awgDict['target array binary text input'] = dpg.get_value("target array binary text input")
 
     if dummy_acq: # do dummy acquisition
         dpg.set_item_callback(togCam,_dummy_cam_toggle_cb_)
