@@ -13,7 +13,7 @@ import copy
 import numpy.typing as npt
 from typing import List, Dict, Sequence
 import re
-# from deprecated import deprecated
+from deprecated import deprecated
 import math
 from datetime import datetime
 from pylablib.devices import DCAM
@@ -49,6 +49,16 @@ class FrameDeck(list):
         self.frame_avg: npt.NDArray[np.floating] | None = None
         self.llst_items_dupe_maps : List[List[int | str]] = [] # 保存 duplicated heatmaps window 中的 item tuple
     def memory_report(self) -> str:
+        len_deck = len(self)
+        if len_deck>0:
+            mbsize_int_frames = sum([frame.nbytes for frame in self])/(1024**2)
+            mbsize_float_frames = sum([frame.nbytes for frame in self])/(1024**2)
+            size = mbsize_int_frames + mbsize_float_frames
+        else:
+            size = 0
+        return  f"内存: {len_deck} 帧 ({size:.2f} MB)"
+    @deprecated
+    def memory_report_(self) -> str:
         len_deck = len(self)
         if len_deck > 0:
             mbsize_1_int_frame = self[0].nbytes/ (1024**2)
@@ -737,7 +747,7 @@ def push_exception(user_msg: str=""):
     """
     在 camgui log window 中显示 traceback 的 exception
     """
-    traceback.print_exc() # for REPL review
+    # traceback.print_exc() # for REPL review
     push_log(user_msg 
              + "\n" 
              + traceback.format_exc(), is_error=True)

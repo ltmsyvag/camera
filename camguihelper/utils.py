@@ -66,7 +66,7 @@ month_dict = {
             "11" : "十一月",
             "12" : "十二月"}
 
-def mkdir_session_frames():
+def mkdir_session_frames() -> str | None:
         """
         未来的 SESSION MANAGER 函数
         有两种 dir 被称为 session dir (camgui 创建的 dir 不配被叫做 session dir):
@@ -93,6 +93,7 @@ def mkdir_session_frames():
             dpath.mkdir(parents=True)
             select_all_fpath = dpath / "_select_all"
             select_all_fpath.touch() # create empty _select_all file for selecting all tiffs in file dialog
+            return new_ses_str
         else:
-            push_log(f"找不到用于存放帧数据的文件夹 {str(session_frames_root)}", is_error=True)
+            # push_log(f"找不到用于存放帧数据的文件夹 {str(session_frames_root)}", is_error=True)
             raise UserInterrupt

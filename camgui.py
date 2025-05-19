@@ -12,7 +12,7 @@ from camguihelper import (
     FrameDeck, st_workerf_flagged_do_all, collect_awg_params, gui_open_awg,
     mt_producerf_polling_do_snag_rearrange_deposit,
     mp_producerf_polling_do_snag_rearrange_send, mp_passerf, consumerf_local_buffer,
-                          )
+    push_exception)
 from pylablib.devices import DCAM
 if __name__ == '__main__':
     import multiprocessing
@@ -25,7 +25,7 @@ if __name__ == '__main__':
     import tifffile
     # from camguihelper import FrameDeck, st_workerf_flagged_do_all, collect_awg_params
     from camguihelper.core import _log, _update_hist
-    from camguihelper.utils import mkdir_session_frames
+    from camguihelper.utils import mkdir_session_frames, UserInterrupt, session_frames_root
     from camguihelper.dpghelper import (
         do_bind_my_default_global_theme,
         do_bind_my_global_nosave_theme,
@@ -97,7 +97,7 @@ if __name__ == '__main__':
     repo: https://github.com/ltmsyvag/camera
                                     """, 
                                     win_label="info", just_close=True))
-    dummy_acq = False # 假采集代码的总开关
+    dummy_acq = True # 假采集代码的总开关
     if dummy_acq:
         _mp_dummy_remote_buffer = multiprocessing.Queue() # mp dummy remote buffer 必须在主脚本中创建, 才能确保 mp dummy buffer feeder 和 mp producer 所用的 Queue 对象是同一个
     with dpg.window(label= "控制面板", tag = winCtrlPanels):
@@ -347,9 +347,24 @@ if __name__ == '__main__':
                         dpg.add_text("帧文件夹:")
                         with dpg.tooltip(dpg.last_item(), **ttpkwargs):
                             dpg.add_text("当前采集的所有帧文件(tiff)\n会被保存到这个文件夹")
-                        dpg.add_text("0000", color= (255,0,255))
+                        _strSes = dpg.add_text("0000")
                         dpg.bind_item_font(dpg.last_item(), large_font)
-                    dpg.add_button(label="新 帧文件夹", callback=mkdir_session_frames)
+                    _btnNewSes = dpg.add_button(label="新 session 帧文件夹")
+                    def _twinkle():
+                        dpg.configure_item(_strSes, color = (255,0,255))
+                        time.sleep(1)
+                        dpg.configure_item(_strSes, color = (255,255,255))
+                    def _cb(*args):
+                        try:
+                            new_ses_str = mkdir_session_frames()
+                            dpg.set_value(_strSes, new_ses_str)
+                            t = threading.Thread(target = _twinkle)
+                            t.start()
+                        except UserInterrupt:
+                            push_exception(f"找不到用于存放帧数据的文件夹 {str(session_frames_root)}")
+                            dpg.set_value(_strSes, "错误")
+                            dpg.configure_item(_strSes, color = (255,0,0))
+                    dpg.set_item_callback(_btnNewSes, _cb)
                 with dpg.theme() as _thmSesBG:
                     with dpg.theme_component(dpg.mvChildWindow):
                         _ses_bg = (0,30,0)
