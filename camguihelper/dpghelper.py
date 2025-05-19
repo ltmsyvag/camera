@@ -30,28 +30,39 @@ def _do_fix_disabled_components()->None:
         dpg.add_theme_color(# the checkmark controls the color of the selected radio button
             dpg.mvThemeCol_CheckMark, (0.50 * 255, 0.50 * 255, 0.50 * 255, 1.00 * 255), category=dpg.mvThemeCat_Core)
 
-def do_bind_my_global_theme()->None:
+def _default_global_theme_settings():
+    _do_fix_disabled_components()
+    with dpg.theme_component(dpg.mvAll): # check mark is distinc yellow. dpg.mvCheckbox doesn't work, don't know why
+        dpg.add_theme_color(dpg.mvThemeCol_CheckMark, (255,255,0), category=dpg.mvThemeCat_Core)
+        # dpg.add_theme_color(dpg.mvThemeCol_DockingEmptyBg, (0,0,0, 255), category=dpg.mvThemeCat_Core) # 在 docking_space 开启时, 尝试将其变为黑色. doesn't work, don't know why.
+    with dpg.theme_component(dpg.mvButton): # my button style, a bit roundish with magenta border, with distinct blueish color when pressed down
+        dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 5, category=dpg.mvThemeCat_Core)
+        dpg.add_theme_style(dpg.mvStyleVar_FrameBorderSize, 1, category=dpg.mvThemeCat_Core)
+        dpg.add_theme_color(dpg.mvThemeCol_Border, (255,0,255,200), category=dpg.mvThemeCat_Core)
+        dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, (0,119,200), category=dpg.mvThemeCat_Core)
+    with dpg.theme_component(dpg.mvInputInt): # input field 带有 +/- 按钮时, 也希望点击的时候按钮的 active 状态能更有辨识度. 由于 input field 自带的按钮不属于 mvButton, 需要单独设置一次
+        dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, (0,119,200), category=dpg.mvThemeCat_Core)
+    for comp in (dpg.mvInputInt, dpg.mvInputIntMulti, 
+                    dpg.mvInputDouble, dpg.mvInputDoubleMulti,
+                    dpg.mvInputFloat, dpg.mvInputFloatMulti,
+                    dpg.mvInputText, dpg.mvCheckbox): # give frame borders in all kinds of input fields
+        with dpg.theme_component(comp):
+            dpg.add_theme_style(dpg.mvStyleVar_FrameBorderSize, 0.5, category=dpg.mvThemeCat_Core)
+            dpg.add_theme_color(dpg.mvThemeCol_Border, (255,255,255,25), category=dpg.mvThemeCat_Core)
+
+def do_bind_my_default_global_theme()->None:
     with dpg.theme() as global_theme:
-        _do_fix_disabled_components()
-        with dpg.theme_component(dpg.mvAll): # check mark is distinc yellow. dpg.mvCheckbox doesn't work, don't know why
-            dpg.add_theme_color(dpg.mvThemeCol_CheckMark, (255,255,0), category=dpg.mvThemeCat_Core)
-            # dpg.add_theme_color(dpg.mvThemeCol_DockingEmptyBg, (0,0,0, 255), category=dpg.mvThemeCat_Core) # 在 docking_space 开启时, 尝试将其变为黑色. doesn't work, don't know why.
-        with dpg.theme_component(dpg.mvButton): # my button style, a bit roundish with magenta border, with distinct blueish color when pressed down
-            dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 5, category=dpg.mvThemeCat_Core)
-            dpg.add_theme_style(dpg.mvStyleVar_FrameBorderSize, 1, category=dpg.mvThemeCat_Core)
-            dpg.add_theme_color(dpg.mvThemeCol_Border, (255,0,255,200), category=dpg.mvThemeCat_Core)
-            dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, (0,119,200), category=dpg.mvThemeCat_Core)
-        with dpg.theme_component(dpg.mvInputInt): # input field 带有 +/- 按钮时, 也希望点击的时候按钮的 active 状态能更有辨识度. 由于 input field 自带的按钮不属于 mvButton, 需要单独设置一次
-            dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, (0,119,200), category=dpg.mvThemeCat_Core)
-        for comp in (dpg.mvInputInt, dpg.mvInputIntMulti, 
-                     dpg.mvInputDouble, dpg.mvInputDoubleMulti,
-                     dpg.mvInputFloat, dpg.mvInputFloatMulti,
-                     dpg.mvInputText, dpg.mvCheckbox): # give frame borders in all kinds of input fields
-            with dpg.theme_component(comp):
-                dpg.add_theme_style(dpg.mvStyleVar_FrameBorderSize, 0.5, category=dpg.mvThemeCat_Core)
-                dpg.add_theme_color(dpg.mvThemeCol_Border, (255,255,255,25), category=dpg.mvThemeCat_Core)
+        _default_global_theme_settings()
     dpg.bind_theme(global_theme)
-    
+
+def do_bind_my_global_nosave_theme()->None:
+    with dpg.theme() as nosave_theme:
+       _default_global_theme_settings()
+       with dpg.theme_component(dpg.mvWindowAppItem):
+            dpg.add_theme_color(dpg.mvThemeCol_TitleBg, (204, 102, 0))
+            dpg.add_theme_color(dpg.mvThemeCol_TitleBgCollapsed, (204, 102, 0))
+            dpg.add_theme_color(dpg.mvThemeCol_TitleBgActive, (255, 165, 0))
+    dpg.bind_theme(nosave_theme)
 
 def do_initialize_chinese_fonts(default_fontsize: int=19, 
                     bold_fontsize: int=21, 

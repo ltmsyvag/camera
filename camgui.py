@@ -26,7 +26,8 @@ if __name__ == '__main__':
     from camguihelper.core import _log, _update_hist
     from camguihelper.utils import mkdir_session_frames
     from camguihelper.dpghelper import (
-        do_bind_my_global_theme,
+        do_bind_my_default_global_theme,
+        do_bind_my_global_nosave_theme,
         do_initialize_chinese_fonts,
         do_extend_add_button,
         toggle_checkbox_and_disable,
@@ -45,7 +46,7 @@ if __name__ == '__main__':
     dpg.configure_app(#docking = True, docking_space=True, docking_shift_only=True,
                     init_file = "dpginit.ini", )
 
-    do_bind_my_global_theme()
+    do_bind_my_default_global_theme()
     _, bold_font, large_font = do_initialize_chinese_fonts()
     toggle_state_and_enable = do_extend_add_button()
     myCmap = dpg.mvPlotColormap_Viridis
@@ -97,7 +98,9 @@ if __name__ == '__main__':
     repo: https://github.com/ltmsyvag/camera
                                     """, 
                                     win_label="info", just_close=True))
-    _mp_dummy_remote_buffer = multiprocessing.Queue()
+    dummy_acq = True # 假采集代码的总开关
+    if dummy_acq:
+        _mp_dummy_remote_buffer = multiprocessing.Queue() # mp dummy remote buffer 必须在主脚本中创建, 才能确保 mp dummy buffer feeder 和 mp producer 所用的 Queue 对象是同一个
     with dpg.window(label= "控制面板", tag = winCtrlPanels):
         with dpg.group(label = "col panels", horizontal=True):
             with dpg.child_window(label = "cam panel", width=190):
@@ -523,25 +526,15 @@ if __name__ == '__main__':
                     height=700, width=700
                     ):
         with dpg.menu_bar():
-            with dpg.menu(label = "帧保存"):
+            with dpg.menu(label = "保存帧"):
                 _mItemAutoSave = dpg.add_menu_item(label = "自动保存", check=True, default_value=True)
-                with dpg.theme() as _thmNoSave:
-                    with dpg.theme_component(dpg.mvWindowAppItem):
-                        dpg.add_theme_color(dpg.mvThemeCol_TitleBg, (204, 102, 0))
-                        dpg.add_theme_color(dpg.mvThemeCol_TitleBgCollapsed, (204, 102, 0))
-                        dpg.add_theme_color(dpg.mvThemeCol_TitleBgActive, (255, 165, 0))
-                with dpg.theme() as _thmAutoSave:
-                    with dpg.theme_component(dpg.mvWindowAppItem):
-                        dpg.add_theme_color(dpg.mvThemeCol_TitleBg, (37, 37, 38))
-                        dpg.add_theme_color(dpg.mvThemeCol_TitleBgCollapsed, (37, 37, 38))
-                        dpg.add_theme_color(dpg.mvThemeCol_TitleBgActive, (15, 86, 135))
                 def _theme_toggle(sender, *args):
                     if dpg.get_value(sender):
                         dpg.set_viewport_clear_color([0,0,0])
-                        dpg.bind_theme(_thmAutoSave)
+                        do_bind_my_default_global_theme()
                     else:
                         dpg.set_viewport_clear_color([204,102,0])
-                        dpg.bind_theme(_thmNoSave)
+                        do_bind_my_global_nosave_theme()
                 dpg.set_item_callback(_mItemAutoSave, _theme_toggle)
                 fldSavePath = dpg.add_input_text(tag="save path input field",
                             hint="path to save tiff, e.g. C:\\Users\\username\\Desktop\\",
@@ -815,7 +808,7 @@ if __name__ == '__main__':
             dpg.add_plot_axis(dpg.mvXAxis, label = "converted counts ((<frame pixel counts>-200)*0.1/0.9)")
             dpg.add_plot_axis(dpg.mvYAxis, label = "frequency", tag = "hist plot yax")
 
-    if True: # do dummy acquisition
+    if dummy_acq: # do dummy acquisition
         dpg.set_item_callback(togCam,_dummy_cam_toggle_cb_)
         dpg.set_item_callback(togAcq, _dummy_toggle_acq_cb)
         cam = None # probably needed for dummy acquisition, the same reason as needing controller = None
@@ -826,7 +819,7 @@ if __name__ == '__main__':
         t_mp_remote_buffer_feeder = threading.Thread(target = _mp_workerf_dummy_remote_buffer_feeder, args=(_mp_dummy_remote_buffer,))
         t_mp_remote_buffer_feeder.start()
         # dpg.set_frame_callback(3, lambda:thread_remote_buffer_feeder.start())
-    # dpg.show_style_editor()
+    dpg.show_style_editor()
     dpg.setup_dearpygui()
     dpg.show_viewport()
     dpg.start_dearpygui()

@@ -9,6 +9,7 @@ import traceback
 import multiprocessing
 import queue
 import time
+import copy
 import numpy.typing as npt
 from typing import List, Dict, Sequence
 import re
@@ -406,11 +407,11 @@ def st_workerf_flagged_do_all(
     cam.stop_acquisition()
     cam.set_trigger_mode("int")
 
-from fake_frames_imports import frame_list
 
 def _dummy_st_workerf_flagged_do_all(
         flag: threading.Event, 
         frame_deck: FrameDeck):
+    from fake_frames_imports import frame_list
     while flag.is_set():
         time.sleep(1)
         if frame_list:
@@ -440,11 +441,14 @@ def _workerf_dummy_remote_buffer_feeder(
     假相机 buffer 的 filler, 由假触发 checkbox 控制是否向假相机 buffer 中放 frame
     """
     # print("feeder launched")
+    from fake_frames_imports import frame_list
+    frame_list_ = copy.deepcopy(frame_list)
+    del frame_list
     while True:
         time.sleep(1) # simulate snap rate
         if dpg.get_value("假触发"):
-            if frame_list:
-                this_frame = frame_list.pop()
+            if frame_list_:
+                this_frame = frame_list_.pop()
                 q.put(this_frame)
             else:
                 push_log("已向假相机 mt buffer 发送 500 帧", is_good=True)
@@ -526,8 +530,8 @@ def mt_producerf_polling_do_snag_rearrange_deposit(
 ### dual processes approach 需要的 objects:
 # conn_sig_main, conn_sig_child = multiprocessing.Pipe()
 # conn_frame_main, conn_frame_child = multiprocessing.Pipe()
-import copy
-_frame_list_copy = copy.deepcopy(frame_list) # mp 方案专用的假数据
+# import copy
+# frame_list_ = copy.deepcopy(frame_list) # mp 方案专用的假数据
 # _mp_dummy_remote_buffer = multiprocessing.Queue()
 def _mp_workerf_dummy_remote_buffer_feeder(
         q: multiprocessing.Queue)-> None:
@@ -535,11 +539,14 @@ def _mp_workerf_dummy_remote_buffer_feeder(
     假相机 buffer 的 feeder, 这里的假 buffer 是一个 multiprocessing.Queue,
     由主线程填充, 由假触发 checkbox 控制是否向假 buffer 中放 frame
     """
+    from fake_frames_imports import frame_list
+    frame_list_ = copy.deepcopy(frame_list)
+    del frame_list
     while True:
         time.sleep(1) # simulate snap rate
         if dpg.get_value("假触发"):
-            if _frame_list_copy:
-                this_frame = _frame_list_copy.pop()
+            if frame_list_:
+                this_frame = frame_list_.pop()
                 q.put(this_frame)
                 # print("fed frame")
             else:
