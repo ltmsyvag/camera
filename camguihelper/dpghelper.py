@@ -59,9 +59,9 @@ def do_bind_my_global_nosave_theme()->None:
     with dpg.theme() as nosave_theme:
        _default_global_theme_settings()
        with dpg.theme_component(dpg.mvWindowAppItem):
-            dpg.add_theme_color(dpg.mvThemeCol_TitleBg, (204, 102, 0))
-            dpg.add_theme_color(dpg.mvThemeCol_TitleBgCollapsed, (204, 102, 0))
-            dpg.add_theme_color(dpg.mvThemeCol_TitleBgActive, (255, 165, 0))
+            dpg.add_theme_color(dpg.mvThemeCol_TitleBg, (100, 0, 0))
+            dpg.add_theme_color(dpg.mvThemeCol_TitleBgCollapsed, (100, 0, 0))
+            dpg.add_theme_color(dpg.mvThemeCol_TitleBgActive, (204, 102, 0))
     dpg.bind_theme(nosave_theme)
 
 def do_initialize_chinese_fonts(default_fontsize: int=19, 

@@ -7,10 +7,11 @@ item 和 (创建 containter item 的) context manager 之间用 `#====` 分隔
 item 常数用首字母小写的驼峰命名 e.g. myItem. 其他任何变量都不能用此驼峰命名 (类用首字母大写的驼峰命名, e.g. MyClass)
 cam 将会是全局变量, 由 callback 创建
 """
-from camguihelper.core import _mp_pass_hello
+# from camguihelper.core import _mp_pass_hello
 from camguihelper import (
     FrameDeck, st_workerf_flagged_do_all, collect_awg_params, gui_open_awg,
-    mp_producerf_polling_do_snag_rearrange_send, passerf, consumerf_local_buffer,
+    mt_producerf_polling_do_snag_rearrange_deposit,
+    mp_producerf_polling_do_snag_rearrange_send, mp_passerf, consumerf_local_buffer,
                           )
 from pylablib.devices import DCAM
 if __name__ == '__main__':
@@ -33,10 +34,8 @@ if __name__ == '__main__':
         toggle_checkbox_and_disable,
         factory_cb_yn_modal_dialog)
 
-    # controller = None # controller always has to exist, we can't wait for it to be created by a callback (like `cam`), since it is the argument of the func `start_flag_watching_acq` (and ultimately, the required arg of ZYL func `feed_AWG`) that runs in the thread thread_acq. When awg is off, `controller` won't be used and won't be created either, but the `controller` var still has to exist (as a global variable because I deem `controller` suitable to be a global var) as a formal argument (or placeholder) of `start_flag_watching_acq`. This is more or less an awkward situation because I want to put `start_flag_watching_acq` in a module file (where the functions do not have access to working script global vars), not in the working script. Essentailly, the func in a module py file has no closure access to the global varibles in the working script, unless I choose to explicitly pass the working script global var as an argument to the imported func
+    controller = None # controller always has to exist, we can't wait for it to be created by a callback (like `cam`), since it is the argument of the func `start_flag_watching_acq` (and ultimately, the required arg of ZYL func `feed_AWG`) that runs in the thread thread_acq. When awg is off, `controller` won't be used and won't be created either, but the `controller` var still has to exist (as a global variable because I deem `controller` suitable to be a global var) as a formal argument (or placeholder) of `start_flag_watching_acq`. This is more or less an awkward situation because I want to put `start_flag_watching_acq` in a module file (where the functions do not have access to working script global vars), not in the working script. Essentailly, the func in a module py file has no closure access to the global varibles in the working script, unless I choose to explicitly pass the working script global var as an argument to the imported func
     frame_deck = FrameDeck() # the normal empty frame_deck creation
-
-    # frame_deck = FrameDeck(flist) # the override to import fake data
 
     dpg.create_context()
     winCtrlPanels = dpg.generate_uuid() # need to generate win tags first thing to work with init file
@@ -98,7 +97,7 @@ if __name__ == '__main__':
     repo: https://github.com/ltmsyvag/camera
                                     """, 
                                     win_label="info", just_close=True))
-    dummy_acq = True # 假采集代码的总开关
+    dummy_acq = False # 假采集代码的总开关
     if dummy_acq:
         _mp_dummy_remote_buffer = multiprocessing.Queue() # mp dummy remote buffer 必须在主脚本中创建, 才能确保 mp dummy buffer feeder 和 mp producer 所用的 Queue 对象是同一个
     with dpg.window(label= "控制面板", tag = winCtrlPanels):
@@ -172,21 +171,37 @@ if __name__ == '__main__':
                 def _toggle_acq_cb_(sender, _, user_data):
                     state = user_data["is on"]
                     next_state = not state
-                    flag = user_data["acq thread flag"]
+                    flag = user_data["acq thread flag"] # flag for st and mt, but not for mp
                     global raw_card, controller
                     if dpg.get_value(mItemSingleThread):
                         if next_state:
-                            thread = threading.Thread(target=st_workerf_flagged_do_all, args=(cam, flag, frame_deck, controller))
-                            user_data["acq thread"] = thread
+                            t_worker_do_all = threading.Thread(target=st_workerf_flagged_do_all, args=(cam, flag, frame_deck, controller))
+                            user_data["thread1"] = t_worker_do_all
                             flag.set()
-                            thread.start()
+                            t_worker_do_all.start()
                         else:
-                            thread = user_data["acq thread"]
+                            t_worker_do_all = user_data["thread1"]
                             flag.clear()
-                            thread.join()
-                            user_data["acq thread"] = None # this is probably a sanity code, can do without
+                            t_worker_do_all.join()
+                            user_data["thread1"] = None # this is probably a sanity code, can do without
                     elif dpg.get_value(mItemDualThreads):
-                        ...
+                        if next_state:
+                            t_producer = threading.Thread(
+                                target=mt_producerf_polling_do_snag_rearrange_deposit,
+                                args= (cam, flag, controller))
+                            t_consumer = threading.Thread(
+                                target= consumerf_local_buffer, args = (frame_deck,))
+                            user_data["thread1"] = t_producer
+                            user_data["thread2"] = t_consumer
+                            flag.set()
+                            t_producer.start()
+                            t_consumer.start()
+                        else:
+                            t_producer = user_data["thread1"]
+                            t_consumer = user_data["thread2"]
+                            flag.clear()
+                            t_producer.join()
+                            t_consumer.join()
                     else: # dual processes
                         # from camguihelper.core import _mp_access_camgui_panels
                         if next_state:
@@ -199,21 +214,34 @@ if __name__ == '__main__':
                                 controller = None
                             conn_sig_main, conn_sig_child = multiprocessing.Pipe()
                             conn_data_main, conn_data_child = multiprocessing.Pipe()
-                            p = multiprocessing.Process(
+                            p_producer = multiprocessing.Process(
                                 target =mp_producerf_polling_do_snag_rearrange_send, 
                                 args=(conn_sig_child, conn_data_child,
                                       (exposure, hstart, hend, vstart, vend, hbin, vbin),
                                       awg_is_on, collect_awg_params()))
                             t_passer = threading.Thread(
-                                target=passerf, 
+                                target=mp_passerf, 
                                 args = (conn_data_main, ))
-                            user_data["process1"] = p
-                            p.start()
-                            
+                            t_consumer = threading.Thread(
+                                target=consumerf_local_buffer,
+                                args = (frame_deck, ))
+                            user_data['signal connection'] = conn_sig_main
+                            user_data["process1"] = p_producer
+                            user_data["thread1"] = t_passer
+                            user_data["thread2"] = t_consumer
+                            p_producer.start()
+                            t_passer.start()
+                            t_consumer.start()
                         else:
-                            p = user_data["process1"]
-                            p.join()
-
+                            conn_sig_main = user_data['signal connection']
+                            p_producer = user_data["process1"]
+                            t_passer = user_data['thread1']
+                            t_consumer = user_data['thread2']
+                            conn_sig_main.send(None)
+                            conn_sig_main.close()
+                            p_producer.join()
+                            t_passer.join()
+                            t_consumer.join()
                             do_cam_open_sequence()
                             if dpg.get_item_user_data("AWG toggle")["is on"]:
                                 raw_card, controller = gui_open_awg()
@@ -273,7 +301,7 @@ if __name__ == '__main__':
                                       _mp_dummy_remote_buffer)
                                 )
                             t_passer = threading.Thread(
-                                target=passerf,
+                                target=mp_passerf,
                                 args= (conn_data_main,))
                             t_consumer = threading.Thread(
                                 target=consumerf_local_buffer,
@@ -533,7 +561,7 @@ if __name__ == '__main__':
                         dpg.set_viewport_clear_color([0,0,0])
                         do_bind_my_default_global_theme()
                     else:
-                        dpg.set_viewport_clear_color([204,102,0])
+                        dpg.set_viewport_clear_color([50,0,0])
                         do_bind_my_global_nosave_theme()
                 dpg.set_item_callback(_mItemAutoSave, _theme_toggle)
                 fldSavePath = dpg.add_input_text(tag="save path input field",

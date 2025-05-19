@@ -616,8 +616,9 @@ def mp_producerf_polling_do_snag_rearrange_send(
     cam.close()
     conn_sig.close()
     conn_data.send(None) # poison pill
+    conn_data.close()
 
-def passerf(
+def mp_passerf(
         conn: multiprocessing.connection.Connection,
         q: queue.SimpleQueue = _local_buffer):
     while True:
