@@ -136,83 +136,77 @@ class FrameDeck(list):
         else:
             push_log("内存中没有任何帧", is_error=True)
     def _find_lastest_sesframes_folder_and_save_frame(self):
-        """
-        本函数会做非常 redundant 的 check,
-        除非奇怪的事情发生, 比如数据丢失,
-        否则创建 session frames 目录下不会出现会被报错的情况,
-        比如有 2025 年下是空的, 连一月文件夹都没有. 
-        这种情况在用 mkdir_session_frames() 当前 session 文件夹时不会发生
-        """
-        ### 开始 redundant check
-        if not session_frames_root.exists():
-            push_log("没有找到 session dir, 请检查 Z 盘是否连接", is_error=True)
-            raise UserInterrupt
-        if not session_frames_root.is_writable():
-            push_log("目标路径不可写", is_error=True)
-            raise UserInterrupt
-        ### find latest year dpath
-        year_pattern = r"2\d{3}$" # A105 不可能存活到 3000 年
-        def _year_sorter(dpath: MyPath):
-            if re.match(year_pattern, dpath.name):
-                return int(dpath.name)
-            else:
-                return -1 # 其他我不关心的东西都排最前面
-        lst_year_dirs = sorted(list(session_frames_root.iterdir()), key= _year_sorter)
-        if not lst_year_dirs:
-            push_log("保存失败: 帧数据路径是空的", is_error=True)
-            raise UserInterrupt
-        dpath_year = lst_year_dirs[-1]
-        if not re.match(year_pattern, dpath_year.name):
-            push_log("保存失败: 帧数据路径中没有任何文件夹", is_error=True)
-            raise UserInterrupt
-        ### find latest month dpath
-        month_sort_dict = dict()
-        for key, val in month_dict.items():
-            month_sort_dict[val] = int(key)
-        def _month_sorter(dpath: MyPath):
-            if dpath.name in month_sort_dict:
-                return month_sort_dict[dpath.name]
-            else:
-                return -1
-        lst_month_dirs = sorted(list(dpath_year.iterdir()), key= _month_sorter)
-        if not lst_month_dirs:
-            push_log("保存失败: 当年文件夹是空的", is_error=True)
-            raise UserInterrupt
-        dpath_month = lst_month_dirs[-1]
-        if dpath_month.name not in month_sort_dict:
-            push_log("保存失败: 当年文件夹中没有任何月份文件夹", is_error=True)
-            raise UserInterrupt
-        ### find latest day dpath
-        day_pattern = r"^\d{2}$"
-        def _day_sorter(dpath: MyPath):
-            if re.match(day_pattern, dpath.name):
-                return int(dpath.name)
-            else:
-                return -1
-        lst_day_dirs = sorted(list(dpath_month.iterdir()), key= _day_sorter)
-        if not lst_day_dirs:
-            push_log("保存失败: 当月文件夹是空的", is_error=True)
-            raise UserInterrupt
-        dpath_day = lst_day_dirs[-1]
-        if not re.match(day_pattern, dpath_day.name):
-            push_log("保存失败: 当月文件夹中没有任何日期文件夹", is_error=True)
-            raise UserInterrupt
-        ### find latest session dpath
-        session_pattern = r"^\d{4}$"
-        def _session_sorter(dpath: MyPath):
-            if re.match(session_pattern, dpath.name):
-                return int(dpath.name)
-            else:
-                return -1
-        lst_ses_dirs = sorted(list(dpath_day.iterdir()), key= _session_sorter)
-        if not lst_ses_dirs:
-            push_log("保存失败: 当日文件夹是空的", is_error=True)
-            raise UserInterrupt
-        dpath_ses = lst_ses_dirs[-1]
-        if not re.match(session_pattern, dpath_ses.name):
-            push_log("保存失败: 当日文件夹中没有任何 session 文件夹", is_error=True)
-            raise UserInterrupt
+        # ### 开始 redundant check
+        # if not session_frames_root.exists():
+        #     push_log("没有找到 session dir, 请检查 Z 盘是否连接", is_error=True)
+        #     raise UserInterrupt
+        # if not session_frames_root.is_writable():
+        #     push_log("目标路径不可写", is_error=True)
+        #     raise UserInterrupt
+        # ### find latest year dpath
+        # year_pattern = r"2\d{3}$" # A105 不可能存活到 3000 年
+        # def _year_sorter(dpath: MyPath):
+        #     if re.match(year_pattern, dpath.name):
+        #         return int(dpath.name)
+        #     else:
+        #         return -1 # 其他我不关心的东西都排最前面
+        # lst_year_dirs = sorted(list(session_frames_root.iterdir()), key= _year_sorter)
+        # if not lst_year_dirs:
+        #     push_log("保存失败: 帧数据路径是空的", is_error=True)
+        #     raise UserInterrupt
+        # dpath_year = lst_year_dirs[-1]
+        # if not re.match(year_pattern, dpath_year.name):
+        #     push_log("保存失败: 帧数据路径中没有任何文件夹", is_error=True)
+        #     raise UserInterrupt
+        # ### find latest month dpath
+        # month_sort_dict = dict()
+        # for key, val in month_dict.items():
+        #     month_sort_dict[val] = int(key)
+        # def _month_sorter(dpath: MyPath):
+        #     if dpath.name in month_sort_dict:
+        #         return month_sort_dict[dpath.name]
+        #     else:
+        #         return -1
+        # lst_month_dirs = sorted(list(dpath_year.iterdir()), key= _month_sorter)
+        # if not lst_month_dirs:
+        #     push_log("保存失败: 当年文件夹是空的", is_error=True)
+        #     raise UserInterrupt
+        # dpath_month = lst_month_dirs[-1]
+        # if dpath_month.name not in month_sort_dict:
+        #     push_log("保存失败: 当年文件夹中没有任何月份文件夹", is_error=True)
+        #     raise UserInterrupt
+        # ### find latest day dpath
+        # day_pattern = r"^\d{2}$"
+        # def _day_sorter(dpath: MyPath):
+        #     if re.match(day_pattern, dpath.name):
+        #         return int(dpath.name)
+        #     else:
+        #         return -1
+        # lst_day_dirs = sorted(list(dpath_month.iterdir()), key= _day_sorter)
+        # if not lst_day_dirs:
+        #     push_log("保存失败: 当月文件夹是空的", is_error=True)
+        #     raise UserInterrupt
+        # dpath_day = lst_day_dirs[-1]
+        # if not re.match(day_pattern, dpath_day.name):
+        #     push_log("保存失败: 当月文件夹中没有任何日期文件夹", is_error=True)
+        #     raise UserInterrupt
+        # ### find latest session dpath
+        # session_pattern = r"^\d{4}$"
+        # def _session_sorter(dpath: MyPath):
+        #     if re.match(session_pattern, dpath.name):
+        #         return int(dpath.name)
+        #     else:
+        #         return -1
+        # lst_ses_dirs = sorted(list(dpath_day.iterdir()), key= _session_sorter)
+        # if not lst_ses_dirs:
+        #     push_log("保存失败: 当日文件夹是空的", is_error=True)
+        #     raise UserInterrupt
+        # dpath_ses = lst_ses_dirs[-1]
+        # if not re.match(session_pattern, dpath_ses.name):
+        #     push_log("保存失败: 当日文件夹中没有任何 session 文件夹", is_error=True)
+        #     raise UserInterrupt
         ### 结束 redundant check 并得到最新的 session dpath
+        dpath_ses = find_latest_sesframes_folder() # produces UserInterrupt if folder seeking fails
         now = datetime.now()
         timestamp: str = now.strftime("%Y-%m-%d-%H-%M-%S-") + f"{now.microsecond//1000:03d}"
         fpath = dpath_ses /( timestamp + ".tif")
@@ -330,9 +324,88 @@ class FrameDeck(list):
         try:
             self._find_lastest_sesframes_folder_and_save_frame()
         except UserInterrupt:
-            pass
+            pass # failed save shall not interrupt acquisition
         end = time.time()
         push_log(f"绘图和存储耗时{(end-beg)*1e3:.3f} ms")
+
+def find_latest_sesframes_folder() ->MyPath:
+    """
+    本函数会做非常 redundant 的 check,
+    除非奇怪的事情发生, 比如数据丢失,
+    否则创建 session frames 目录下不会出现会被报错的情况,
+    比如有 2025 年下是空的, 连一月文件夹都没有. 
+    这种情况在用 mkdir_session_frames() 当前 session 文件夹时不会发生
+    """
+    ### 开始 redundant check
+    if not session_frames_root.exists():
+        push_log("没有找到 session dir, 请检查 Z 盘是否连接", is_error=True)
+        raise UserInterrupt
+    if not session_frames_root.is_writable():
+        push_log("目标路径不可写", is_error=True)
+        raise UserInterrupt
+    ### find latest year dpath
+    year_pattern = r"2\d{3}$" # A105 不可能存活到 3000 年
+    def _year_sorter(dpath: MyPath):
+        if re.match(year_pattern, dpath.name):
+            return int(dpath.name)
+        else:
+            return -1 # 其他我不关心的东西都排最前面
+    lst_year_dirs = sorted(list(session_frames_root.iterdir()), key= _year_sorter)
+    if not lst_year_dirs:
+        push_log("保存失败: 帧数据路径是空的", is_error=True)
+        raise UserInterrupt
+    dpath_year = lst_year_dirs[-1]
+    if not re.match(year_pattern, dpath_year.name):
+        push_log("保存失败: 帧数据路径中没有任何文件夹", is_error=True)
+        raise UserInterrupt
+    ### find latest month dpath
+    month_sort_dict = dict()
+    for key, val in month_dict.items():
+        month_sort_dict[val] = int(key)
+    def _month_sorter(dpath: MyPath):
+        if dpath.name in month_sort_dict:
+            return month_sort_dict[dpath.name]
+        else:
+            return -1
+    lst_month_dirs = sorted(list(dpath_year.iterdir()), key= _month_sorter)
+    if not lst_month_dirs:
+        push_log("保存失败: 当年文件夹是空的", is_error=True)
+        raise UserInterrupt
+    dpath_month = lst_month_dirs[-1]
+    if dpath_month.name not in month_sort_dict:
+        push_log("保存失败: 当年文件夹中没有任何月份文件夹", is_error=True)
+        raise UserInterrupt
+    ### find latest day dpath
+    day_pattern = r"^\d{2}$"
+    def _day_sorter(dpath: MyPath):
+        if re.match(day_pattern, dpath.name):
+            return int(dpath.name)
+        else:
+            return -1
+    lst_day_dirs = sorted(list(dpath_month.iterdir()), key= _day_sorter)
+    if not lst_day_dirs:
+        push_log("保存失败: 当月文件夹是空的", is_error=True)
+        raise UserInterrupt
+    dpath_day = lst_day_dirs[-1]
+    if not re.match(day_pattern, dpath_day.name):
+        push_log("保存失败: 当月文件夹中没有任何日期文件夹", is_error=True)
+        raise UserInterrupt
+    ### find latest session dpath
+    session_pattern = r"^\d{4}$"
+    def _session_sorter(dpath: MyPath):
+        if re.match(session_pattern, dpath.name):
+            return int(dpath.name)
+        else:
+            return -1
+    lst_ses_dirs = sorted(list(dpath_day.iterdir()), key= _session_sorter)
+    if not lst_ses_dirs:
+        push_log("保存失败: 当日文件夹是空的", is_error=True)
+        raise UserInterrupt
+    dpath_ses = lst_ses_dirs[-1]
+    if not re.match(session_pattern, dpath_ses.name):
+        push_log("保存失败: 当日文件夹中没有任何 session 文件夹", is_error=True)
+        raise UserInterrupt
+    return dpath_ses
 
 def _dummy_feed_awg(frame):
     pass
@@ -563,9 +636,9 @@ def _mp_workerf_dummy_remote_buffer_feeder(
                 push_log("已向假相机 mp buffer 发送 500 帧", is_good=True)
                 break
 
-def _mp_pass_hello(conn: multiprocessing.connection.Connection):
-    conn.send("hello")
-    conn.close()
+# def _mp_pass_hello(conn: multiprocessing.connection.Connection):
+#     conn.send("hello")
+#     conn.close()
 
 def _dummy_mp_producerf_polling_do_snag_rearrange_send(
         conn_sig: multiprocessing.connection.Connection,
@@ -703,7 +776,7 @@ def collect_awg_params() -> tuple:
 #         dpg.add_theme_color(dpg.mvThemeCol_FrameBg, )
 
 _bullets = cycle(["-", "*", "+", "•", "°"])
-def push_log(msg:str, *, 
+def _push_log(msg:str, *, 
              is_error: bool=False, is_good: bool=False):
     """
     将 message 显示在 log window 中
@@ -719,9 +792,9 @@ def push_log(msg:str, *,
     else:
         color = None
     dpg.add_text(next(_bullets)+timestamp+"\n"+msg, 
-                 parent= tagWin, 
-                 color = color,
-                 wrap= 150)
+                parent= tagWin, 
+                color = color,
+                wrap= 150)
     
     win_children: Dict[int, List[int]] = dpg.get_item_children(tagWin)
     lst_tags_msgs = win_children[1]
@@ -730,8 +803,13 @@ def push_log(msg:str, *,
         dpg.delete_item(oldestTxt)
 
     dpg.set_y_scroll(tagWin, dpg.get_y_scroll_max(tagWin)+20 # the +20 is necessary because IDK why the window does not scroll to the very bottom, there's a ~20 margin, strange. 
-                     )
+                    )
 
+def push_log(*args, **kwargs):
+    if dpg.is_dearpygui_running():
+        _push_log(*args, **kwargs)
+    else:
+        dpg.set_frame_callback(3, lambda: _push_log(*args, **kwargs))
 # def push_exception3(
 #         e: Exception, 
 #         user_msg: str # force myself to give a user friendly comment about what error might have happened

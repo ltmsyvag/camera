@@ -10,7 +10,7 @@ cam 将会是全局变量, 由 callback 创建
 # from camguihelper.core import _mp_pass_hello
 from camguihelper import (
     FrameDeck, st_workerf_flagged_do_all, collect_awg_params, gui_open_awg,
-    mt_producerf_polling_do_snag_rearrange_deposit,
+    mt_producerf_polling_do_snag_rearrange_deposit, find_latest_sesframes_folder,
     mp_producerf_polling_do_snag_rearrange_send, mp_passerf, consumerf_local_buffer,
     push_exception)
 from pylablib.devices import DCAM
@@ -36,7 +36,6 @@ if __name__ == '__main__':
 
     controller = None # controller always has to exist, we can't wait for it to be created by a callback (like `cam`), since it is the argument of the func `start_flag_watching_acq` (and ultimately, the required arg of ZYL func `feed_AWG`) that runs in the thread thread_acq. When awg is off, `controller` won't be used and won't be created either, but the `controller` var still has to exist (as a global variable because I deem `controller` suitable to be a global var) as a formal argument (or placeholder) of `start_flag_watching_acq`. This is more or less an awkward situation because I want to put `start_flag_watching_acq` in a module file (where the functions do not have access to working script global vars), not in the working script. Essentailly, the func in a module py file has no closure access to the global varibles in the working script, unless I choose to explicitly pass the working script global var as an argument to the imported func
     frame_deck = FrameDeck() # the normal empty frame_deck creation
-
     dpg.create_context()
     winCtrlPanels = dpg.generate_uuid() # need to generate win tags first thing to work with init file
     winFramePreview = dpg.generate_uuid()
@@ -347,14 +346,19 @@ if __name__ == '__main__':
                         dpg.add_text("帧文件夹:")
                         with dpg.tooltip(dpg.last_item(), **ttpkwargs):
                             dpg.add_text("当前采集的所有帧文件(tiff)\n会被保存到这个文件夹")
-                        _strSes = dpg.add_text("0000")
-                        dpg.bind_item_font(dpg.last_item(), large_font)
+                        try:
+                            dpath_ses = find_latest_sesframes_folder()
+                            str_ses = dict(default_value = str(dpath_ses.name))
+                        except UserInterrupt:
+                            str_ses = dict(default_value = "错误", color = (255,0,0))
+                        _strSes = dpg.add_text(**str_ses)
+                        dpg.bind_item_font(_strSes, large_font)
                     _btnNewSes = dpg.add_button(label="新 session 帧文件夹")
                     def _twinkle():
                         dpg.configure_item(_strSes, color = (255,0,255))
                         time.sleep(1)
                         dpg.configure_item(_strSes, color = (255,255,255))
-                    def _cb(*args):
+                    def _mk_newses_dir(*args):
                         try:
                             new_ses_str = mkdir_session_frames()
                             dpg.set_value(_strSes, new_ses_str)
@@ -364,7 +368,7 @@ if __name__ == '__main__':
                             push_exception(f"找不到用于存放帧数据的文件夹 {str(session_frames_root)}")
                             dpg.set_value(_strSes, "错误")
                             dpg.configure_item(_strSes, color = (255,0,0))
-                    dpg.set_item_callback(_btnNewSes, _cb)
+                    dpg.set_item_callback(_btnNewSes, _mk_newses_dir)
                 with dpg.theme() as _thmSesBG:
                     with dpg.theme_component(dpg.mvChildWindow):
                         _ses_bg = (0,30,0)
