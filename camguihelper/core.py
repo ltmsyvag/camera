@@ -4,6 +4,9 @@ camgui 相关的帮助函数
 """
 #%%
 from itertools import cycle
+from collections import namedtuple
+DupeMap = namedtuple(typename='DupeMap', 
+                        field_names=['yAx', 'inputInt', 'radioBtn', 'cBox'])
 import multiprocessing.connection
 import traceback
 import multiprocessing
@@ -47,7 +50,8 @@ class FrameDeck(list):
         self.cid: int | None = None # current heatmap's id in deck
         self.float_deck: List[npt.NDArray[np.floating]] = [] # gui 中的操作需要 float frame, 因此与 list (int deck) 对应, 要有一个 float deck
         self.frame_avg: npt.NDArray[np.floating] | None = None
-        self.llst_items_dupe_maps : List[List[int | str]] = [] # 保存 duplicated heatmaps window 中的 item tuple
+        self.lst_dupe_maps : List[DupeMap] = [] # 保存 duplicated heatmaps window 中的 item tuple
+        self.seslabel_deck: List[str] = []
     def memory_report(self) -> str:
         len_deck = len(self)
         if len_deck>0:
@@ -135,7 +139,7 @@ class FrameDeck(list):
             push_log("当前帧保存成功", is_good=True)
         else:
             push_log("内存中没有任何帧", is_error=True)
-    def _find_lastest_sesframes_folder_and_save_frame(self):
+    def _find_lastest_sesframes_folder_and_save_frame(self)-> str:
         # ### 开始 redundant check
         # if not session_frames_root.exists():
         #     push_log("没有找到 session dir, 请检查 Z 盘是否连接", is_error=True)
@@ -207,11 +211,13 @@ class FrameDeck(list):
         #     raise UserInterrupt
         ### 结束 redundant check 并得到最新的 session dpath
         dpath_ses = find_latest_sesframes_folder() # produces UserInterrupt if folder seeking fails
+        str_ses = str(dpath_ses.name)
         now = datetime.now()
         timestamp: str = now.strftime("%Y-%m-%d-%H-%M-%S-") + f"{now.microsecond//1000:03d}"
         fpath = dpath_ses /( timestamp + ".tif")
         try: # again, this is a redundant check, I don't think the save will fail, unless there's a Z disk connection problem
             tifffile.imwrite(fpath, self[self.cid])
+            return str_ses
         except Exception:
             push_exception("当前帧保存失败")
             raise UserInterrupt
@@ -220,22 +226,31 @@ class FrameDeck(list):
         - clear int & float decks
         - cid update
         - avg frame update
+        - clear ses label deck
         - cid indicator updates
         - clear all plots
+        - clear all plot labels
         """
         super().clear()
         self.float_deck.clear()
         self.cid = None
         self.frame_avg = None
+        self.seslabel_deck = []
         dpg.set_value("frame deck display", self.memory_report())
         dpg.set_item_label("cid indicator", "N/A")
         for yax in self.get_all_tags_yaxes():
-            heatmapSlot: List[int] = dpg.get_item_children(yax)[1] # type: ignore
-            if heatmapSlot:
-                heatSeries, = heatmapSlot
-                dpg.delete_item(heatSeries)
+            dpg.delete_item(yax, children_only=True)
+            # print('yax', yax)
+            thisPlot = dpg.get_item_parent(yax)
+            dpg.configure_item(thisPlot, label = " ")
+            # heatmapSlot: List[int] = dpg.get_item_children(yax)[1]
+            # print('slot',heatmapSlot)
+            # if heatmapSlot:
+            #     heatSeries, = heatmapSlot
+            #     print('series', heatSeries)
+            #     dpg.delete_item(heatSeries)
     def get_all_tags_yaxes(self):
-        lst_allyaxes = [yax for _, yax, *_ in self.llst_items_dupe_maps]
+        lst_allyaxes = [map.yAx for map in self.lst_dupe_maps]
         lst_allyaxes.append("frame yax")
         return lst_allyaxes
     @staticmethod
@@ -257,7 +272,7 @@ class FrameDeck(list):
         if plot_mainframe_p: # always update color bar lims when doing main plot, whether the manual scale checkbox is checked or not
             dpg.configure_item(colorbar, min_scale = fmin, max_scale = fmax)
         
-        had_series_child_p = dpg.get_item_children(yax)[1] # type: ignore # plot new series 之前 check 是否有老 series
+        had_series_child_p = dpg.get_item_children(yax)[1] # plot new series 之前 check 是否有老 series
         if had_series_child_p:
             dpg.delete_item(yax, children_only=True) # this is necessary!
         dpg.add_heat_series(frame, nvrows, nhcols, parent=yax, # type: ignore
@@ -272,6 +287,8 @@ class FrameDeck(list):
         """
         if self.frame_avg is not None:
             self._plot_frame(self.frame_avg, yax)
+            thePlot = dpg.get_item_parent(yax)
+            dpg.configure_item(thePlot, label = " ")
     def plot_cid_frame(self, yax= "frame yax"):
         """
         与 plot_avg_frame 一起都是 绘制 main heatmap 的方法
@@ -281,6 +298,8 @@ class FrameDeck(list):
         if self.cid is not None:
             frame = self.float_deck[self.cid]
             self._plot_frame(frame, yax)
+            thePlot = dpg.get_item_parent(yax)
+            dpg.configure_item(thePlot, label = self.seslabel_deck[self.cid])
     def plot_frame_dwim(self):
         """
         global update of all maps (main and dupes)
@@ -289,43 +308,56 @@ class FrameDeck(list):
             self.plot_avg_frame()
         else:
             self.plot_cid_frame()
-        for dupe_map_items in self.llst_items_dupe_maps: # update dupe windows
-            self._update_dupe_map(*dupe_map_items)
-    def _update_dupe_map(self, yax, inputInt, radioBtn, cBox):
+        for dupe_map_items in self.lst_dupe_maps: # update dupe windows
+            self._update_dupe_map(dupe_map_items)
+    def _update_dupe_map(self, dupe_map: DupeMap,
+                        #   yax, inputInt, radioBtn, cBox
+                          ):
         """
         根据 duplicated map 的帧序号输入和 radio button 选择, 在给定的 xax, yax 中重绘热图
         这是搭配 llst_items_dupe_maps 使用的函数
         """
-        input_id = dpg.get_value(inputInt)
-        radio_option = dpg.get_value(radioBtn)
-        plot_avg_p = dpg.get_value(cBox)
+        input_id = dpg.get_value(dupe_map.inputInt)
+        radio_option = dpg.get_value(dupe_map.radioBtn)
+        plot_avg_p = dpg.get_value(dupe_map.cBox)
         if plot_avg_p:
-            self.plot_avg_frame(yax)
+            self.plot_avg_frame(dupe_map.yAx)
         else:
+            thePlot = dpg.get_item_parent(dupe_map.yAx)
             if radio_option == "正数帧":
                 plot_id = input_id
             else:
                 plot_id = input_id+len(self) - 1
             if 0 <= plot_id < len(self):
                 frame = self.float_deck[plot_id]
-                self._plot_frame(frame, yax)
+                self._plot_frame(frame, dupe_map.yAx)
+                label= self.seslabel_deck[plot_id]
             else:
-                dpg.delete_item(yax, children_only=True)
-    def _append_plot_save(self, this_frame: npt.NDArray[np.uint16]):
+                dpg.delete_item(dupe_map.yAx, children_only=True)
+                label =  " "
+            dpg.configure_item(thePlot, label=label)
+    def _append_save_plot(self, this_frame: npt.NDArray[np.uint16]):
         """
+        在单线程无并发时, 本函数是重排(如果 awg 开启)后的全套任务
         在双线程/双进程并发中, 本函数是 consumer 取得 frame 后的全套任务
         """
         beg = time.time()
         self.append(this_frame)
+        if dpg.get_value("autosave"):
+            try:
+                str_ses = self._find_lastest_sesframes_folder_and_save_frame()
+                self.seslabel_deck.append(str_ses)
+            except UserInterrupt:
+                self.seslabel_deck.append("未保存!")
+                # pass # failed save shall not interrupt acquisition
+        else:
+            self.seslabel_deck.append("未保存!")
         self.plot_frame_dwim()
         hLhRvLvR = dpg.get_item_user_data("frame plot")
         if hLhRvLvR:
             _update_hist(hLhRvLvR, self)
-        try:
-            self._find_lastest_sesframes_folder_and_save_frame()
-        except UserInterrupt:
-            pass # failed save shall not interrupt acquisition
         end = time.time()
+
         push_log(f"绘图和存储耗时{(end-beg)*1e3:.3f} ms")
 
 def find_latest_sesframes_folder() ->MyPath:
@@ -486,7 +518,7 @@ def st_workerf_flagged_do_all(
         #     pass
         # end = time.time()
         # push_log(f"绘图和存储耗时{(end-beg)*1e3:.3f} ms")
-        frame_deck._append_plot_save(this_frame)
+        frame_deck._append_save_plot(this_frame)
     cam.stop_acquisition()
     cam.set_trigger_mode("int")
 
@@ -511,7 +543,7 @@ def _dummy_st_workerf_flagged_do_all(
             #     pass
             # end = time.time()
             # push_log(f"绘图和存储耗时{(end-beg)*1e3:.3f} ms")
-            frame_deck._append_plot_save(this_frame)
+            frame_deck._append_save_plot(this_frame)
         else:
             break
 
@@ -580,7 +612,7 @@ def consumerf_local_buffer(
         #     frame_deck._find_lastest_sesframes_folder_and_save_frame()
         # except UserInterrupt: # UserInterrupts are exceptions with well known cause, we keep acquisition without interruption. Strange exceptions would still interrupt acquisition
         #     pass
-        frame_deck._append_plot_save(this_frame)
+        frame_deck._append_save_plot(this_frame)
 
 def mt_producerf_polling_do_snag_rearrange_deposit(
         cam: DCAM.DCAM.DCAMCamera,

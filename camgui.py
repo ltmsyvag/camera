@@ -9,7 +9,7 @@ cam 将会是全局变量, 由 callback 创建
 """
 # from camguihelper.core import _mp_pass_hello
 from camguihelper import (
-    FrameDeck, st_workerf_flagged_do_all, collect_awg_params, gui_open_awg,
+    FrameDeck, DupeMap, st_workerf_flagged_do_all, collect_awg_params, gui_open_awg,
     mt_producerf_polling_do_snag_rearrange_deposit, find_latest_sesframes_folder,
     mp_producerf_polling_do_snag_rearrange_send, mp_passerf, consumerf_local_buffer,
     push_exception)
@@ -566,6 +566,7 @@ if __name__ == '__main__':
                 frame_list = [tifffile.imread(e) for e in fname_dict.values()]          
             for e in frame_list:
                 frame_deck.append(e)
+                frame_deck.seslabel_deck.append("loaded")
             frame_deck.plot_frame_dwim()
         dpg.set_item_callback(fileDialog, _ok_cb_)
 
@@ -574,7 +575,7 @@ if __name__ == '__main__':
                     ):
         with dpg.menu_bar():
             with dpg.menu(label = "保存帧"):
-                _mItemAutoSave = dpg.add_menu_item(label = "自动保存", check=True, default_value=True)
+                _mItemAutoSave = dpg.add_menu_item(label = "自动保存", tag = "autosave", check=True, default_value=True)
                 def _theme_toggle(sender, *args):
                     if dpg.get_value(sender):
                         dpg.set_viewport_clear_color([0,0,0])
@@ -607,8 +608,8 @@ if __name__ == '__main__':
                     def cb_bind_heatmap_theme(sender, *args) ->None:
                         dpg.bind_colormap(frameColBar, cmap)
                         dpg.bind_colormap(framePlot, cmap)
-                        for xax, *_ in frame_deck.llst_items_dupe_maps:
-                            tagPlot = dpg.get_item_parent(xax)
+                        for map in frame_deck.lst_dupe_maps:
+                            tagPlot = dpg.get_item_parent(map.yAx)
                             dpg.bind_colormap(tagPlot, cmap)
                         lst_other_menu_items: list = dpg.get_item_children(dpg.get_item_parent(sender))[1]
                         lst_other_menu_items.remove(sender)
@@ -706,32 +707,38 @@ if __name__ == '__main__':
             heatmap_xyaxkwargs = dict(no_gridlines = True, no_tick_marks = True)
             heatmap_xkwargs = dict(label= "", opposite=True)
             heatmap_ykwargs = dict(label= "", invert=True)
+
             def _dupe_heatmap():
                 # xax = dpg.generate_uuid() # 在实际创建这些 items 之前就要用到它们的 tag, 故先创建此 tag
-                yax = dpg.generate_uuid() 
-                inputInt = dpg.generate_uuid() 
-                radioBtn = dpg.generate_uuid()
-                cBox = dpg.generate_uuid()
-                dupe_map_items = yax, inputInt, radioBtn, cBox
+                # yax = dpg.generate_uuid() 
+                # inputInt = dpg.generate_uuid() 
+                # radioBtn = dpg.generate_uuid()
+                # cBox = dpg.generate_uuid()
+                dupe_map = DupeMap(
+                    yAx = dpg.generate_uuid(),
+                    inputInt = dpg.generate_uuid(),
+                    radioBtn = dpg.generate_uuid(),
+                    cBox = dpg.generate_uuid())
+                # dupe_map_items = yax, inputInt, radioBtn, cBox
                 def _on_close(sender, *args):
                     """
                     window 的 on close callback 貌似不同于普通 callback, 只能在创建 window 时设置, 
                     因此这里将这个 callback 定义在先
                     """
-                    frame_deck.llst_items_dupe_maps.remove(dupe_map_items)
+                    frame_deck.lst_dupe_maps.remove(dupe_map)
                     dpg.delete_item(sender)
-                with dpg.window(width=300, height=300, on_close=_on_close, label = f"#{len(frame_deck.llst_items_dupe_maps)}"):
-                    frame_deck.llst_items_dupe_maps.append(dupe_map_items)
+                with dpg.window(width=300, height=300, on_close=_on_close, label = f"#{len(frame_deck.lst_dupe_maps)}"):
+                    frame_deck.lst_dupe_maps.append(dupe_map)
                     with dpg.group(horizontal=True) as _grp:
                         #==============================
-                        dpg.add_input_int(width=100, tag=inputInt, max_value=0, max_clamped=True, 
+                        dpg.add_input_int(width=100, tag=dupe_map.inputInt, max_value=0, max_clamped=True, 
                                         #   callback=_log
                                         )
                         def _cb_input_int(*args):
-                            frame_deck._update_dupe_map(*dupe_map_items)
-                        dpg.set_item_callback(inputInt, _cb_input_int)
+                            frame_deck._update_dupe_map(dupe_map)
+                        dpg.set_item_callback(dupe_map.inputInt, _cb_input_int)
                         #===============================
-                        dpg.add_radio_button(("倒数帧", "正数帧"), tag=radioBtn,
+                        dpg.add_radio_button(("倒数帧", "正数帧"), tag=dupe_map.radioBtn,
                                             default_value="倒数帧", horizontal=True,
                                             #  callback=_log
                                             )
@@ -740,43 +747,44 @@ if __name__ == '__main__':
                             这个 radio button 的 callback 必须放在 enclosing 的 _dupe_heatmap callback 定义中,
                             因为它需要操纵的 item 是 enclosing callback 创造的对象, 需要利用 enclosing scope 中的变量 inputInt
                             """
-                            input_id = dpg.get_value(inputInt)
+                            input_id = dpg.get_value(dupe_map.inputInt)
                             empty_deck = True if not frame_deck.cid else False
                             if empty_deck:
-                                dpg.set_value(inputInt, 0)
+                                dpg.set_value(dupe_map.inputInt, 0)
                             else:
                                 if app_data == "倒数帧": # convert forward id to backward id
                                     converted_id = input_id - len(frame_deck) + 1
                                 else: # convert backward id to forward id
                                     converted_id = input_id + len(frame_deck) - 1 
-                                dpg.set_value(inputInt, converted_id)
+                                dpg.set_value(dupe_map.inputInt, converted_id)
                             if app_data == "倒数帧": # unlim low bound, lim high bound to 0
-                                dpg.configure_item(inputInt, min_clamped = False)
-                                dpg.configure_item(inputInt, max_value = 0, max_clamped = True)
+                                dpg.configure_item(dupe_map.inputInt, min_clamped = False)
+                                dpg.configure_item(dupe_map.inputInt, max_value = 0, max_clamped = True)
                             else: # unlim high bound, lim low bound to 0
-                                dpg.configure_item(inputInt, max_clamped = False)
-                                dpg.configure_item(inputInt, min_value = 0, min_clamped = True)
-                        dpg.set_item_callback(radioBtn, _cb_radio)
+                                dpg.configure_item(dupe_map.inputInt, max_clamped = False)
+                                dpg.configure_item(dupe_map.inputInt, min_value = 0, min_clamped = True)
+                        dpg.set_item_callback(dupe_map.radioBtn, _cb_radio)
                     with dpg.plot(**heatmap_plot_kwargs):
                         dpg.bind_colormap(dpg.last_item(), myCmap)
                         xax = dpg.add_plot_axis(dpg.mvXAxis, **heatmap_xkwargs, **heatmap_xyaxkwargs)
-                        dpg.add_plot_axis(dpg.mvYAxis, tag=yax, **heatmap_ykwargs, **heatmap_xyaxkwargs)
+                        dpg.add_plot_axis(dpg.mvYAxis, tag=dupe_map.yAx, **heatmap_ykwargs, **heatmap_xyaxkwargs)
                         xaxlims_orig, yaxlims_orig = dpg.get_axis_limits("frame xax"), dpg.get_axis_limits("frame yax")
                         dpg.set_axis_limits(xax, *xaxlims_orig)
-                        dpg.set_axis_limits(yax, *yaxlims_orig)
+                        dpg.set_axis_limits(dupe_map.yAx, *yaxlims_orig)
                         dpg.split_frame()
                         dpg.set_axis_limits_auto(xax)
-                        dpg.set_axis_limits_auto(yax)
+                        dpg.set_axis_limits_auto(dupe_map.yAx)
                     #======================
-                    dpg.add_checkbox(pos = (8,62), tag = cBox) # 要画在 plot 上, 所以在 plot 后添加
+                    dpg.add_checkbox(pos = (8,62), tag = dupe_map.cBox) # 要画在 plot 上, 所以在 plot 后添加
                     @toggle_checkbox_and_disable(_grp)
                     def _toggle_id_and_avg_map_(sender, *args):
-                        frame_deck._update_dupe_map(yax,inputInt, radioBtn, sender)
-                    dpg.set_item_callback(cBox, _toggle_id_and_avg_map_)
-                    with dpg.tooltip(cBox, **ttpkwargs):
+                        frame_deck._update_dupe_map(dupe_map)
+                    dpg.set_item_callback(dupe_map.cBox, _toggle_id_and_avg_map_)
+                    with dpg.tooltip(dupe_map.cBox, **ttpkwargs):
                         dpg.add_text("切换单帧/平均帧")
 
-                frame_deck.plot_cid_frame(yax)    
+                frame_deck.plot_cid_frame(dupe_map.yAx)    
+
             dpg.set_item_callback(cidIndcator, _dupe_heatmap)
             #==========================================
             rightArr = dpg.add_button(tag = "plot next frame", label=">", arrow=True, direction=dpg.mvDir_Right)
