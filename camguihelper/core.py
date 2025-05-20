@@ -374,18 +374,6 @@ def st_workerf_flagged_do_all(
             feed_AWG(this_frame, controller, awg_params) # feed original uint16 format to AWG
             end = time.time()
             push_log(f"重排前序计算耗时 {(end-beg)*1e3:.3f} ms")
-        # beg = time.time()
-        # frame_deck.append(this_frame)
-        # frame_deck.plot_frame_dwim()
-        # hLhRvLvR = dpg.get_item_user_data("frame plot")
-        # if hLhRvLvR:
-        #     _update_hist(hLhRvLvR, frame_deck)
-        # try:
-        #     frame_deck._find_lastest_sesframes_folder_and_save_frame()
-        # except UserInterrupt:
-        #     pass
-        # end = time.time()
-        # push_log(f"绘图和存储耗时{(end-beg)*1e3:.3f} ms")
         frame_deck._append_save_plot(this_frame)
     cam.stop_acquisition()
     cam.set_trigger_mode("int")
