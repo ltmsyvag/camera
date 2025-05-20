@@ -935,7 +935,7 @@ if __name__ == '__main__':
         t_mp_remote_buffer_feeder = threading.Thread(target = _mp_workerf_dummy_remote_buffer_feeder, args=(_mp_dummy_remote_buffer,))
         t_mp_remote_buffer_feeder.start()
         # dpg.set_frame_callback(3, lambda:thread_remote_buffer_feeder.start())
-    dpg.show_style_editor()
+    # dpg.show_style_editor()
     dpg.setup_dearpygui()
     dpg.show_viewport()
     dpg.start_dearpygui()
