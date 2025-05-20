@@ -5,17 +5,11 @@ camgui 相关的帮助函数
 #%%
 from itertools import cycle
 from collections import namedtuple
+import multiprocessing.connection
 DupeMap = namedtuple(typename='DupeMap', # class for useful dpg items in a dupe heatmap window
                         field_names=['yAx', 'inputInt', 'radioBtn', 'cBox'])
-CamguiParams = namedtuple(typename='CamguiParams',
-                          field_names=[
-                              '并发方式',
-                              'cam面板参数',
-                              'awg面板参数',
-                              'Camgui 版本',
-                              ],
-                              default = ["1.3-pre"])
-import multiprocessing.connection
+
+import json
 import traceback
 import multiprocessing
 import queue
@@ -32,7 +26,7 @@ import numpy as np
 import threading
 import colorsys
 import tifffile
-from .utils import MyPath, UserInterrupt, session_frames_root, month_dict
+from .utils import MyPath, UserInterrupt, camgui_params_root, _mk_save_tree_from_root_to_day, find_latest_sesframes_folder, _find_newest_daypath_in_save_tree
 import dearpygui.dearpygui as dpg
 import platform, uuid
 system = platform.system()
@@ -69,15 +63,15 @@ class FrameDeck(list):
         else:
             size = 0
         return  f"内存: {len_deck} 帧 ({size:.2f} MB)"
-    @deprecated
-    def memory_report_(self) -> str:
-        len_deck = len(self)
-        if len_deck > 0:
-            mbsize_1_int_frame = self[0].nbytes/ (1024**2)
-            mbsize_1_float_frame = self.float_deck[0].nbytes/ (1024**2)
-        else:
-            mbsize_1_int_frame = mbsize_1_float_frame = 0
-        return f"内存: {len_deck} 帧 ({(mbsize_1_float_frame+mbsize_1_int_frame)*len_deck:.2f} MB)"
+    # @deprecated
+    # def memory_report_(self) -> str:
+    #     len_deck = len(self)
+    #     if len_deck > 0:
+    #         mbsize_1_int_frame = self[0].nbytes/ (1024**2)
+    #         mbsize_1_float_frame = self.float_deck[0].nbytes/ (1024**2)
+    #     else:
+    #         mbsize_1_int_frame = mbsize_1_float_frame = 0
+    #     return f"内存: {len_deck} 帧 ({(mbsize_1_float_frame+mbsize_1_int_frame)*len_deck:.2f} MB)"
     @staticmethod
     def _make_savename_stub():
         """
@@ -368,84 +362,34 @@ class FrameDeck(list):
 
         push_log(f"绘图和存储耗时{(end-beg)*1e3:.3f} ms")
 
-def find_latest_sesframes_folder() ->MyPath:
-    """
-    本函数会做非常 redundant 的 check,
-    除非奇怪的事情发生, 比如数据丢失,
-    否则创建 session frames 目录下不会出现会被报错的情况,
-    比如有 2025 年下是空的, 连一月文件夹都没有. 
-    这种情况在用 mkdir_session_frames() 当前 session 文件夹时不会发生
-    """
-    ### 开始 redundant check
-    if not session_frames_root.exists():
-        push_log("没有找到 session dir, 请检查 Z 盘是否连接", is_error=True)
-        raise UserInterrupt
-    if not session_frames_root.is_writable():
-        push_log("目标路径不可写", is_error=True)
-        raise UserInterrupt
-    ### find latest year dpath
-    year_pattern = r"2\d{3}$" # A105 不可能存活到 3000 年
-    def _year_sorter(dpath: MyPath):
-        if re.match(year_pattern, dpath.name):
-            return int(dpath.name)
-        else:
-            return -1 # 其他我不关心的东西都排最前面
-    lst_year_dirs = sorted(list(session_frames_root.iterdir()), key= _year_sorter)
-    if not lst_year_dirs:
-        push_log("保存失败: 帧数据路径是空的", is_error=True)
-        raise UserInterrupt
-    dpath_year = lst_year_dirs[-1]
-    if not re.match(year_pattern, dpath_year.name):
-        push_log("保存失败: 帧数据路径中没有任何文件夹", is_error=True)
-        raise UserInterrupt
-    ### find latest month dpath
-    month_sort_dict = dict()
-    for key, val in month_dict.items():
-        month_sort_dict[val] = int(key)
-    def _month_sorter(dpath: MyPath):
-        if dpath.name in month_sort_dict:
-            return month_sort_dict[dpath.name]
+
+
+
+def find_latest_camguiparams_json() ->MyPath:
+    dpath_day = _find_newest_daypath_in_save_tree(camgui_params_root)
+    ### find latest camgui params json file
+    # json_pattern = r"^CA[0-9]+$"
+    # def _session_sorter(dpath: MyPath):
+    #     if re.match(json_pattern, dpath.name):
+    #         return int(dpath.name[2:])
+    #     else:
+    #         return -1
+    json_pattern = r'^CA([0-9]+)\.json$'
+    def _camgui_json_sorter(fpath: MyPath):
+        match = re.match(json_pattern, fpath.name)
+        if match:
+            return int(match.group(1))
         else:
             return -1
-    lst_month_dirs = sorted(list(dpath_year.iterdir()), key= _month_sorter)
-    if not lst_month_dirs:
-        push_log("保存失败: 当年文件夹是空的", is_error=True)
-        raise UserInterrupt
-    dpath_month = lst_month_dirs[-1]
-    if dpath_month.name not in month_sort_dict:
-        push_log("保存失败: 当年文件夹中没有任何月份文件夹", is_error=True)
-        raise UserInterrupt
-    ### find latest day dpath
-    day_pattern = r"^\d{2}$"
-    def _day_sorter(dpath: MyPath):
-        if re.match(day_pattern, dpath.name):
-            return int(dpath.name)
-        else:
-            return -1
-    lst_day_dirs = sorted(list(dpath_month.iterdir()), key= _day_sorter)
-    if not lst_day_dirs:
-        push_log("保存失败: 当月文件夹是空的", is_error=True)
-        raise UserInterrupt
-    dpath_day = lst_day_dirs[-1]
-    if not re.match(day_pattern, dpath_day.name):
-        push_log("保存失败: 当月文件夹中没有任何日期文件夹", is_error=True)
-        raise UserInterrupt
-    ### find latest session dpath
-    session_pattern = r"^\d{4}$"
-    def _session_sorter(dpath: MyPath):
-        if re.match(session_pattern, dpath.name):
-            return int(dpath.name)
-        else:
-            return -1
-    lst_ses_dirs = sorted(list(dpath_day.iterdir()), key= _session_sorter)
-    if not lst_ses_dirs:
-        push_log("保存失败: 当日文件夹是空的", is_error=True)
-        raise UserInterrupt
-    dpath_ses = lst_ses_dirs[-1]
-    if not re.match(session_pattern, dpath_ses.name):
-        push_log("保存失败: 当日文件夹中没有任何 session 文件夹", is_error=True)
-        raise UserInterrupt
-    return dpath_ses
+    lst_jsons = sorted(list(dpath_day.iterdir()), key= _camgui_json_sorter)
+    if not lst_jsons:
+        # push_log("异常: 最新日期的 camgui json 文件夹是空的", is_error=True)
+        raise UserInterrupt('异常: 最新日期的 camgui json 文件夹是空的')
+    fpath_newest_json = lst_jsons[-1]
+    if not re.match(json_pattern, fpath_newest_json.name):
+        # push_log("异常: camgui json save tree 最新日期文件夹中没有任何 json 文件", is_error=True)
+        raise UserInterrupt('异常: camgui json save tree 最新日期文件夹中没有任何 json 文件')
+    return fpath_newest_json
 
 def _dummy_feed_awg(frame):
     pass
@@ -483,8 +427,6 @@ def _update_hist(hLhRvLvR: tuple, frame_deck: FrameDeck, yax = "hist plot yax")-
     dpg.add_histogram_series(
         histData, parent = yax, bins =nBins, 
         min_range=theMinInt,max_range=max_range)
-
-
 
 def st_workerf_flagged_do_all(
     cam: DCAM.DCAM.DCAMCamera,
@@ -822,7 +764,7 @@ def _push_log(msg:str, *,
              is_error: bool=False, is_good: bool=False):
     """
     将 message 显示在 log window 中
-    TODO: add a visual bell background blinking upon error
+    仅仅在 context 创建完毕后有效
     """
     tagWin = "log window"
     now = datetime.now()
@@ -848,6 +790,9 @@ def _push_log(msg:str, *,
                     )
 
 def push_log(*args, **kwargs):
+    """
+    context 创建过程中, 就可以预先设置在 camgui 启动后显示的异常
+    """
     if dpg.is_dearpygui_running():
         _push_log(*args, **kwargs)
     else:
@@ -872,4 +817,80 @@ def push_exception(user_msg: str=""):
              + "\n" 
              + traceback.format_exc(), is_error=True)
 
-    
+CamguiParams = namedtuple(typename='CamguiParams',
+                          field_names=[ # the point of namedtuple is to fix these keys 
+                              '并发方式',
+                              'cam面板参数',
+                              'awg面板参数',
+                              'Camgui版本',
+                              ],
+                              defaults = ["1.3-pre"])
+def save_camgui_json_to_savetree():
+    panel_params = CamguiParams( # 先把能直接 dpg.get_value 的 string tag 排好, 如果 tag 有拼写错误, 接下来在 dpg.get_value 时就会报错
+        并发方式 = {
+            '无并发: 单线程采集重排绘图保存' : None,
+            '双线程: 采集重排 & 绘图保存' : None,
+            '双进程: 采集重排 & 绘图保存' : None,
+        },
+        cam面板参数 = {
+            'exposure field' : None,
+            'h start & h length:' : None,
+            'v start & v length:' : None,
+            'h binning & v binning' : None,
+        },
+        awg面板参数 = {
+            'awg is on' : dpg.get_item_user_data('AWG toggle')['is on'],
+            'x1 y1' : None,
+            'x2 y2' : None,
+            'x3 y3' : None,
+            'nx ny' : None,
+            'x0 y0' : None,
+            'rec_x rec_y' : None,
+            'count_threshold' : None,
+            'n_packed' : None,
+            "start_frequency_on_row(col)" : None,
+            "end_frequency_on_row(col)" : None,
+            "start_site_on_row(col)" : None,
+            "end_site_on_row(col)" : None,
+            'num_segments' : None,
+            'power_ramp_time (ms)' : None,
+            'move_time (ms)' : None,
+            'percentage_total_power_for_list' : None,
+            'ramp_type' : None,
+            'target array binary text input' : None,
+            })
+    for key in panel_params.并发方式:
+        panel_params.并发方式[key] = dpg.get_value(key)
+    for key in panel_params.cam面板参数:
+        panel_params.cam面板参数[key] = dpg.get_value(key)
+    for key in panel_params.awg面板参数:
+        if key != 'awg is on':
+            panel_params.awg面板参数[key] = dpg.get_value(key)
+    dpath_day = _mk_save_tree_from_root_to_day(camgui_params_root)
+    extra_confirm = True
+    if dpath_day.exists():
+        try:
+            fpath_newest_json = find_latest_camguiparams_json()
+            json_num_latest = int((fpath_newest_json.name[2:])[:-5]) #掐头去尾, 从 e.g. CA100.json 得到 100
+            new_str_json = 'CA' + str(json_num_latest + 1) + '.json'
+        except UserInterrupt:
+            push_exception('保存 camgui json 文件时发现异常')
+            new_str_json = 'CA1.json'
+            extra_confirm = True
+    else:
+        new_str_json = 'CA1.json'
+        # lst_json_fpaths = list(dpath_day.iterdir())
+        # if lst_json_fpaths:  # 防止 day dir 是空的, 这种情况只可能发生在用户手动清空 day dir 的时候
+        #     ...
+        # else:
+        #     new_json_name = 'CA1.json'
+
+    fpath = dpath_day / new_str_json
+    with open(fpath, 'w') as f:
+        json.dump(panel_params._asdict, f, 
+                  indent = 2 # @GPT more human-readable
+                  )
+    if extra_confirm:
+        push_log('虽然有异常, 但是 camgui json 文件夹依然创建成功', is_good =True)
+    return new_str_json
+    # fpath.mkdir(parents = True)

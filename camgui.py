@@ -9,10 +9,10 @@ cam 将会是全局变量, 由 callback 创建
 """
 # from camguihelper.core import _mp_pass_hello
 from camguihelper import (
-    FrameDeck, DupeMap, CamguiParams, st_workerf_flagged_do_all, collect_awg_params, gui_open_awg,
+    FrameDeck, DupeMap, st_workerf_flagged_do_all, collect_awg_params, gui_open_awg,
     mt_producerf_polling_do_snag_rearrange_deposit, find_latest_sesframes_folder,
     mp_producerf_polling_do_snag_rearrange_send, mp_passerf, consumerf_local_buffer,
-    push_exception)
+    push_exception, save_camgui_json_to_savetree)
 from pylablib.devices import DCAM
 if __name__ == '__main__':
     import multiprocessing
@@ -56,9 +56,6 @@ if __name__ == '__main__':
 
     with dpg.viewport_menu_bar():
         with dpg.menu(label="Windows"):
-            """
-            TODO 用 `check` kwarg 明确指示窗口显示状态
-            """
             dpg.add_menu_item(label="显示控制面板")
             def _show_and_highlight_win(*cbargs):
                 dpg.configure_item(winCtrlPanels, show=True, collapsed = False)
@@ -79,13 +76,18 @@ if __name__ == '__main__':
         with dpg.menu(label="并发方式") as menuConcurrency:
             def _set_exclusive_True(sender, *args):
                 lst_other_menu_items: list = dpg.get_item_children(dpg.get_item_parent(sender))[1]
+                print(lst_other_menu_items)
                 lst_other_menu_items.remove(sender)
                 dpg.set_value(sender, True)
                 for item in lst_other_menu_items:
                     dpg.set_value(item, False)
-            mItemSingleThread = dpg.add_menu_item(label="无并发: 单线程采集重排绘图保存", check=True, callback=_set_exclusive_True, default_value=True)
-            mItemDualThreads = dpg.add_menu_item(label="双线程: 采集重拍 & 绘图保存",  check=True, callback=_set_exclusive_True)
-            mItemDualProcesses = dpg.add_menu_item(label="双进程: 采集重拍 & 绘图保存",  check=True, callback=_set_exclusive_True)
+            _str = '无并发: 单线程采集重排绘图保存'
+            mItemSingleThread = dpg.add_menu_item(tag = _str, label= _str, check=True, callback=_set_exclusive_True, default_value=True)
+            _str = '双线程: 采集重排 & 绘图保存'
+            mItemDualThreads = dpg.add_menu_item(tag = _str, label=_str,  check=True, callback=_set_exclusive_True)
+            _str = '双进程: 采集重排 & 绘图保存'
+            mItemDualProcesses = dpg.add_menu_item(tag = _str, label=_str,  check=True, callback=_set_exclusive_True)
+            print(mItemSingleThread, mItemDualThreads, mItemDualProcesses)
         dpg.add_menu_item(label = "软件信息")
         dpg.set_item_callback(dpg.last_item(),
                                 factory_cb_yn_modal_dialog(
@@ -172,6 +174,14 @@ if __name__ == '__main__':
                     next_state = not state
                     flag = user_data["acq thread flag"] # flag for st and mt, but not for mp
                     global raw_card, controller
+                    if next_state:
+                        try:
+                            str_json_saved = save_camgui_json_to_savetree()
+                            str_json_displayed = dict(default_value = str_json_saved[:-5] + '已保存')
+                        except Exception:
+                            push_exception('json 保存失败')
+                            str_json_displayed = dict(default_value = "错误", color = (255,0,0))
+                        dpg.set_value(labelJson, **str_json_displayed)
                     if dpg.get_value(mItemSingleThread):
                         if next_state:
                             t_worker_do_all = threading.Thread(target=st_workerf_flagged_do_all, args=(cam, flag, frame_deck, controller))
@@ -339,35 +349,37 @@ if __name__ == '__main__':
                         ttpkwargs = dict(delay=1, hide_on_activity= True)
                         with dpg.tooltip(dpg.last_item(), **ttpkwargs):
                             dpg.add_text("当前面板中所有的参数在触发采集开始时\n会被保存到这个文件夹")
-                        dpg.add_text("CA1")
+                        labelJson = dpg.add_text("CA0")
                         dpg.bind_item_font(dpg.last_item(), large_font)
                     #===================================
                     with dpg.group(horizontal=True):
                         dpg.add_text("帧文件夹:")
                         with dpg.tooltip(dpg.last_item(), **ttpkwargs):
                             dpg.add_text("当前采集的所有帧文件(tiff)\n会被保存到这个文件夹")
-                        try:
-                            dpath_ses = find_latest_sesframes_folder()
-                            str_ses = dict(default_value = str(dpath_ses.name))
-                        except UserInterrupt:
-                            str_ses = dict(default_value = "错误", color = (255,0,0))
-                        _strSes = dpg.add_text(**str_ses)
-                        dpg.bind_item_font(_strSes, large_font)
+                        # try:
+                        #     dpath_ses = find_latest_sesframes_folder()
+                        #     str_ses = dict(default_value = str(dpath_ses.name))
+                        # except UserInterrupt:
+                        #     push_exception('session 帧数据文件夹创建失败')
+                        #     str_ses = dict(default_value = "错误", color = (255,0,0))
+                        # _txtSes = dpg.add_text(**str_ses)
+                        _txtSes = dpg.add_text('0000')
+                        dpg.bind_item_font(_txtSes, large_font)
                     _btnNewSes = dpg.add_button(label="新 session 帧文件夹")
                     def _twinkle():
-                        dpg.configure_item(_strSes, color = (255,0,255))
+                        dpg.configure_item(_txtSes, color = (255,0,255))
                         time.sleep(1)
-                        dpg.configure_item(_strSes, color = (255,255,255))
+                        dpg.configure_item(_txtSes, color = (255,255,255))
                     def _mk_newses_dir(*args):
                         try:
                             new_ses_str = mkdir_session_frames()
-                            dpg.set_value(_strSes, new_ses_str)
+                            dpg.set_value(_txtSes, new_ses_str)
                             t = threading.Thread(target = _twinkle)
                             t.start()
-                        except UserInterrupt:
-                            push_exception(f"找不到用于存放帧数据的文件夹 {str(session_frames_root)}")
-                            dpg.set_value(_strSes, "错误")
-                            dpg.configure_item(_strSes, color = (255,0,0))
+                        except Exception:
+                            push_exception("新 session 帧数据文件夹创建失败")
+                            dpg.set_value(_txtSes, "错误")
+                            dpg.configure_item(_txtSes, color = (255,0,0))
                     dpg.set_item_callback(_btnNewSes, _mk_newses_dir)
                 with dpg.theme() as _thmSesBG:
                     with dpg.theme_component(dpg.mvChildWindow):
@@ -395,13 +407,16 @@ if __name__ == '__main__':
                     dpg.add_separator(label="ROI")
                     with dpg.tooltip(dpg.last_item(), **ttpkwargs): # type: ignore
                             dpg.add_text("max h 4096, max v 2304")
-                    dpg.add_text("h start & h length:")
+                    _str = 'h start & h length:'
+                    dpg.add_text(_str)
                     _indent = 20
-                    fldsROIh = dpg.add_input_intx(size=2, indent= _indent,width=100, default_value=[1352, 240,0,0])
-                    dpg.add_text("v start & v length:")
-                    fldsROIv = dpg.add_input_intx(size=2, indent = _indent ,width=dpg.get_item_width(fldsROIh), default_value=[948,240,0,0]) # type: ignore
-                    dpg.add_text("h binning & v binning")
-                    fldsBinning = dpg.add_input_intx(size=2, indent = _indent ,width=dpg.get_item_width(fldsROIh), default_value=[1,1,0,0]) # type: ignore
+                    fldsROIh = dpg.add_input_intx(tag = _str,size=2, indent= _indent,width=100, default_value=[1352, 240,0,0])
+                    _str = 'v start & v length:'
+                    dpg.add_text(_str)
+                    fldsROIv = dpg.add_input_intx(tag = _str, size=2, indent = _indent ,width=dpg.get_item_width(fldsROIh), default_value=[948,240,0,0])
+                    _str = 'h binning & v binning'
+                    dpg.add_text(_str)
+                    fldsBinning = dpg.add_input_intx(tag = _str, size=2, indent = _indent ,width=dpg.get_item_width(fldsROIh), default_value=[1,1,0,0])
                     def do_set_cam_roi_using_6fields_roi():
                         hstart, hwid, *_ = dpg.get_value(fldsROIh)
                         vstart, vwid, *_ = dpg.get_value(fldsROIv)
@@ -526,7 +541,7 @@ if __name__ == '__main__':
 
 
     with dpg.file_dialog( # file dialog 就是一个独立的 window, 因此在应该在 root 定义, 与其他 window 内的元素在形式上解耦
-        directory_selector=False, show=False, modal=True,
+        directory_selector=False, show=False, modal=True, default_path= session_frames_root,
         tag="file dialog", width=700 ,height=400) as fileDialog:
         # dpg.add_button(label="log", callback = _log)
         dpg.add_file_extension("", color = (150,255,150,255)) # 让文件夹显示为绿色
@@ -862,40 +877,7 @@ if __name__ == '__main__':
                     height=-1, width=-1, no_mouse_pos=True):
             dpg.add_plot_axis(dpg.mvXAxis, label = "converted counts ((<frame pixel counts>-200)*0.1/0.9)")
             dpg.add_plot_axis(dpg.mvYAxis, label = "frequency", tag = "hist plot yax")
-    def create_sesfolder_for_camgui_params_and_save_params():
-        panel_params = CamguiParams(
-            并发方式 = [mItemSingleThread, mItemDualThreads, mItemDualProcesses],
-            cam面板参数 = {
-                'exposure field' : dpg.get_value(fldExposure),
-                'h start & h length' : dpg.get_value(fldsROIh),
-                'v start & v length' : dpg.get_value(fldsROIv),
-                'h binning & v binning' : dpg.get_value(fldsBinning),
-            },
-            awg面板参数 = {
-                'awg is on' : dpg.get_item_user_data(togAwg)['is on']
-            }
-        )
-        awgDict = panel_params.awg面板参数
-        if awgDict['awg is on']:
-            awgDict['x1 y1'] = dpg.get_value("x1 y1")
-            awgDict['x2 y2'] = dpg.get_value("x2 y2")
-            awgDict['x3 y3'] = dpg.get_value("x3 y3")
-            awgDict['nx ny'] = dpg.get_value("nx ny")
-            awgDict['x0 y0'] = dpg.get_value("x0 y0")
-            awgDict['rec_x rec_y'] = dpg.get_value("rec_x rec_y")
-            awgDict['count_threshold'] = dpg.get_value("count_threshold"),
-            awgDict['n_packed'] = dpg.get_value("n_packed"),
-            awgDict["start_frequency_on_row(col)"] = dpg.get_value("start_frequency_on_row(col)")
-            awgDict["end_frequency_on_row(col)"] = dpg.get_value("end_frequency_on_row(col)")
-            awgDict["start_site_on_row(col)"] = dpg.get_value("start_site_on_row(col)")
-            awgDict["end_site_on_row(col)"] = dpg.get_value("end_site_on_row(col)")
-            awgDict['num_segments'] = dpg.get_value("num_segments")
-            awgDict['power_ramp_time (ms)'] = dpg.get_value("power_ramp_time (ms)")
-            awgDict['move_time (ms)'] = dpg.get_value("move_time (ms)")
-            awgDict['percentage_total_power_for_list'] = dpg.get_value("percentage_total_power_for_list")
-            awgDict['ramp_type'] = dpg.get_value("ramp_type")
-            awgDict['target array binary text input'] = dpg.get_value("target array binary text input")
-
+    
     if dummy_acq: # do dummy acquisition
         dpg.set_item_callback(togCam,_dummy_cam_toggle_cb_)
         dpg.set_item_callback(togAcq, _dummy_toggle_acq_cb)
