@@ -4,4 +4,5 @@ __pycache__/
 *.tiff
 *.db
 *.ini
+*.json
 session_data_root/

@@ -217,7 +217,7 @@ def do_extend_add_button() -> Callable:
                         dpg.configure_item(item, enabled=state if on_and_enable else not state)
                 except Exception:
                     dpg.set_item_label(sender, "错误!")
-                    push_exception("相机错误")
+                    push_exception()
                     return
 
                 if state:

@@ -7,17 +7,17 @@ item 和 (创建 containter item 的) context manager 之间用 `#====` 分隔
 item 常数用首字母小写的驼峰命名 e.g. myItem. 其他任何变量都不能用此驼峰命名 (类用首字母大写的驼峰命名, e.g. MyClass)
 cam 将会是全局变量, 由 callback 创建
 """
-# from camguihelper.core import _mp_pass_hello
 from camguihelper import (
     FrameDeck, DupeMap, st_workerf_flagged_do_all, collect_awg_params, gui_open_awg,
-    mt_producerf_polling_do_snag_rearrange_deposit, find_latest_sesframes_folder,
+    mt_producerf_polling_do_snag_rearrange_deposit,
     mp_producerf_polling_do_snag_rearrange_send, mp_passerf, consumerf_local_buffer,
-    push_exception, save_camgui_json_to_savetree)
+    push_exception, push_log, save_camgui_json_to_savetree, camgui_ver)
 from pylablib.devices import DCAM
 if __name__ == '__main__':
+    import json
     import multiprocessing
     from pathlib import Path
-    from typing import Callable
+    from typing import Callable, Dict
     import dearpygui.dearpygui as dpg
     import threading
     import time
@@ -25,7 +25,7 @@ if __name__ == '__main__':
     import tifffile
     # from camguihelper import FrameDeck, st_workerf_flagged_do_all, collect_awg_params
     from camguihelper.core import _log, _update_hist
-    from camguihelper.utils import mkdir_session_frames, UserInterrupt, session_frames_root
+    from camguihelper.utils import mkdir_session_frames, session_frames_root, camgui_params_root
     from camguihelper.dpghelper import (
         do_bind_my_default_global_theme,
         do_bind_my_global_nosave_theme,
@@ -75,8 +75,9 @@ if __name__ == '__main__':
             dpg.set_item_callback(dpg.last_item(), _show_and_highlight_win)
         with dpg.menu(label="并发方式") as menuConcurrency:
             def _set_exclusive_True(sender, *args):
+                if type(sender) is str:
+                    sender = dpg.get_alias_id(sender)
                 lst_other_menu_items: list = dpg.get_item_children(dpg.get_item_parent(sender))[1]
-                print(lst_other_menu_items)
                 lst_other_menu_items.remove(sender)
                 dpg.set_value(sender, True)
                 for item in lst_other_menu_items:
@@ -87,13 +88,13 @@ if __name__ == '__main__':
             mItemDualThreads = dpg.add_menu_item(tag = _str, label=_str,  check=True, callback=_set_exclusive_True)
             _str = '双进程: 采集重排 & 绘图保存'
             mItemDualProcesses = dpg.add_menu_item(tag = _str, label=_str,  check=True, callback=_set_exclusive_True)
-            print(mItemSingleThread, mItemDualThreads, mItemDualProcesses)
+            # print(mItemSingleThread, mItemDualThreads, mItemDualProcesses)
         dpg.add_menu_item(label = "软件信息")
         dpg.set_item_callback(dpg.last_item(),
                                 factory_cb_yn_modal_dialog(
                                     dialog_text=
-                                    """\
-    camgui 1.3-pre for A105
+                                    f"""\
+    camgui {camgui_ver} for A105
     作者: 吴海腾, 张云龙
     repo: https://github.com/ltmsyvag/camera
                                     """, 
@@ -102,6 +103,8 @@ if __name__ == '__main__':
     if dummy_acq:
         _mp_dummy_remote_buffer = multiprocessing.Queue() # mp dummy remote buffer 必须在主脚本中创建, 才能确保 mp dummy buffer feeder 和 mp producer 所用的 Queue 对象是同一个
     with dpg.window(label= "控制面板", tag = winCtrlPanels):
+        with dpg.menu_bar():
+            dpg.add_menu_item(label = '载入 json', callback= lambda: dpg.show_item(jsonDialog))
         with dpg.group(label = "col panels", horizontal=True):
             with dpg.child_window(label = "cam panel", width=190):
                 _wid, _hi = 175, 40
@@ -174,14 +177,6 @@ if __name__ == '__main__':
                     next_state = not state
                     flag = user_data["acq thread flag"] # flag for st and mt, but not for mp
                     global raw_card, controller
-                    if next_state:
-                        try:
-                            str_json_saved = save_camgui_json_to_savetree()
-                            str_json_displayed = dict(default_value = str_json_saved[:-5] + '已保存')
-                        except Exception:
-                            push_exception('json 保存失败')
-                            str_json_displayed = dict(default_value = "错误", color = (255,0,0))
-                        dpg.set_value(labelJson, **str_json_displayed)
                     if dpg.get_value(mItemSingleThread):
                         if next_state:
                             t_worker_do_all = threading.Thread(target=st_workerf_flagged_do_all, args=(cam, flag, frame_deck, controller))
@@ -268,6 +263,15 @@ if __name__ == '__main__':
                     state = user_data["is on"]
                     next_state = not state
                     flag = user_data["acq thread flag"]
+                    if next_state:
+                        str_json_saved = save_camgui_json_to_savetree()
+                        str_json_displayed =  str_json_saved[:-5] + '已保存'
+                        dpg.set_value(labelJson, str_json_displayed)
+                    else:
+                        str_json_displayed = dpg.get_value(labelJson)
+                        json_num = int(str_json_displayed[2:][:-3])
+                        str_json_displayed = 'CA' + str(json_num+1)
+                        dpg.set_value(labelJson, str_json_displayed)
                     if dpg.get_value(mItemSingleThread):
                         if next_state:
                             t = threading.Thread(
@@ -345,7 +349,7 @@ if __name__ == '__main__':
                 #==============================
                 with dpg.child_window(height=122,no_scrollbar=True) as _cw:
                     with dpg.group(horizontal=True):
-                        dpg.add_text("参数文件夹:")
+                        dpg.add_text("json:")
                         ttpkwargs = dict(delay=1, hide_on_activity= True)
                         with dpg.tooltip(dpg.last_item(), **ttpkwargs):
                             dpg.add_text("当前面板中所有的参数在触发采集开始时\n会被保存到这个文件夹")
@@ -541,8 +545,9 @@ if __name__ == '__main__':
 
 
     with dpg.file_dialog( # file dialog 就是一个独立的 window, 因此在应该在 root 定义, 与其他 window 内的元素在形式上解耦
-        directory_selector=False, show=False, modal=True, default_path= session_frames_root,
-        tag="file dialog", width=700 ,height=400) as fileDialog:
+        label= '载入帧数据', directory_selector=False, 
+        show=False, modal=True, default_path= session_frames_root,
+        width=700, height=400) as fileDialog:
         # dpg.add_button(label="log", callback = _log)
         dpg.add_file_extension("", color = (150,255,150,255)) # 让文件夹显示为绿色
         dpg.add_file_extension(".*") # 显示 _select_all
@@ -584,6 +589,35 @@ if __name__ == '__main__':
                 frame_deck.seslabel_deck.append("loaded")
             frame_deck.plot_frame_dwim()
         dpg.set_item_callback(fileDialog, _ok_cb_)
+    with dpg.file_dialog( # file dialog 就是一个独立的 window, 因此在应该在 root 定义, 与其他 window 内的元素在形式上解耦
+        label= '载入 camgui json 文件', directory_selector=False,
+        show=False, modal=True, default_path= camgui_params_root,
+        width=700 ,height=400) as jsonDialog:
+        # dpg.add_button(label="log", callback = _log)
+        dpg.add_file_extension("", color = (150,255,150,255)) # 让文件夹显示为绿色
+        # dpg.add_file_extension(".*") # 显示 _select_all
+        dpg.add_file_extension(".json")
+        # dpg.add_file_extension(".tiff")
+        # dpg.add_file_extension("json files (*.tif *.tiff){.tif,.tiff}") # the {} part is what the file dialog really parses, others are for human eyes
+        def _ok_cb_(_, app_data, __) -> None:
+            dict_fnames : dict = app_data['selections']
+            if len(dict_fnames)>1:
+                push_log('只能选择一个 json 文件', is_error = True)
+            else:
+                fpath_json, = dict_fnames.values()
+                with open(fpath_json, 'r') as f:
+                    panel_params : Dict[Dict | str] = json.load(f)
+                if panel_params['Camgui版本'] != camgui_ver:
+                    push_log(
+                        '注意! camgui 版本和创建 json 的 camgui 版本不一致', 
+                        is_warning = True)
+                for key, val in panel_params['并发方式'].items():
+                    dpg.set_value(key, val)
+                for key, val in panel_params['cam面板参数'].items():
+                    dpg.set_value(key, val)
+                
+                
+        dpg.set_item_callback(jsonDialog, _ok_cb_)
 
     with dpg.window(label = "帧预览", tag=winFramePreview,
                     height=700, width=700

@@ -1,8 +1,8 @@
-# pyright: reportOptionalSubscript=false
 """
 camgui 相关的帮助函数
 """
 #%%
+camgui_ver = '1.3-pre'
 from itertools import cycle
 from collections import namedtuple
 import multiprocessing.connection
@@ -761,7 +761,9 @@ def collect_awg_params() -> tuple:
 
 _bullets = cycle(["-", "*", "+", "•", "°"])
 def _push_log(msg:str, *, 
-             is_error: bool=False, is_good: bool=False):
+             is_error: bool=False,
+             is_good: bool=False,
+             is_warning = False):
     """
     将 message 显示在 log window 中
     仅仅在 context 创建完毕后有效
@@ -773,6 +775,8 @@ def _push_log(msg:str, *,
         color = (255,0,0)
     elif is_good:
         color = (0,255,0)
+    elif is_warning:
+        color = (255,222,33)
     else:
         color = None
     dpg.add_text(next(_bullets)+timestamp+"\n"+msg, 
@@ -824,7 +828,7 @@ CamguiParams = namedtuple(typename='CamguiParams',
                               'awg面板参数',
                               'Camgui版本',
                               ],
-                              defaults = ["1.3-pre"])
+                              defaults = [camgui_ver])
 def save_camgui_json_to_savetree():
     panel_params = CamguiParams( # 先把能直接 dpg.get_value 的 string tag 排好, 如果 tag 有拼写错误, 接下来在 dpg.get_value 时就会报错
         并发方式 = {
@@ -867,7 +871,7 @@ def save_camgui_json_to_savetree():
         if key != 'awg is on':
             panel_params.awg面板参数[key] = dpg.get_value(key)
     dpath_day = _mk_save_tree_from_root_to_day(camgui_params_root)
-    extra_confirm = True
+    extra_confirm = False
     if dpath_day.exists():
         try:
             fpath_newest_json = find_latest_camguiparams_json()
@@ -878,17 +882,19 @@ def save_camgui_json_to_savetree():
             new_str_json = 'CA1.json'
             extra_confirm = True
     else:
+        dpath_day.mkdir(parents=True)
         new_str_json = 'CA1.json'
         # lst_json_fpaths = list(dpath_day.iterdir())
         # if lst_json_fpaths:  # 防止 day dir 是空的, 这种情况只可能发生在用户手动清空 day dir 的时候
         #     ...
         # else:
         #     new_json_name = 'CA1.json'
-
     fpath = dpath_day / new_str_json
+    # print(fpath)
     with open(fpath, 'w') as f:
-        json.dump(panel_params._asdict, f, 
-                  indent = 2 # @GPT more human-readable
+        json.dump(panel_params._asdict(), f, 
+                  indent = 2, # @GPT more human-readable
+                  ensure_ascii=False # to save chinese
                   )
     if extra_confirm:
         push_log('虽然有异常, 但是 camgui json 文件夹依然创建成功', is_good =True)
