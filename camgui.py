@@ -114,16 +114,24 @@ if __name__ == '__main__':
                         "off label" : "相机已关闭",
                         "on label" : "相机已开启",
                         })
-                def do_cam_open_sequence():
-                    global cam
-                    cam = DCAM.DCAMCamera()
-                    cam.open()
+                def do_set_cam_params_by_gui():
                     expFieldValInMs = dpg.get_value(fldExposure) 
                     cam.set_exposure(expFieldValInMs*1e-3)
                     expoCamValInS = cam.cav["exposure_time"]
                     dpg.set_value(fldExposure, expoCamValInS*1e3)
                     do_set_cam_roi_using_6fields_roi()
                     do_set_6fields_roi_using_cam_roi()
+                def do_cam_open_sequence():
+                    global cam
+                    cam = DCAM.DCAMCamera()
+                    cam.open()
+                    do_set_cam_params_by_gui()
+                    # expFieldValInMs = dpg.get_value(fldExposure) 
+                    # cam.set_exposure(expFieldValInMs*1e-3)
+                    # expoCamValInS = cam.cav["exposure_time"]
+                    # dpg.set_value(fldExposure, expoCamValInS*1e3)
+                    # do_set_cam_roi_using_6fields_roi()
+                    # do_set_6fields_roi_using_cam_roi()
                 dpg.bind_item_font(togCam, large_font)
                 @toggle_state_and_enable("expo and roi fields", "acquisition toggle")
                 def _cam_toggle_cb_(__, _, user_data):
@@ -454,7 +462,7 @@ if __name__ == '__main__':
                             })
                     dpg.bind_item_font(togAwg, large_font)
                     @toggle_state_and_enable()
-                    def _awg_toggle_cb_(_,__,user_data):
+                    def awg_toggle_cb(_,__,user_data):
                         global raw_card, controller
                         state = user_data["is on"]
                         next_state = not state
@@ -463,7 +471,7 @@ if __name__ == '__main__':
                         else:
                             raw_card.close()
                             controller = None # controller always has to exist, since its the argument of the func start_acqloop that runs in the thread thread_acq
-                    dpg.set_item_callback(togAwg, _awg_toggle_cb_)
+                    dpg.set_item_callback(togAwg, awg_toggle_cb)
                     dpg.add_separator()
                     _width=100
                     _spcheight=10
@@ -615,8 +623,17 @@ if __name__ == '__main__':
                     dpg.set_value(key, val)
                 for key, val in panel_params['cam面板参数'].items():
                     dpg.set_value(key, val)
-                
-                
+                    if dpg.get_item_user_data(togCam)['is on']:
+                        do_set_cam_params_by_gui()
+                for key, val in panel_params['awg面板参数'].items():
+                    if key == 'awg is on':
+                        past_awg_state = val
+                    else:
+                        dpg.set_value(key, val)
+                    current_awg_state = dpg.get_item_user_data(togAwg)['is on']
+                    if current_awg_state != past_awg_state:
+                        awg_toggle_cb(togAwg, _ , dpg.get_item_user_data(togAwg))
+                push_log(f'已载入 {fpath_json}', is_good = True)
         dpg.set_item_callback(jsonDialog, _ok_cb_)
 
     with dpg.window(label = "帧预览", tag=winFramePreview,
