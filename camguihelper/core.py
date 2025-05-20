@@ -29,11 +29,11 @@ import tifffile
 from .utils import MyPath, UserInterrupt, camgui_params_root, _mk_save_tree_from_root_to_day, find_latest_sesframes_folder, _find_newest_daypath_in_save_tree
 import dearpygui.dearpygui as dpg
 import platform, uuid
-system = platform.system()
-if (system == "Windows") and (hex(uuid.getnode()) != '0xf4ce2305b4c7'): # code is A402 computer
-    import spcm
-    from AWG_module.no_with_func import DDSRampController
-    from AWG_module.unified import feed_AWG
+# system = platform.system()
+# if (system == "Windows") and (hex(uuid.getnode()) != '0xf4ce2305b4c7'): # code is A402 computer
+import spcm
+from AWG_module.no_with_func import DDSRampController
+from AWG_module.unified import feed_AWG
 
 class FrameDeck(list):
     """
@@ -363,8 +363,6 @@ class FrameDeck(list):
         push_log(f"绘图和存储耗时{(end-beg)*1e3:.3f} ms")
 
 
-
-
 def find_latest_camguiparams_json() ->MyPath:
     dpath_day = _find_newest_daypath_in_save_tree(camgui_params_root)
     ### find latest camgui params json file
@@ -432,7 +430,7 @@ def st_workerf_flagged_do_all(
     cam: DCAM.DCAM.DCAMCamera,
     flag: threading.Event,
     frame_deck: FrameDeck,
-    controller, # type is DDSRampController, not hinted because it acts funny on macOS
+    controller: DDSRampController, # type is DDSRampController, not hinted because it acts funny on macOS
     )-> None:
     """
     single-thread approach worker function which is flagged and does everythig:
@@ -668,6 +666,7 @@ def mp_producerf_polling_do_snag_rearrange_send(
     cam.set_roi(hstart, hend, vstart, vend, hbin, vbin)
     cam.set_trigger_mode("ext")
     cam.start_acquisition(mode="sequence", nframes = 100)
+    conn_sig.send('cam all set in the alternative session')
     while not conn_sig.poll():
         try:
             cam.wait_for_frame(timeout = 0.2)

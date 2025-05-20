@@ -99,7 +99,7 @@ if __name__ == '__main__':
     repo: https://github.com/ltmsyvag/camera
                                     """, 
                                     win_label="info", just_close=True))
-    dummy_acq = True # 假采集代码的总开关
+    dummy_acq = False # 假采集代码的总开关
     if dummy_acq:
         _mp_dummy_remote_buffer = multiprocessing.Queue() # mp dummy remote buffer 必须在主脚本中创建, 才能确保 mp dummy buffer feeder 和 mp producer 所用的 Queue 对象是同一个
     with dpg.window(label= "控制面板", tag = winCtrlPanels):
@@ -242,6 +242,8 @@ if __name__ == '__main__':
                             user_data["thread1"] = t_passer
                             user_data["thread2"] = t_consumer
                             p_producer.start()
+                            msg = conn_sig_main.recv()
+                            push_log(msg, is_good = True)
                             t_passer.start()
                             t_consumer.start()
                         else:
