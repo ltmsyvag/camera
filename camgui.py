@@ -25,7 +25,7 @@ if __name__ == '__main__':
     import tifffile
     # from camguihelper import FrameDeck, st_workerf_flagged_do_all, collect_awg_params
     from camguihelper.core import _log, _update_hist
-    from camguihelper.utils import mkdir_session_frames, session_frames_root, camgui_params_root
+    from camguihelper.utils import mkdir_session_frames, session_frames_root, camgui_params_root, find_newest_daypath_in_save_tree
     from camguihelper.dpghelper import (
         do_bind_my_default_global_theme,
         do_bind_my_global_nosave_theme,
@@ -336,9 +336,6 @@ if __name__ == '__main__':
                             p_producer.start()
                             t_passer.start()
                             t_consumer.start()
-                            # for _ in range(100):
-                            #     print(conn_debug_main.recv())
-                            # conn_debug_main.close()
                         else:
                             conn_sig_main = user_data["signal connection"] # 投毒通道
                             p_producer = user_data["process1"]
@@ -349,10 +346,6 @@ if __name__ == '__main__':
                             p_producer.join()
                             t_passer.join()
                             t_consumer.join()
-
-                            # do_cam_open_sequence()
-                            # if dpg.get_item_user_data("AWG toggle")["is on"]:
-                            #     raw_card, controller = gui_open_awg()
 
                 dpg.bind_item_font(togAcq, large_font)
                 dpg.set_item_callback(togAcq, _toggle_acq_cb_)
@@ -370,13 +363,6 @@ if __name__ == '__main__':
                         dpg.add_text("帧文件夹:")
                         with dpg.tooltip(dpg.last_item(), **ttpkwargs):
                             dpg.add_text("当前采集的所有帧文件(tiff)\n会被保存到这个文件夹")
-                        # try:
-                        #     dpath_ses = find_latest_sesframes_folder()
-                        #     str_ses = dict(default_value = str(dpath_ses.name))
-                        # except UserInterrupt:
-                        #     push_exception('session 帧数据文件夹创建失败')
-                        #     str_ses = dict(default_value = "错误", color = (255,0,0))
-                        # _txtSes = dpg.add_text(**str_ses)
                         _txtSes = dpg.add_text('0000')
                         dpg.bind_item_font(_txtSes, large_font)
                     _btnNewSes = dpg.add_button(label="新 session 帧文件夹")
@@ -553,7 +539,10 @@ if __name__ == '__main__':
     0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
     0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0""")
 
-
+    try: 
+        _default_path = find_newest_daypath_in_save_tree(session_frames_root)
+    except Exception:
+        _default_path = session_frames_root
     with dpg.file_dialog( # file dialog 就是一个独立的 window, 因此在应该在 root 定义, 与其他 window 内的元素在形式上解耦
         label= '载入帧数据', directory_selector=False, 
         show=False, modal=True, default_path= session_frames_root,
@@ -599,9 +588,13 @@ if __name__ == '__main__':
                 frame_deck.seslabel_deck.append("loaded")
             frame_deck.plot_frame_dwim()
         dpg.set_item_callback(fileDialog, _ok_cb_)
+    try: 
+        _default_path = find_newest_daypath_in_save_tree(camgui_params_root)
+    except Exception:
+        _default_path = camgui_params_root
     with dpg.file_dialog( # file dialog 就是一个独立的 window, 因此在应该在 root 定义, 与其他 window 内的元素在形式上解耦
         label= '载入 camgui json 文件', directory_selector=False,
-        show=False, modal=True, default_path= camgui_params_root,
+        show=False, modal=True, default_path=  _default_path,
         width=700 ,height=400) as jsonDialog:
         # dpg.add_button(label="log", callback = _log)
         dpg.add_file_extension("", color = (150,255,150,255)) # 让文件夹显示为绿色
@@ -953,6 +946,4 @@ if __name__ == '__main__':
     lines = lines[:25] # delete line 26 and onward. 因为只记忆 4 个窗口的位置, 新创建的窗口(被 append 再 ini 文件末)都会被删掉
     with open("dpginit.ini", "w") as f:
         f.writelines(lines)
-
-
 # %%

@@ -80,7 +80,7 @@ def _mk_save_tree_from_root_to_day(root_dir : MyPath) -> MyPath:
     else: 
         UserInterrupt
 
-def _find_newest_daypath_in_save_tree(root_dir : MyPath)-> MyPath:
+def find_newest_daypath_in_save_tree(root_dir : MyPath)-> MyPath:
     """
     在某一个 root 下找到最新的 day path 并返回, 
     e.g. 'root/2025/五月/20/'
@@ -146,7 +146,7 @@ def _find_newest_daypath_in_save_tree(root_dir : MyPath)-> MyPath:
     return dpath_day
 
 def find_latest_sesframes_folder() ->MyPath:
-    dpath_day = _find_newest_daypath_in_save_tree(session_frames_root)
+    dpath_day = find_newest_daypath_in_save_tree(session_frames_root)
     ### find latest session dpath
     session_pattern = r"^\d{4}$"
     def _session_sorter(dpath: MyPath):

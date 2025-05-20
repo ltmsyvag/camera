@@ -26,9 +26,9 @@ import numpy as np
 import threading
 import colorsys
 import tifffile
-from .utils import MyPath, UserInterrupt, camgui_params_root, _mk_save_tree_from_root_to_day, find_latest_sesframes_folder, _find_newest_daypath_in_save_tree
+from .utils import MyPath, UserInterrupt, camgui_params_root, _mk_save_tree_from_root_to_day, find_latest_sesframes_folder, find_newest_daypath_in_save_tree
 import dearpygui.dearpygui as dpg
-import platform, uuid
+# import platform, uuid
 # system = platform.system()
 # if (system == "Windows") and (hex(uuid.getnode()) != '0xf4ce2305b4c7'): # code is A402 computer
 import spcm
@@ -63,15 +63,6 @@ class FrameDeck(list):
         else:
             size = 0
         return  f"内存: {len_deck} 帧 ({size:.2f} MB)"
-    # @deprecated
-    # def memory_report_(self) -> str:
-    #     len_deck = len(self)
-    #     if len_deck > 0:
-    #         mbsize_1_int_frame = self[0].nbytes/ (1024**2)
-    #         mbsize_1_float_frame = self.float_deck[0].nbytes/ (1024**2)
-    #     else:
-    #         mbsize_1_int_frame = mbsize_1_float_frame = 0
-    #     return f"内存: {len_deck} 帧 ({(mbsize_1_float_frame+mbsize_1_int_frame)*len_deck:.2f} MB)"
     @staticmethod
     def _make_savename_stub():
         """
@@ -129,7 +120,6 @@ class FrameDeck(list):
         """
         保存 cid 指向的 frame, 并 push 成功/失败 message
         """
-        # with Timer():
         fpath_stub = self._make_savename_stub()
         if self.cid: # 当前 cid 不是 None, 则说明 deck 非空
             fpath = fpath_stub + f"_{self.cid}.tif"
@@ -142,76 +132,6 @@ class FrameDeck(list):
         else:
             push_log("内存中没有任何帧", is_error=True)
     def _find_lastest_sesframes_folder_and_save_frame(self)-> str:
-        # ### 开始 redundant check
-        # if not session_frames_root.exists():
-        #     push_log("没有找到 session dir, 请检查 Z 盘是否连接", is_error=True)
-        #     raise UserInterrupt
-        # if not session_frames_root.is_writable():
-        #     push_log("目标路径不可写", is_error=True)
-        #     raise UserInterrupt
-        # ### find latest year dpath
-        # year_pattern = r"2\d{3}$" # A105 不可能存活到 3000 年
-        # def _year_sorter(dpath: MyPath):
-        #     if re.match(year_pattern, dpath.name):
-        #         return int(dpath.name)
-        #     else:
-        #         return -1 # 其他我不关心的东西都排最前面
-        # lst_year_dirs = sorted(list(session_frames_root.iterdir()), key= _year_sorter)
-        # if not lst_year_dirs:
-        #     push_log("保存失败: 帧数据路径是空的", is_error=True)
-        #     raise UserInterrupt
-        # dpath_year = lst_year_dirs[-1]
-        # if not re.match(year_pattern, dpath_year.name):
-        #     push_log("保存失败: 帧数据路径中没有任何文件夹", is_error=True)
-        #     raise UserInterrupt
-        # ### find latest month dpath
-        # month_sort_dict = dict()
-        # for key, val in month_dict.items():
-        #     month_sort_dict[val] = int(key)
-        # def _month_sorter(dpath: MyPath):
-        #     if dpath.name in month_sort_dict:
-        #         return month_sort_dict[dpath.name]
-        #     else:
-        #         return -1
-        # lst_month_dirs = sorted(list(dpath_year.iterdir()), key= _month_sorter)
-        # if not lst_month_dirs:
-        #     push_log("保存失败: 当年文件夹是空的", is_error=True)
-        #     raise UserInterrupt
-        # dpath_month = lst_month_dirs[-1]
-        # if dpath_month.name not in month_sort_dict:
-        #     push_log("保存失败: 当年文件夹中没有任何月份文件夹", is_error=True)
-        #     raise UserInterrupt
-        # ### find latest day dpath
-        # day_pattern = r"^\d{2}$"
-        # def _day_sorter(dpath: MyPath):
-        #     if re.match(day_pattern, dpath.name):
-        #         return int(dpath.name)
-        #     else:
-        #         return -1
-        # lst_day_dirs = sorted(list(dpath_month.iterdir()), key= _day_sorter)
-        # if not lst_day_dirs:
-        #     push_log("保存失败: 当月文件夹是空的", is_error=True)
-        #     raise UserInterrupt
-        # dpath_day = lst_day_dirs[-1]
-        # if not re.match(day_pattern, dpath_day.name):
-        #     push_log("保存失败: 当月文件夹中没有任何日期文件夹", is_error=True)
-        #     raise UserInterrupt
-        # ### find latest session dpath
-        # session_pattern = r"^\d{4}$"
-        # def _session_sorter(dpath: MyPath):
-        #     if re.match(session_pattern, dpath.name):
-        #         return int(dpath.name)
-        #     else:
-        #         return -1
-        # lst_ses_dirs = sorted(list(dpath_day.iterdir()), key= _session_sorter)
-        # if not lst_ses_dirs:
-        #     push_log("保存失败: 当日文件夹是空的", is_error=True)
-        #     raise UserInterrupt
-        # dpath_ses = lst_ses_dirs[-1]
-        # if not re.match(session_pattern, dpath_ses.name):
-        #     push_log("保存失败: 当日文件夹中没有任何 session 文件夹", is_error=True)
-        #     raise UserInterrupt
-        ### 结束 redundant check 并得到最新的 session dpath
         dpath_ses = find_latest_sesframes_folder() # produces UserInterrupt if folder seeking fails
         str_ses = str(dpath_ses.name)
         now = datetime.now()
@@ -364,7 +284,7 @@ class FrameDeck(list):
 
 
 def find_latest_camguiparams_json() ->MyPath:
-    dpath_day = _find_newest_daypath_in_save_tree(camgui_params_root)
+    dpath_day = find_newest_daypath_in_save_tree(camgui_params_root)
     ### find latest camgui params json file
     # json_pattern = r"^CA[0-9]+$"
     # def _session_sorter(dpath: MyPath):
@@ -430,7 +350,7 @@ def st_workerf_flagged_do_all(
     cam: DCAM.DCAM.DCAMCamera,
     flag: threading.Event,
     frame_deck: FrameDeck,
-    controller: DDSRampController, # type is DDSRampController, not hinted because it acts funny on macOS
+    controller : DDSRampController, # type is DDSRampController, not hinted because it acts funny on macOS
     )-> None:
     """
     single-thread approach worker function which is flagged and does everythig:
@@ -618,9 +538,6 @@ def _mp_workerf_dummy_remote_buffer_feeder(
                 push_log("已向假相机 mp buffer 发送 500 帧", is_good=True)
                 break
 
-# def _mp_pass_hello(conn: multiprocessing.connection.Connection):
-#     conn.send("hello")
-#     conn.close()
 
 def _dummy_mp_producerf_polling_do_snag_rearrange_send(
         conn_sig: multiprocessing.connection.Connection,
@@ -754,9 +671,7 @@ def collect_awg_params() -> tuple:
             end_site_on_row, end_site_on_col,
             num_segments, power_ramp_time, move_time,
             percentage_total_power_for_list, ramp_type, tgt2darr)
-# with dpg.theme() as theme_error_blinking:
-#     with dpg.theme_component(dpg.mvChildWindow):
-#         dpg.add_theme_color(dpg.mvThemeCol_FrameBg, )
+
 
 _bullets = cycle(["-", "*", "+", "•", "°"])
 def _push_log(msg:str, *, 
@@ -800,17 +715,7 @@ def push_log(*args, **kwargs):
         _push_log(*args, **kwargs)
     else:
         dpg.set_frame_callback(3, lambda: _push_log(*args, **kwargs))
-# def push_exception3(
-#         e: Exception, 
-#         user_msg: str # force myself to give a user friendly comment about what error might have happened
-#         ):
-#     """
-#     在 catch exception 的时候, 在 log window 显示 exception (因为 gui 没有 REPL)
-#     """
-#     push_log(user_msg 
-#              + "\n" 
-#              + f"exception type: {type(e).__name__}\nexception msg: {e}",
-#                             is_error=True)
+
 def push_exception(user_msg: str=""):
     """
     在 camgui log window 中显示 traceback 的 exception
@@ -883,13 +788,7 @@ def save_camgui_json_to_savetree():
     else:
         dpath_day.mkdir(parents=True)
         new_str_json = 'CA1.json'
-        # lst_json_fpaths = list(dpath_day.iterdir())
-        # if lst_json_fpaths:  # 防止 day dir 是空的, 这种情况只可能发生在用户手动清空 day dir 的时候
-        #     ...
-        # else:
-        #     new_json_name = 'CA1.json'
     fpath = dpath_day / new_str_json
-    # print(fpath)
     with open(fpath, 'w') as f:
         json.dump(panel_params._asdict(), f, 
                   indent = 2, # @GPT more human-readable
@@ -898,4 +797,3 @@ def save_camgui_json_to_savetree():
     if extra_confirm:
         push_log('虽然有异常, 但是 camgui json 文件夹依然创建成功', is_good =True)
     return new_str_json
-    # fpath.mkdir(parents = True)
