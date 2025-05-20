@@ -48,7 +48,7 @@ class MyPath(Path):
     def is_executable(self):
         return os.access(self, os.X_OK)
 
-session_data_root = MyPath("Z:/实验数据/session_data_root")
+session_data_root = MyPath("session_data_root")
 session_frames_root = session_data_root / "session_frames"
 # 未来还会有一个 session_params_root, 用于存放 session manager 面板数据, 只有 session_frames_root 和 session_params_root 可以用 session 这个前缀, 其他任何仪器软件保存的面板数据都不应该以 session 做前缀
 camgui_params_root = session_data_root / "camgui_params"
@@ -91,10 +91,8 @@ def find_newest_daypath_in_save_tree(root_dir : MyPath)-> MyPath:
     """
     ### 开始 redundant check
     if not root_dir.exists():
-        # push_log("没有找到 session dir, 请检查 Z 盘是否连接", is_error=True)
         raise UserInterrupt("没有找到 session dir, 请检查 Z 盘是否连接")
     if not root_dir.is_writable():
-        # push_log("目标路径不可写", is_error=True)
         raise UserInterrupt("目标路径不可写")
     ### find latest year dpath
     year_pattern = r"2\d{3}$" # A105 不可能存活到 3000 年
@@ -105,11 +103,9 @@ def find_newest_daypath_in_save_tree(root_dir : MyPath)-> MyPath:
             return -1 # 其他我不关心的东西都排最前面
     lst_year_dirs = sorted(list(root_dir.iterdir()), key= _year_sorter)
     if not lst_year_dirs:
-        # push_log("保存失败: 帧数据路径是空的", is_error=True)
         raise UserInterrupt("异常: 帧数据路径是空的")
     dpath_year = lst_year_dirs[-1]
     if not re.match(year_pattern, dpath_year.name):
-        # push_log("保存失败: 帧数据路径中没有任何文件夹", is_error=True)
         raise UserInterrupt("异常: 帧数据路径中没有任何文件夹")
     ### find latest month dpath
     month_sort_dict = dict()
@@ -122,11 +118,9 @@ def find_newest_daypath_in_save_tree(root_dir : MyPath)-> MyPath:
             return -1
     lst_month_dirs = sorted(list(dpath_year.iterdir()), key= _month_sorter)
     if not lst_month_dirs:
-        # push_log("保存失败: 当年文件夹是空的", is_error=True)
         raise UserInterrupt("异常: 当年文件夹是空的")
     dpath_month = lst_month_dirs[-1]
     if dpath_month.name not in month_sort_dict:
-        # push_log("保存失败: 当年文件夹中没有任何月份文件夹", is_error=True)
         raise UserInterrupt("异常: 当年文件夹中没有任何月份文件夹")
     ### find latest day dpath
     day_pattern = r"^\d{2}$"
@@ -137,11 +131,9 @@ def find_newest_daypath_in_save_tree(root_dir : MyPath)-> MyPath:
             return -1
     lst_day_dirs = sorted(list(dpath_month.iterdir()), key= _day_sorter)
     if not lst_day_dirs:
-        # push_log("保存失败: 当月文件夹是空的", is_error=True)
         raise UserInterrupt("异常: 当月文件夹是空的")
     dpath_day = lst_day_dirs[-1]
     if not re.match(day_pattern, dpath_day.name):
-        # push_log("保存失败: 当月文件夹中没有任何日期文件夹", is_error=True)
         raise UserInterrupt("异常: 当月文件夹中没有任何日期文件夹")
     return dpath_day
 
@@ -156,11 +148,9 @@ def find_latest_sesframes_folder() ->MyPath:
             return -1
     lst_ses_dirs = sorted(list(dpath_day.iterdir()), key= _session_sorter)
     if not lst_ses_dirs:
-        # push_log("异常: 帧数据 save tree 中最新日期的文件夹是空的", is_error=True)
         raise UserInterrupt("异常: 帧数据 save tree 中最新日期的文件夹是空的")
     dpath_ses = lst_ses_dirs[-1]
     if not re.match(session_pattern, dpath_ses.name):
-        # push_log("异常: 帧数据 save tree 中最新日期的文件夹中没有任何 session 编号文件夹", is_error=True)
         raise UserInterrupt("异常: 帧数据 save tree 中最新日期的文件夹中没有任何 session 编号文件夹")
     return dpath_ses
 
@@ -174,10 +164,6 @@ def mkdir_session_frames() -> str:
     """
     from .core import push_exception, push_log # import inside this func to avoid circular importation error (happens when this import is put on top of .py). 这个 lazy loading 在这里是正当的权宜之计, 因为最终 make session dir 的是 session manager, 而不是 camgui, make session dir 失败时, 报错是在 session manager 中报错, 不是在 camgui 中, 因此最终 make session dir 时完全用不到 camgui 的 push_log 函数
     dpath_day = _mk_save_tree_from_root_to_day(session_frames_root)
-    # if session_frames_root.is_dir() and session_frames_root.is_writable(): # `is_dir` 保证 dir 存在且是 dir (不是文件名), `is_writable` 保证 dir 可写. 这个 check 用于在 Z 盘丢失 (或者换新 Z 盘的时候) 给用户一个信息, 要求用户重新连接 Z 盘, 或者 explicitly 设置好空的 frames root
-    #     year_str, month_str, day_str = datetime.date.today().strftime("%Y-%m-%d").split("-")
-    #     month_str = month_dict[month_str] # convert to chinese
-    #     dpath_day = session_frames_root / year_str / month_str / day_str
     extra_confirm = False
     if dpath_day.exists():
         try:
@@ -188,13 +174,6 @@ def mkdir_session_frames() -> str:
             push_exception('创建 session 文件夹时发现异常')
             new_ses_str = '0001'
             extra_confirm = True
-        # lst_ses_dpaths = list(dpath_day.iterdir())
-        # if lst_ses_dpaths: # 防止 day dir 是空的, 这种情况只可能发生在用户手动清空 day dir 的时候
-        #     final_ses_dpath = lst_ses_dpaths[-1]
-        #     new_ses_num = int(str(final_ses_dpath)[-4:]) + 1 
-        #     new_ses_str = str(new_ses_num).zfill(4)
-        # else:
-        #     new_ses_str = "0001"
     else:
         new_ses_str = '0001'
 
@@ -206,6 +185,3 @@ def mkdir_session_frames() -> str:
     if extra_confirm:
         push_log('虽然有异常, 但是 session 文件夹创建依然成功', is_good = True)
     return new_ses_str
-    # else:
-    #     # push_log(f"找不到用于存放帧数据的文件夹 {str(session_frames_root)}", is_error=True)
-    #     raise UserInterrupt

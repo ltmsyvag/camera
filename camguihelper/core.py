@@ -28,12 +28,12 @@ import colorsys
 import tifffile
 from .utils import MyPath, UserInterrupt, camgui_params_root, _mk_save_tree_from_root_to_day, find_latest_sesframes_folder, find_newest_daypath_in_save_tree
 import dearpygui.dearpygui as dpg
-# import platform, uuid
-# system = platform.system()
-# if (system == "Windows") and (hex(uuid.getnode()) != '0xf4ce2305b4c7'): # code is A402 computer
-import spcm
-from AWG_module.no_with_func import DDSRampController
-from AWG_module.unified import feed_AWG
+import platform, uuid
+system = platform.system()
+if (system == "Windows") and (hex(uuid.getnode()) != '0xf4ce2305b4c7'): # code is A402 computer
+    import spcm
+    from AWG_module.no_with_func import DDSRampController
+    from AWG_module.unified import feed_AWG
 
 class FrameDeck(list):
     """
@@ -350,7 +350,7 @@ def st_workerf_flagged_do_all(
     cam: DCAM.DCAM.DCAMCamera,
     flag: threading.Event,
     frame_deck: FrameDeck,
-    controller : DDSRampController, # type is DDSRampController, not hinted because it acts funny on macOS
+    controller # : DDSRampController, # type is DDSRampController, not hinted because it acts funny on macOS
     )-> None:
     """
     single-thread approach worker function which is flagged and does everythig:
@@ -386,18 +386,6 @@ def _dummy_st_workerf_flagged_do_all(
         time.sleep(1)
         if frame_list:
             this_frame = frame_list.pop()
-            # beg = time.time()          
-            # frame_deck.append(this_frame)
-            # frame_deck.plot_frame_dwim()
-            # hLhRvLvR = dpg.get_item_user_data("frame plot")
-            # if hLhRvLvR:
-            #     _update_hist(hLhRvLvR, frame_deck)
-            # try:
-            #     frame_deck._find_lastest_sesframes_folder_and_save_frame()
-            # except UserInterrupt:
-            #     pass
-            # end = time.time()
-            # push_log(f"绘图和存储耗时{(end-beg)*1e3:.3f} ms")
             frame_deck._append_save_plot(this_frame)
         else:
             break
@@ -501,11 +489,6 @@ def mt_producerf_polling_do_snag_rearrange_deposit(
     local_buffer.put(None) # poison pill    
 
 ### dual processes approach 需要的 objects:
-# conn_sig_main, conn_sig_child = multiprocessing.Pipe()
-# conn_frame_main, conn_frame_child = multiprocessing.Pipe()
-# import copy
-# frame_list_ = copy.deepcopy(frame_list) # mp 方案专用的假数据
-# _mp_dummy_remote_buffer = multiprocessing.Queue()
 def _mp_workerf_dummy_remote_buffer_feeder(
         q: multiprocessing.Queue)-> None:
     """

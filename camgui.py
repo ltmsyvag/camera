@@ -99,7 +99,7 @@ if __name__ == '__main__':
     repo: https://github.com/ltmsyvag/camera
                                     """, 
                                     win_label="info", just_close=True))
-    dummy_acq = False # 假采集代码的总开关
+    dummy_acq = True # 假采集代码的总开关
     if dummy_acq:
         _mp_dummy_remote_buffer = multiprocessing.Queue() # mp dummy remote buffer 必须在主脚本中创建, 才能确保 mp dummy buffer feeder 和 mp producer 所用的 Queue 对象是同一个
     with dpg.window(label= "控制面板", tag = winCtrlPanels):
@@ -126,12 +126,6 @@ if __name__ == '__main__':
                     cam = DCAM.DCAMCamera()
                     cam.open()
                     do_set_cam_params_by_gui()
-                    # expFieldValInMs = dpg.get_value(fldExposure) 
-                    # cam.set_exposure(expFieldValInMs*1e-3)
-                    # expoCamValInS = cam.cav["exposure_time"]
-                    # dpg.set_value(fldExposure, expoCamValInS*1e3)
-                    # do_set_cam_roi_using_6fields_roi()
-                    # do_set_6fields_roi_using_cam_roi()
                 dpg.bind_item_font(togCam, large_font)
                 @toggle_state_and_enable("expo and roi fields", "acquisition toggle")
                 def _cam_toggle_cb_(__, _, user_data):
@@ -140,19 +134,6 @@ if __name__ == '__main__':
                     global cam
                     if next_state:
                         do_cam_open_sequence()
-                        # # if "cam" not in globals():
-                        # cam = DCAM.DCAMCamera()
-                        # # if cam.is_opened():
-                        # # cam.close()
-                        # cam.open()
-                        # # print("cam is opened")
-                        # expFieldValInMs = dpg.get_value(fldExposure) 
-                        # cam.set_exposure(expFieldValInMs*1e-3)
-                        # expoCamValInS = cam.cav["exposure_time"]
-                        # dpg.set_value(fldExposure, expoCamValInS*1e3)
-                        
-                        # do_set_cam_roi_using_6fields_roi()
-                        # do_set_6fields_roi_using_cam_roi()
                     else:
                         cam.close()
                         # cam = None # commented, because I actually want to retain a closed cam object after toggling off the cam, for cam checks that might be useful
@@ -173,7 +154,6 @@ if __name__ == '__main__':
                         "off label" : "触发采集已停止",
                         "on label" : "触发采集进行中",
                         "acq thread flag": threading.Event(),
-                        # "acq thread": None,
                         })
                 @toggle_state_and_enable(
                         "expo and roi fields", togCam,
@@ -195,7 +175,7 @@ if __name__ == '__main__':
                             t_worker_do_all = user_data["thread1"]
                             flag.clear()
                             t_worker_do_all.join()
-                            user_data["thread1"] = None # this is probably a sanity code, can do without
+                            # user_data["thread1"] = None # this is probably a sanity code, can do without
                     elif dpg.get_value(mItemDualThreads):
                         if next_state:
                             t_producer = threading.Thread(
@@ -215,7 +195,6 @@ if __name__ == '__main__':
                             t_producer.join()
                             t_consumer.join()
                     else: # dual processes
-                        # from camguihelper.core import _mp_access_camgui_panels
                         if next_state:
                             exposure = cam.cav["exposure time"] # 为了将这些 cam 参数 carry 到新进程中, 在关闭 cam 前, 先取得这些参数
                             hstart, hend, vstart, vend, hbin, vbin = cam.get_roi()
@@ -543,9 +522,10 @@ if __name__ == '__main__':
         _default_path = find_newest_daypath_in_save_tree(session_frames_root)
     except Exception:
         _default_path = session_frames_root
+    # print(_default_path)
     with dpg.file_dialog( # file dialog 就是一个独立的 window, 因此在应该在 root 定义, 与其他 window 内的元素在形式上解耦
         label= '载入帧数据', directory_selector=False, 
-        show=False, modal=True, default_path= session_frames_root,
+        show=False, modal=True, default_path= _default_path,
         width=700, height=400) as fileDialog:
         # dpg.add_button(label="log", callback = _log)
         dpg.add_file_extension("", color = (150,255,150,255)) # 让文件夹显示为绿色
@@ -596,12 +576,8 @@ if __name__ == '__main__':
         label= '载入 camgui json 文件', directory_selector=False,
         show=False, modal=True, default_path=  _default_path,
         width=700 ,height=400) as jsonDialog:
-        # dpg.add_button(label="log", callback = _log)
         dpg.add_file_extension("", color = (150,255,150,255)) # 让文件夹显示为绿色
-        # dpg.add_file_extension(".*") # 显示 _select_all
         dpg.add_file_extension(".json")
-        # dpg.add_file_extension(".tiff")
-        # dpg.add_file_extension("json files (*.tif *.tiff){.tif,.tiff}") # the {} part is what the file dialog really parses, others are for human eyes
         def _ok_cb_(_, app_data, __) -> None:
             dict_fnames : dict = app_data['selections']
             if len(dict_fnames)>1:
@@ -770,17 +746,11 @@ if __name__ == '__main__':
             heatmap_ykwargs = dict(label= "", invert=True)
 
             def _dupe_heatmap():
-                # xax = dpg.generate_uuid() # 在实际创建这些 items 之前就要用到它们的 tag, 故先创建此 tag
-                # yax = dpg.generate_uuid() 
-                # inputInt = dpg.generate_uuid() 
-                # radioBtn = dpg.generate_uuid()
-                # cBox = dpg.generate_uuid()
                 dupe_map = DupeMap(
                     yAx = dpg.generate_uuid(),
                     inputInt = dpg.generate_uuid(),
                     radioBtn = dpg.generate_uuid(),
                     cBox = dpg.generate_uuid())
-                # dupe_map_items = yax, inputInt, radioBtn, cBox
                 def _on_close(sender, *args):
                     """
                     window 的 on close callback 貌似不同于普通 callback, 只能在创建 window 时设置, 
@@ -924,7 +894,7 @@ if __name__ == '__main__':
             dpg.add_plot_axis(dpg.mvXAxis, label = "converted counts ((<frame pixel counts>-200)*0.1/0.9)")
             dpg.add_plot_axis(dpg.mvYAxis, label = "frequency", tag = "hist plot yax")
     
-    if dummy_acq: # do dummy acquisition
+    if dummy_acq: #Trueummy acquisition
         dpg.set_item_callback(togCam,_dummy_cam_toggle_cb_)
         dpg.set_item_callback(togAcq, _dummy_toggle_acq_cb)
         cam = None # probably needed for dummy acquisition, the same reason as needing controller = None
@@ -934,7 +904,6 @@ if __name__ == '__main__':
         t_mt_remote_buffer_feeder.start()
         t_mp_remote_buffer_feeder = threading.Thread(target = _mp_workerf_dummy_remote_buffer_feeder, args=(_mp_dummy_remote_buffer,))
         t_mp_remote_buffer_feeder.start()
-        # dpg.set_frame_callback(3, lambda:thread_remote_buffer_feeder.start())
     # dpg.show_style_editor()
     dpg.setup_dearpygui()
     dpg.show_viewport()
