@@ -165,12 +165,6 @@ class FrameDeck(list):
             # print('yax', yax)
             thisPlot = dpg.get_item_parent(yax)
             dpg.configure_item(thisPlot, label = " ")
-            # heatmapSlot: List[int] = dpg.get_item_children(yax)[1]
-            # print('slot',heatmapSlot)
-            # if heatmapSlot:
-            #     heatSeries, = heatmapSlot
-            #     print('series', heatSeries)
-            #     dpg.delete_item(heatSeries)
     def get_all_tags_yaxes(self):
         lst_allyaxes = [map.yAx for map in self.lst_dupe_maps]
         lst_allyaxes.append("frame yax")
@@ -190,7 +184,7 @@ class FrameDeck(list):
             dpg.set_value("color scale lims", [int(fmin), int(fmax), 0, 0])
         else: # 在 dupe heatmap 中 plot 时, 啥都不干
             pass
-
+        
         if plot_mainframe_p: # always update color bar lims when doing main plot, whether the manual scale checkbox is checked or not
             dpg.configure_item(colorbar, min_scale = fmin, max_scale = fmax)
         

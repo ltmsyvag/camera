@@ -104,7 +104,7 @@ if __name__ == '__main__':
         _mp_dummy_remote_buffer = multiprocessing.Queue() # mp dummy remote buffer 必须在主脚本中创建, 才能确保 mp dummy buffer feeder 和 mp producer 所用的 Queue 对象是同一个
     with dpg.window(label= "控制面板", tag = winCtrlPanels):
         with dpg.menu_bar():
-            dpg.add_menu_item(label = '载入 json', callback= lambda: dpg.show_item(jsonDialog))
+            mItemLoadJson = dpg.add_menu_item(label = '载入 json', callback= lambda: dpg.show_item(jsonDialog))
         with dpg.group(label = "col panels", horizontal=True):
             with dpg.child_window(label = "cam panel", width=190):
                 _wid, _hi = 175, 40
@@ -156,7 +156,7 @@ if __name__ == '__main__':
                         "acq thread flag": threading.Event(),
                         })
                 @toggle_state_and_enable(
-                        "expo and roi fields", togCam,
+                        "expo and roi fields", togCam, mItemLoadJson,
                         "awg panel",
                         "target array binary text input", menuConcurrency,
                         on_and_enable= False)
@@ -239,7 +239,7 @@ if __name__ == '__main__':
                             if dpg.get_item_user_data("AWG toggle")["is on"]:
                                 raw_card, controller = gui_open_awg()
                 @toggle_state_and_enable(
-                        "expo and roi fields", togCam,
+                        "expo and roi fields", togCam, mItemLoadJson,
                         "awg panel",
                         "target array binary text input", menuConcurrency,
                         on_and_enable= False)
@@ -417,8 +417,6 @@ if __name__ == '__main__':
                     with dpg.theme_component(dpg.mvChildWindow):
                         dpg.add_theme_color(dpg.mvThemeCol_ChildBg, (0,0,0))
                 dpg.bind_item_theme(winLog, _thmBlackBG)
-                # dpg.add_button(label="msg", before=winLog, callback = lambda : push_log("hellohellohellohellohellohellohellohellohellohellohellohellohello"))
-                # dpg.add_button(label="error", before=winLog, callback = lambda : push_log("hell", is_error=True))
             with dpg.child_window(label = "awg panel"):
                 with dpg.group(tag = "awg panel"):
                     togAwg = dpg.add_button(tag = "AWG toggle",
