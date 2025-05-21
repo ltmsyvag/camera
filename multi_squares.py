@@ -21,11 +21,14 @@ dpg.set_global_font_scale(1.3)
 # the user interacts with the master plot, 
 # which compels the slave plot to be in sync with its axes
 _pltkwargs = dict(
-    pos = (10,20), height= -1, width=-1, query=False
+    pos = (10,20), 
+    height= -1, width=-1, 
+    query=False, 
+    equal_aspects= True, no_frame=False,
     )
 xbeg, ybeg, xend, yend = 0,0, 10, -10
 with dpg.window() as win1:
-    with dpg.plot(tag="slave plot", no_frame=True, **_pltkwargs):
+    with dpg.plot(tag="slave plot", **_pltkwargs):
         dpg.bind_colormap(dpg.last_item(), dpg.mvPlotColormap_Viridis)
         dpg.add_plot_axis(dpg.mvXAxis, tag= "slave xax")
         with dpg.plot_axis(dpg.mvYAxis, tag = "slave yax"):
@@ -43,10 +46,10 @@ with dpg.window() as win1:
                 (ybeg,yend,ybeg,yend),)
             with dpg.theme() as scatterThm:
                 with dpg.theme_component(dpg.mvScatterSeries):
-                    dpg.add_theme_color(dpg.mvPlotCol_MarkerFill, (0,0,0,0), category=dpg.mvThemeCat_Plots)
+                    dpg.add_theme_color(dpg.mvPlotCol_MarkerFill, (0,0,0,255), category=dpg.mvThemeCat_Plots)
                     dpg.add_theme_color(dpg.mvPlotCol_MarkerOutline, (0,0,0,0), category=dpg.mvThemeCat_Plots)
             dpg.bind_item_theme(scatterSeries, scatterThm)
-        _init_rect = (-0.1,-0.2,0.3,0.4)
+# print(dpg.get_value(scatterSeries))
 with dpg.theme() as masterplot_theme:
     with dpg.theme_component(dpg.mvPlot):
         dpg.add_theme_color(dpg.mvPlotCol_PlotBg, (0,0,0,0), category=dpg.mvThemeCat_Plots)
@@ -66,16 +69,32 @@ def sync_axes(_,__, user_data):
     if not params_master==params_slave:
         dpg.set_axis_limits(xax_slave, xmin_mst, xmax_mst)
         dpg.set_axis_limits(yax_slave, ymin_mst, ymax_mst)
+
+with dpg.item_handler_registry() as ihrRect:
+    def _cb(*args):
+        if dpg.is_key_down(dpg.mvKey_LAlt):
+            print('hello')
+    dpg.add_item_hover_handler(callback = _cb)
+
+def report_pos(sender, *args):
+    print(dpg.get_value(sender))
+
+dpg.add_button(parent=win1, label='hello', 
+            #    callback=lambda: print(dpg.get_value('stuff'))
+               callback=lambda: dpg.set_value(scatterSeries, [[-5,-5,5,5],[0,-10,0,-10], [], [], []])
+               )
+
 with dpg.item_handler_registry(tag= "master-slave sync hreg"):
     dpg.add_item_visible_handler(callback = sync_axes, user_data = ("master xax", "master yax", "slave xax", "slave yax"))
     def ctrl_add_rect(*args):
         if dpg.is_key_down(dpg.mvKey_LControl):
             x,y = dpg.get_plot_mouse_pos()
-            dpg.add_drag_rect(parent = 'master plot', 
+            dpg.add_drag_rect(parent = 'master plot', tag='stuff', callback= report_pos,
                                 default_value=(x-0.5,y-0.5, x+0.5, y+0.5)
                                 )
+            # dpg.bind_item_handler_registry('stuff', ihrRect)
     dpg.add_item_clicked_handler(callback = ctrl_add_rect)
-    dpg.add_item_double_clicked_handler(callback = lambda: print('hello'))
+    dpg.add_item_clicked_handler(callback = lambda: print('hello'))
 dpg.bind_item_handler_registry("master plot", "master-slave sync hreg")
 
 

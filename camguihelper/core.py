@@ -18,7 +18,7 @@ import copy
 import numpy.typing as npt
 from typing import List, Dict, Sequence
 import re
-from deprecated import deprecated
+# from deprecated import deprecated
 import math
 from datetime import datetime
 from pylablib.devices import DCAM
@@ -40,9 +40,7 @@ class FrameDeck(list):
     class of a special list with my own methods for manipulating the frames it stores
     """
 
-    def __init__(self, 
-                #  frames_root_str: str=str(frames_root) #默认使用 dirhelper 中定义的 frames root, 但允许 camgui.py 代码中用其他路径 override, 以便测试
-                 *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         """
         将状态变量作为 instance attr 初始化
         好处(相对于 class attr 来说)是在不重启 kernel, 只重启 camgui.py 的情况下,
@@ -265,7 +263,6 @@ class FrameDeck(list):
                 self.seslabel_deck.append(str_ses)
             except UserInterrupt:
                 self.seslabel_deck.append("未保存!")
-                # pass # failed save shall not interrupt acquisition
         else:
             self.seslabel_deck.append("未保存!")
         self.plot_frame_dwim()
@@ -273,19 +270,11 @@ class FrameDeck(list):
         if hLhRvLvR:
             _update_hist(hLhRvLvR, self)
         end = time.time()
-
         push_log(f"绘图和存储耗时{(end-beg)*1e3:.3f} ms")
 
 
 def find_latest_camguiparams_json() ->MyPath:
     dpath_day = find_newest_daypath_in_save_tree(camgui_params_root)
-    ### find latest camgui params json file
-    # json_pattern = r"^CA[0-9]+$"
-    # def _session_sorter(dpath: MyPath):
-    #     if re.match(json_pattern, dpath.name):
-    #         return int(dpath.name[2:])
-    #     else:
-    #         return -1
     json_pattern = r'^CA([0-9]+)\.json$'
     def _camgui_json_sorter(fpath: MyPath):
         match = re.match(json_pattern, fpath.name)

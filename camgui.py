@@ -738,7 +738,9 @@ if __name__ == '__main__':
             cidIndcator = dpg.add_button(tag="cid indicator", label="N/A", width=40, height=29)
             with dpg.tooltip(dpg.last_item(), **ttpkwargs):
                 dpg.add_text("数字是帧的 python id (从零开始)\n内存为空的时候显示 'N/A'")
-            heatmap_plot_kwargs = dict(no_mouse_pos=False, height=-1, width=-1, equal_aspects=True)
+            heatmap_plot_kwargs = dict(no_mouse_pos=False, height=-1, width=-1, equal_aspects=True,
+                                       pos=(0,0), # double layer specific kwarg
+                                       )
             heatmap_xyaxkwargs = dict(no_gridlines = True, no_tick_marks = True)
             heatmap_xkwargs = dict(label= "", opposite=True)
             heatmap_ykwargs = dict(label= "", invert=True)
@@ -828,18 +830,52 @@ if __name__ == '__main__':
                                 height=-1
                                 )
             dpg.bind_colormap(dpg.last_item(), myCmap)
-            with dpg.plot(tag="frame plot",
-                        query=True, query_color=(255,0,0), max_query_rects=1, min_query_rects=0,
-                        **heatmap_plot_kwargs) as framePlot:
-                dpg.bind_colormap(dpg.last_item(), myCmap)
-                
-                dpg.add_plot_axis(dpg.mvXAxis, tag = "frame xax",**heatmap_xkwargs, **heatmap_xyaxkwargs)
-                frameYax = dpg.add_plot_axis(dpg.mvYAxis, tag= "frame yax", **heatmap_ykwargs, **heatmap_xyaxkwargs)
-                for ax in ["frame xax", "frame yax"]:
+            doubleplots_container_window_kwargs = dict(no_scrollbar = True, border=False)
+            with dpg.child_window(**doubleplots_container_window_kwargs): # 这个 child window 的唯一作用是让 double layer 的 plots 能够用相同的 pos 参数
+                # with dpg.plot(tag="frame plot",
+                #             query=True, query_color=(255,0,0), max_query_rects=1, min_query_rects=0,
+                #             **heatmap_plot_kwargs) as framePlot:
+                #     dpg.bind_colormap(dpg.last_item(), myCmap)
+                    
+                #     dpg.add_plot_axis(dpg.mvXAxis, tag = "frame xax",**heatmap_xkwargs, **heatmap_xyaxkwargs)
+                #     frameYax = dpg.add_plot_axis(dpg.mvYAxis, tag= "frame yax", **heatmap_ykwargs, **heatmap_xyaxkwargs)
+                #     for ax in ["frame xax", "frame yax"]:
+                #         dpg.set_axis_limits(ax, 0, 240)
+                #         # dpg.split_frame() # waits forever because frames are not rolling in the context creation stage
+                #     def _do_loosen_initial_lims():
+                #         for ax in ["frame xax", "frame yax"]:
+                #             dpg.set_axis_limits_auto(ax)
+                #     dpg.set_frame_callback(2, _do_loosen_initial_lims) # seems this is the only way to set the initial limits
+                # _pltkwargs = dict(
+                #                 pos = (10,20), 
+                #                 height= -1, width=-1, 
+                #                 query=False, 
+                #                 equal_aspects= True, no_frame=False,
+                #                 )
+                with dpg.plot(tag="frame plot",
+                            # query=True, query_color=(255,0,0), max_query_rects=1, min_query_rects=0,
+                            **heatmap_plot_kwargs) as framePlot:
+                    dpg.bind_colormap(dpg.last_item(), myCmap)
+                    
+                    dpg.add_plot_axis(dpg.mvXAxis, tag = "frame xax", **heatmap_xkwargs, **heatmap_xyaxkwargs)
+                    frameYax = dpg.add_plot_axis(dpg.mvYAxis, tag= "frame yax", **heatmap_ykwargs, **heatmap_xyaxkwargs)
+                #===============================
+                with dpg.plot(**heatmap_plot_kwargs) as rectsPlot:
+                    rectsXax = dpg.add_plot_axis(dpg.mvXAxis, **heatmap_xkwargs, **heatmap_xyaxkwargs)
+                    rectsYax = dpg.add_plot_axis(dpg.mvYAxis, **heatmap_ykwargs, **heatmap_xyaxkwargs)
+                with dpg.theme() as masterMapThm:
+                    """
+                    the transparent theme of master plot
+                    """
+                    with dpg.theme_component(dpg.mvPlot):
+                        dpg.add_theme_color(dpg.mvPlotCol_PlotBg, (0,0,0,0), category=dpg.mvThemeCat_Plots)
+                        dpg.add_theme_color(dpg.mvPlotCol_FrameBg, (0,0,0,0), category=dpg.mvThemeCat_Plots)
+                dpg.bind_item_theme(rectsPlot, masterMapThm)
+                for ax in ["frame xax", "frame yax", rectsXax, rectsYax]:
                     dpg.set_axis_limits(ax, 0, 240)
                     # dpg.split_frame() # waits forever because frames are not rolling in the context creation stage
                 def _do_loosen_initial_lims():
-                    for ax in ["frame xax", "frame yax"]:
+                    for ax in ["frame xax", "frame yax", rectsXax, rectsYax]:
                         dpg.set_axis_limits_auto(ax)
                 dpg.set_frame_callback(2, _do_loosen_initial_lims) # seems this is the only way to set the initial limits
                 def floorHalfInt(num: float) -> float: # 0.6, 0.5 -> 0.5; 0.4 -> -0.5
@@ -867,19 +903,19 @@ if __name__ == '__main__':
                     else: # this is only needed for the current query rect solution for hist udpates. actions from other items cannot check app_data of this item directly (usually dpg.get_value(item) can check the app_data of an item, but not for this very special query rect coordinates app_data belonging to the heatmap plot!), so they check the user_data of this item. since I mean to stop any histogram updating when no query rect is present, then this no-rect info is given by user_data = None of the heatmap plot.
                         dpg.set_item_user_data(sender, None)
                 dpg.set_item_callback(framePlot,callback=_update_hist_on_query_)
-        #===本 checkbox 需要画在 plot 上面, 因此在 plot 添加
-        dpg.add_checkbox(tag="toggle 积分/单张 map", pos = (85,153))
-        @toggle_checkbox_and_disable(leftArr, rightArr, 
-                                    #  cidIndcator # commented because we want to duplicate map when the main map is showing avg frame
-                                    )
-        def _toggle_cid_and_avg_map_(_, app_data,__):
-            if app_data:
-                frame_deck.plot_avg_frame()
-            else:
-                frame_deck.plot_cid_frame()
-        dpg.set_item_callback(dpg.last_item(), _toggle_cid_and_avg_map_)
-        with dpg.tooltip(dpg.last_item(), **ttpkwargs):
-            dpg.add_text("切换单帧/平均帧")
+                #===本 checkbox 需要画在 plot 上面, 因此在 plot 后添加
+                dpg.add_checkbox(tag="toggle 积分/单张 map", pos = (0, 0))
+                @toggle_checkbox_and_disable(leftArr, rightArr, 
+                                            #  cidIndcator # commented because we want to duplicate map when the main map is showing avg frame
+                                            )
+                def _toggle_cid_and_avg_map_(_, app_data,__):
+                    if app_data:
+                        frame_deck.plot_avg_frame()
+                    else:
+                        frame_deck.plot_cid_frame()
+                dpg.set_item_callback(dpg.last_item(), _toggle_cid_and_avg_map_)
+                with dpg.tooltip(dpg.last_item(), **ttpkwargs):
+                    dpg.add_text("切换单帧/平均帧")
     with dpg.window(label="直方图", tag=winHist, 
                     width = 500, height =300):
         dpg.add_input_int(
