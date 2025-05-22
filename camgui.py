@@ -49,7 +49,6 @@ if __name__ == '__main__':
     toggle_state_and_enable = do_extend_add_button()
     myCmap = dpg.mvPlotColormap_Viridis
 
-
     dpg.create_viewport(title='camera', 
                         width=1460, height=1020, x_pos=0, y_pos=0, clear_color=(0,0,0,0),
                         vsync=False) # important option to dismiss input lab, see https://github.com/hoffstadt/DearPyGui/issues/1571
@@ -491,7 +490,7 @@ if __name__ == '__main__':
 
     with dpg.window(label = "设置目标阵列", tag = winTgtArr,
                     pos = (200,200), width = 430, height=430):
-        dpg.set_frame_callback(1,lambda: dpg.configure_item(winTgtArr, show=False)) # hide win on 1st frame, not during context creation, else this hidden-by-default window's size won't be remembered by init file
+        dpg.set_frame_callback(1,lambda: dpg.configure_item(winTgtArr, show=False)) # hide win on 1st frame, not during context creation, otherwise this hidden-by-default window's size won't be remembered by init file
         dpg.add_input_text(tag = "target array binary text input",
             multiline= True, width=-1,height=-1,
             default_value="""\
@@ -644,13 +643,15 @@ if __name__ == '__main__':
                         dpg.bind_colormap(frameColBar, cmap)
                         dpg.bind_colormap(framePlot, cmap)
                         for map in frame_deck.lst_dupe_maps:
-                            tagPlot = dpg.get_item_parent(map.yAx)
-                            dpg.bind_colormap(tagPlot, cmap)
+                            tagPlotSlv = dpg.get_item_parent(map.yAxSlv)
+                            dpg.bind_colormap(tagPlotSlv, cmap)
                         lst_other_menu_items: list = dpg.get_item_children(dpg.get_item_parent(sender))[1]
                         lst_other_menu_items.remove(sender)
                         dpg.set_value(sender, True)
                         for item in lst_other_menu_items:
                             dpg.set_value(item, False)
+                        global myCmap
+                        myCmap = cmap
                     return cb_bind_heatmap_theme
                 
                 dpg.add_menu_item(label="Deep", callback= factory_cb_bind_heatmap_cmap(dpg.mvPlotColormap_Deep), check=True)
@@ -713,8 +714,8 @@ if __name__ == '__main__':
                 fmin, fmax, *_ = app_data
                 # print(heatSeries)
                 dpg.configure_item(frameColBar, min_scale = fmin, max_scale = fmax)
-                for yax in frame_deck.get_all_tags_yaxes():
-                    heatmapSlot = dpg.get_item_children(yax)[1]
+                for yAxSlv in frame_deck.get_all_tags_yaxes()[0]:
+                    heatmapSlot = dpg.get_item_children(yAxSlv)[1]
                     if heatmapSlot:
                         heatSeries, = heatmapSlot
                         dpg.configure_item(heatSeries, scale_min = fmin, scale_max = fmax)
@@ -738,16 +739,46 @@ if __name__ == '__main__':
             cidIndcator = dpg.add_button(tag="cid indicator", label="N/A", width=40, height=29)
             with dpg.tooltip(dpg.last_item(), **ttpkwargs):
                 dpg.add_text("数字是帧的 python id (从零开始)\n内存为空的时候显示 'N/A'")
-            heatmap_plot_kwargs = dict(no_mouse_pos=False, height=-1, width=-1, equal_aspects=True,
+            doubleplots_container_window_kwargs = dict(no_scrollbar = True, border=False)
+            heatmap_pltkwargs = dict(no_mouse_pos=False, height=-1, width=-1, equal_aspects=True,
                                        pos=(0,0), # double layer specific kwarg
                                        )
             heatmap_xyaxkwargs = dict(no_gridlines = True, no_tick_marks = True)
             heatmap_xkwargs = dict(label= "", opposite=True)
             heatmap_ykwargs = dict(label= "", invert=True)
-
+            with dpg.theme() as thmTranspBGforMaster:
+                """
+                the transparent theme of master plot
+                """
+                with dpg.theme_component(dpg.mvPlot):
+                    dpg.add_theme_color(dpg.mvPlotCol_PlotBg, (0,0,0,0), category=dpg.mvThemeCat_Plots)
+                    dpg.add_theme_color(dpg.mvPlotCol_FrameBg, (0,0,0,0), category=dpg.mvThemeCat_Plots)
+            def factory_ihr_master_plot(xAxSlv, yAxSlv, xAxMstr, yAxMstr):
+                """
+                factory producing item handler registry to be bound to the master heatmap
+                由于需要同步的 slave-master 的 x 轴和 y 轴需要 explicitly 指定 (dpg quirks),
+                因此每一对 slave-master 的 ihr 都不一样, 需要一个 factory 来生成
+                """
+                with dpg.item_handler_registry() as ihrMaster:
+                    def sync_axes(_,__, user_data):
+                        """
+                        obtain master plot's axes range, using which we set the axes range of slave plot,
+                        """
+                        xax_slave, yax_slave, xax_master, yax_master = user_data
+                        params_master = xmin_mst, xmax_mst, ymin_mst, ymax_mst = *dpg.get_axis_limits(xax_master), *dpg.get_axis_limits(yax_master)
+                        params_slave = *dpg.get_axis_limits(xax_slave), *dpg.get_axis_limits(yax_slave)
+                        if not params_master==params_slave:
+                            dpg.set_axis_limits(xax_slave, xmin_mst, xmax_mst)
+                            dpg.set_axis_limits(yax_slave, ymin_mst, ymax_mst)
+                    dpg.add_item_visible_handler(
+                        callback=sync_axes, 
+                        # user_data = [rectsXax, rectsYax, 'frame xax', 'frame yax']
+                        user_data = [xAxSlv, yAxSlv, xAxMstr, yAxMstr])
+                return ihrMaster
             def _dupe_heatmap():
                 dupe_map = DupeMap(
-                    yAx = dpg.generate_uuid(),
+                    yAxSlv = dpg.generate_uuid(),
+                    yAxMstr = dpg.generate_uuid(),
                     inputInt = dpg.generate_uuid(),
                     radioBtn = dpg.generate_uuid(),
                     cBox = dpg.generate_uuid())
@@ -758,7 +789,8 @@ if __name__ == '__main__':
                     """
                     frame_deck.lst_dupe_maps.remove(dupe_map)
                     dpg.delete_item(sender)
-                with dpg.window(width=300, height=300, on_close=_on_close, label = f"#{len(frame_deck.lst_dupe_maps)}"):
+                with dpg.window(width=300, height=300, on_close=_on_close,
+                                label = f"#{len(frame_deck.lst_dupe_maps)}"):
                     frame_deck.lst_dupe_maps.append(dupe_map)
                     with dpg.group(horizontal=True) as _grp:
                         #==============================
@@ -795,26 +827,40 @@ if __name__ == '__main__':
                                 dpg.configure_item(dupe_map.inputInt, max_clamped = False)
                                 dpg.configure_item(dupe_map.inputInt, min_value = 0, min_clamped = True)
                         dpg.set_item_callback(dupe_map.radioBtn, _cb_radio)
-                    with dpg.plot(**heatmap_plot_kwargs):
-                        dpg.bind_colormap(dpg.last_item(), myCmap)
-                        xax = dpg.add_plot_axis(dpg.mvXAxis, **heatmap_xkwargs, **heatmap_xyaxkwargs)
-                        dpg.add_plot_axis(dpg.mvYAxis, tag=dupe_map.yAx, **heatmap_ykwargs, **heatmap_xyaxkwargs)
-                        xaxlims_orig, yaxlims_orig = dpg.get_axis_limits("frame xax"), dpg.get_axis_limits("frame yax")
-                        dpg.set_axis_limits(xax, *xaxlims_orig)
-                        dpg.set_axis_limits(dupe_map.yAx, *yaxlims_orig)
-                        dpg.split_frame()
-                        dpg.set_axis_limits_auto(xax)
-                        dpg.set_axis_limits_auto(dupe_map.yAx)
-                    #======================
-                    dpg.add_checkbox(pos = (8,62), tag = dupe_map.cBox) # 要画在 plot 上, 所以在 plot 后添加
-                    @toggle_checkbox_and_disable(_grp)
-                    def _toggle_id_and_avg_map_(sender, *args):
-                        frame_deck._update_dupe_map(dupe_map)
-                    dpg.set_item_callback(dupe_map.cBox, _toggle_id_and_avg_map_)
-                    with dpg.tooltip(dupe_map.cBox, **ttpkwargs):
-                        dpg.add_text("切换单帧/平均帧")
+                    with dpg.child_window(**doubleplots_container_window_kwargs):
+                        def apply_common_plt_children_setups_slv_mstr(yAx: int):
+                            xax = dpg.add_plot_axis(dpg.mvXAxis, **heatmap_xkwargs, **heatmap_xyaxkwargs)
+                            dpg.add_plot_axis(dpg.mvYAxis, tag=yAx, **heatmap_ykwargs, **heatmap_xyaxkwargs)
+                            xaxlims_orig, yaxlims_orig = dpg.get_axis_limits("frame xax"), dpg.get_axis_limits("frame yax")
+                            dpg.set_axis_limits(xax, *xaxlims_orig)
+                            dpg.set_axis_limits(yAx, *yaxlims_orig)
+                            dpg.split_frame()
+                            dpg.set_axis_limits_auto(xax)
+                            dpg.set_axis_limits_auto(yAx)
+                            return xax
+                        lst_axes = []
+                        with dpg.plot(**heatmap_pltkwargs): # slave plot
+                            dpg.bind_colormap(dpg.last_item(), myCmap)
+                            xAxSlv = apply_common_plt_children_setups_slv_mstr(dupe_map.yAxSlv)
+                            lst_axes.append(xAxSlv)
+                            lst_axes.append(dupe_map.yAxSlv)
+                        with dpg.plot(**heatmap_pltkwargs) as rectsPlot: # master plot
+                            xAxMstr = apply_common_plt_children_setups_slv_mstr(dupe_map.yAxMstr)
+                            lst_axes.append(xAxMstr)
+                            lst_axes.append(dupe_map.yAxMstr)
+                        dpg.bind_item_theme(rectsPlot, thmTranspBGforMaster)
+                        dpg.bind_item_handler_registry(
+                            rectsPlot, factory_ihr_master_plot(*lst_axes))
+                        #======================
+                        dpg.add_checkbox(pos = (0,0), tag = dupe_map.cBox) # 要画在 plot 上, 所以在 plot 后添加
+                        @toggle_checkbox_and_disable(_grp)
+                        def _toggle_id_and_avg_map_(sender, *args):
+                            frame_deck._update_dupe_map(dupe_map)
+                        dpg.set_item_callback(dupe_map.cBox, _toggle_id_and_avg_map_)
+                        with dpg.tooltip(dupe_map.cBox, **ttpkwargs):
+                            dpg.add_text("切换单帧/平均帧")
 
-                frame_deck.plot_cid_frame(dupe_map.yAx)    
+                frame_deck.plot_cid_frame(dupe_map.yAxSlv, dupe_map.yAxMstr)
 
             dpg.set_item_callback(cidIndcator, _dupe_heatmap)
             #==========================================
@@ -830,7 +876,6 @@ if __name__ == '__main__':
                                 height=-1
                                 )
             dpg.bind_colormap(dpg.last_item(), myCmap)
-            doubleplots_container_window_kwargs = dict(no_scrollbar = True, border=False)
             with dpg.child_window(**doubleplots_container_window_kwargs): # 这个 child window 的唯一作用是让 double layer 的 plots 能够用相同的 pos 参数
                 # with dpg.plot(tag="frame plot",
                 #             query=True, query_color=(255,0,0), max_query_rects=1, min_query_rects=0,
@@ -852,25 +897,21 @@ if __name__ == '__main__':
                 #                 query=False, 
                 #                 equal_aspects= True, no_frame=False,
                 #                 )
+                #==slave plot=============================
                 with dpg.plot(tag="frame plot",
                             # query=True, query_color=(255,0,0), max_query_rects=1, min_query_rects=0,
-                            **heatmap_plot_kwargs) as framePlot:
+                            **heatmap_pltkwargs) as framePlot:
                     dpg.bind_colormap(dpg.last_item(), myCmap)
                     
                     dpg.add_plot_axis(dpg.mvXAxis, tag = "frame xax", **heatmap_xkwargs, **heatmap_xyaxkwargs)
                     frameYax = dpg.add_plot_axis(dpg.mvYAxis, tag= "frame yax", **heatmap_ykwargs, **heatmap_xyaxkwargs)
-                #===============================
-                with dpg.plot(**heatmap_plot_kwargs) as rectsPlot:
+                #==master plot=============================
+                with dpg.plot(**heatmap_pltkwargs) as rectsPlot:
                     rectsXax = dpg.add_plot_axis(dpg.mvXAxis, **heatmap_xkwargs, **heatmap_xyaxkwargs)
-                    rectsYax = dpg.add_plot_axis(dpg.mvYAxis, **heatmap_ykwargs, **heatmap_xyaxkwargs)
-                with dpg.theme() as masterMapThm:
-                    """
-                    the transparent theme of master plot
-                    """
-                    with dpg.theme_component(dpg.mvPlot):
-                        dpg.add_theme_color(dpg.mvPlotCol_PlotBg, (0,0,0,0), category=dpg.mvThemeCat_Plots)
-                        dpg.add_theme_color(dpg.mvPlotCol_FrameBg, (0,0,0,0), category=dpg.mvThemeCat_Plots)
-                dpg.bind_item_theme(rectsPlot, masterMapThm)
+                    rectsYax = dpg.add_plot_axis(dpg.mvYAxis, tag = 'rects yax', **heatmap_ykwargs, **heatmap_xyaxkwargs)
+                dpg.bind_item_theme(rectsPlot, thmTranspBGforMaster)
+                dpg.bind_item_handler_registry(
+                    rectsPlot, factory_ihr_master_plot('frame xax', 'frame yax', rectsXax, rectsYax))
                 for ax in ["frame xax", "frame yax", rectsXax, rectsYax]:
                     dpg.set_axis_limits(ax, 0, 240)
                     # dpg.split_frame() # waits forever because frames are not rolling in the context creation stage

@@ -1,16 +1,23 @@
 #%%
 import dearpygui.dearpygui as dpg
 from camguihelper.core import _log
-mapdata = (0,0,0,0,0,0,0,0,0,0,
- 0,0,0,0,0,0,0,0,0,0,
- 0,0,0,0,0,0,0,0,0,0,
- 0,0,0,0,1,8,9,1,1,1,
- 0,0,0,2,14,38,53,14,6,0,
- 0,0,1,8,40,137,111,49,7,0,
- 0,0,0,10,51,116,108,38,8,0,
- 0,0,0,2,18,44,48,20,4,1,
- 0,0,0,1,6,11,5,6,0,0,
- 0,0,0,0,1,0,1,0,0,0)
+mapdata = (
+    0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,1,8,9,1,1,1,
+    0,0,0,2,14,38,53,14,6,0,
+    0,0,1,8,40,137,111,49,7,0,
+    0,0,0,10,51,116,108,38,8,0,
+    0,0,0,2,18,44,48,20,4,1,
+    0,0,0,1,6,11,5,6,0,0,
+    0,0,0,0,1,0,1,0,0,0,
+ )
 
 dpg.create_context()
 dpg.create_viewport(title='test', 
@@ -20,27 +27,40 @@ dpg.set_global_font_scale(1.3)
 ### initialzie two plots: master plot is on top of the slave plot. 
 # the user interacts with the master plot, 
 # which compels the slave plot to be in sync with its axes
-_pltkwargs = dict(
+pltkwargs = dict(
     pos = (10,20), 
     height= -1, width=-1, 
     query=False, 
     equal_aspects= True, no_frame=False,
     )
-xbeg, ybeg, xend, yend = 0,0, 10, -10
-with dpg.window() as win1:
-    with dpg.plot(tag="slave plot", **_pltkwargs):
+xyaxkwargs = dict(
+    no_gridlines = True,
+    no_tick_marks = True
+    )
+xkwargs = dict(label= "", 
+               opposite=True
+               )
+ykwargs = dict(label= "", 
+               invert=True
+               )
+xbeg, ybeg, xend, yend = 0,15, 10, 0
+# xbeg, ybeg, xend, yend = 0,0, 10, 15
+# xbeg, ybeg, xend, yend = 0,15, 10, 0
+with dpg.window(width = 400, height= 500) as win1:
+    with dpg.plot(tag="slave plot", **pltkwargs):
         dpg.bind_colormap(dpg.last_item(), dpg.mvPlotColormap_Viridis)
-        dpg.add_plot_axis(dpg.mvXAxis, tag= "slave xax")
-        with dpg.plot_axis(dpg.mvYAxis, tag = "slave yax"):
-            dpg.add_heat_series(mapdata,10,10,tag = "heat series",
+        dpg.add_plot_axis(dpg.mvXAxis, tag= "slave xax", **xyaxkwargs, **xkwargs)
+        with dpg.plot_axis(dpg.mvYAxis, tag = "slave yax", **xyaxkwargs, **ykwargs):
+            dpg.add_heat_series(mapdata,15,10,tag = "heat series",
                                 scale_min=0, scale_max=137, 
-                                bounds_min= (xbeg,ybeg), bounds_max= (xend, yend),
+                                bounds_min= (xbeg, ybeg), 
+                                bounds_max= (xend, yend),
                                 format="")
         dpg.fit_axis_data('slave xax')
         dpg.fit_axis_data('slave yax')
-    with dpg.plot(tag="master plot", callback = _log, **_pltkwargs):
-        dpg.add_plot_axis(dpg.mvXAxis, tag= "master xax")
-        with dpg.plot_axis(dpg.mvYAxis, tag= "master yax"):
+    with dpg.plot(tag="master plot", callback = _log, **pltkwargs):
+        dpg.add_plot_axis(dpg.mvXAxis, tag= "master xax", **xyaxkwargs, **xkwargs)
+        with dpg.plot_axis(dpg.mvYAxis, tag= "master yax", **xyaxkwargs, **ykwargs):
             scatterSeries = dpg.add_scatter_series(
                 (xbeg,xbeg,xend,xend),
                 (ybeg,yend,ybeg,yend),)

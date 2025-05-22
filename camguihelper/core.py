@@ -7,8 +7,8 @@ from itertools import cycle
 from collections import namedtuple
 import multiprocessing.connection
 DupeMap = namedtuple(typename='DupeMap', # class for useful dpg items in a dupe heatmap window
-                        field_names=['yAx', 'inputInt', 'radioBtn', 'cBox'])
-
+                        field_names=['yAxSlv', 'yAxMstr', 'inputInt', 'radioBtn', 'cBox'])
+from icecream import ic
 import json
 import traceback
 import multiprocessing
@@ -158,52 +158,111 @@ class FrameDeck(list):
         self.seslabel_deck = []
         dpg.set_value("frame deck display", self.memory_report())
         dpg.set_item_label("cid indicator", "N/A")
-        for yax in self.get_all_tags_yaxes():
-            dpg.delete_item(yax, children_only=True)
-            # print('yax', yax)
-            thisPlot = dpg.get_item_parent(yax)
-            dpg.configure_item(thisPlot, label = " ")
+        for lst_axes in self.get_all_tags_yaxes(): # clear heatmaps in all slaves, corner scatter points in all masters
+            for yax in lst_axes:
+                dpg.delete_item(yax, children_only=True)
+                # print('yax', yax)
+                thisPlot = dpg.get_item_parent(yax)
+                dpg.configure_item(thisPlot, label = ' ')
     def get_all_tags_yaxes(self):
-        lst_allyaxes = [map.yAx for map in self.lst_dupe_maps]
-        lst_allyaxes.append("frame yax")
-        return lst_allyaxes
+        lst_allyaxes_slv = [map.yAxSlv for map in self.lst_dupe_maps]
+        lst_allyaxes_slv.append('frame yax')
+        lst_allyaxes_mstr = [map.yAxMstr for map in self.lst_dupe_maps]
+        lst_allyaxes_mstr.append('rects yax')
+        return lst_allyaxes_slv, lst_allyaxes_mstr
     @staticmethod
     def _plot_frame(frame: npt.NDArray[np.floating], 
                     # xax: str="frame xax", 
-                    yax: str | int = "frame yax")->None:
-        assert np.issubdtype(frame.dtype, float), "heatmap frame can only be float!"
-        colorbar="frame colorbar"
+                    yaxSlave: str | int, yaxMaster: str | int)->None:
+        assert np.issubdtype(frame.dtype, float), 'heatmap frame can only be float!'
+        colorbar='frame colorbar'
         fmin, fmax, (nvrows, nhcols) = frame.min(), frame.max(), frame.shape
-
-        plot_mainframe_p = yax == "frame yax" # need this check because we can plot in dupe frame windows
-        if dpg.get_value("manual scale checkbox"):
-            fmin, fmax, *_ = dpg.get_value("color scale lims")
+        plot_mainframe_p = yaxSlave == 'frame yax' # need this check because we can plot in dupe frame windows
+        if dpg.get_value('manual scale checkbox'):
+            fmin, fmax, *_ = dpg.get_value('color scale lims')
         elif plot_mainframe_p: # update disabled manual color lim fields. do not do this when plotting elsewhere
-            dpg.set_value("color scale lims", [int(fmin), int(fmax), 0, 0])
+            dpg.set_value('color scale lims', [int(fmin), int(fmax), 0, 0])
         else: # 在 dupe heatmap 中 plot 时, 啥都不干
             pass
         
         if plot_mainframe_p: # always update color bar lims when doing main plot, whether the manual scale checkbox is checked or not
             dpg.configure_item(colorbar, min_scale = fmin, max_scale = fmax)
         
-        had_series_child_p = dpg.get_item_children(yax)[1] # plot new series 之前 check 是否有老 series
+        had_series_child_p = dpg.get_item_children(yaxSlave)[1] # plot new series 之前 check 是否有老 series
         if had_series_child_p:
-            dpg.delete_item(yax, children_only=True) # this is necessary!
-        dpg.add_heat_series(frame, nvrows, nhcols, parent=yax,
+            dpg.delete_item(yaxSlave, children_only=True) # this is necessary!
+        dpg.add_heat_series(frame, nvrows, nhcols, parent=yaxSlave,
                             scale_min=fmin, scale_max=fmax,format="",
                             bounds_min= (0,nvrows), bounds_max= (nhcols, 0)
                             )
-    def plot_avg_frame(self, yax= "frame yax"):
+        """
+        如果 frame 是:
+        [[0,0,0],
+         [0,0,0],
+         [1,0,0],]
+        用默认 axes (对于 xax, yax, 均有 opposite = False, invert = False)
+        记 xbeg, ybeg = bounds_min; xend, yend = bounds_max, 
+        根据 x(y)beg(end) 的不同选取, 可以有:
+                               y
+                               ^
+                               |0 0 0 <- (xend = 2, yend = 2)
+                               |0 0 0
+        (xbeg = 0, ybeg = 0) ->|1 0 0
+                               o-----> x
+
+                                   y
+                                   ^
+                                  0|   0    0 <- (xend = 10, yend = 10)
+                                   |
+                                   |
+                                  0|   0    0
+                                   |
+                                   o---------> x
+        (xbeg = -1, ybeg = -1) -> 1    0    0
+
+                                   y
+                                   ^
+        (xbeg = -1, ybeg = 10) -> 1|   0    0
+                                   |
+                                   |
+                                  0|   0    0
+                                   |
+                                   o---------> x
+                                  0    0    0 <- (xend = 10, yend=-1)
+
+        当有 y 轴翻反转的情况 (x轴 `opposite=True`, 即将 visual 的 x 轴放到 frame 顶部;
+        y 轴 `invert = True`, 即 y 轴刻度从上往下增长), 那么坐标变为
+        o---> x
+        |
+        |
+        v
+        y
+        但是 frame 呈现的原则依然同上, 和坐标系无关, 
+        仅仅是初始点坐标(xbeg, ybeg)和末尾点的坐标(xend, yend)需要用新坐标系的相应值来表示
+        """
+        ### below is the corner scatter (master) plot associated with the slave plot above
+        if had_series_child_p: # if had series child, then also had scatter child
+            # scatterChild = dpg.get_item_children(yaxMaster)[1]
+            dpg.delete_item(yaxMaster, children_only=True)
+        scatterSeries = dpg.add_scatter_series(
+            [0,0,nhcols, nhcols], [0, nvrows, 0, nvrows], parent=yaxMaster)
+        with dpg.theme() as scatterThm:
+            with dpg.theme_component(dpg.mvScatterSeries):
+                dpg.add_theme_color(dpg.mvPlotCol_MarkerFill, (0,255,0,255), category=dpg.mvThemeCat_Plots)
+                dpg.add_theme_color(dpg.mvPlotCol_MarkerOutline, (0,0,0,0), category=dpg.mvThemeCat_Plots)
+        dpg.bind_item_theme(scatterSeries, scatterThm)
+    def plot_avg_frame(self, yaxSlave= "frame yax", yaxMaster = 'rects yax'):
         """
         与 plot_cid_frame 一起都是 绘制 main heatmap 的方法
         区别于 plot_frame_dwim (绘制所有 map, 包括 dupe maps)
         x/yax kwargs make it possible to plot else where when needed
         """
         if self.frame_avg is not None:
-            self._plot_frame(self.frame_avg, yax)
-            thePlot = dpg.get_item_parent(yax)
-            dpg.configure_item(thePlot, label = " ")
-    def plot_cid_frame(self, yax= "frame yax"):
+            self._plot_frame(self.frame_avg, yaxSlave, yaxMaster)
+            for yax in [yaxSlave, yaxMaster]:
+                thePlot = dpg.get_item_parent(yax)
+                dpg.configure_item(thePlot, label = '内存所有帧平均')
+    def plot_cid_frame(self, yaxSlave= 'frame yax', yaxMaster = 'rects yax'):
         """
         与 plot_avg_frame 一起都是 绘制 main heatmap 的方法
         区别于 plot_frame_dwim (绘制所有 map, 包括 dupe maps)
@@ -211,9 +270,10 @@ class FrameDeck(list):
         """
         if self.cid is not None:
             frame = self.float_deck[self.cid]
-            self._plot_frame(frame, yax)
-            thePlot = dpg.get_item_parent(yax)
-            dpg.configure_item(thePlot, label = self.seslabel_deck[self.cid])
+            self._plot_frame(frame, yaxSlave, yaxMaster)
+            for yax in [yaxSlave, yaxMaster]:
+                thePlot = dpg.get_item_parent(yax)
+                dpg.configure_item(thePlot, label = self.seslabel_deck[self.cid])
     def plot_frame_dwim(self):
         """
         global update of all maps (main and dupes)
@@ -229,27 +289,29 @@ class FrameDeck(list):
                           ):
         """
         根据 duplicated map 的帧序号输入和 radio button 选择, 在给定的 xax, yax 中重绘热图
-        这是搭配 llst_items_dupe_maps 使用的函数
+        这是搭配 lst_dupe_maps 使用的函数
         """
         input_id = dpg.get_value(dupe_map.inputInt)
         radio_option = dpg.get_value(dupe_map.radioBtn)
         plot_avg_p = dpg.get_value(dupe_map.cBox)
         if plot_avg_p:
-            self.plot_avg_frame(dupe_map.yAx)
+            self.plot_avg_frame(dupe_map.yAxSlv, dupe_map.yAxMstr)
         else:
-            thePlot = dpg.get_item_parent(dupe_map.yAx)
             if radio_option == "正数帧":
                 plot_id = input_id
             else:
                 plot_id = input_id+len(self) - 1
             if 0 <= plot_id < len(self):
                 frame = self.float_deck[plot_id]
-                self._plot_frame(frame, dupe_map.yAx)
+                self._plot_frame(frame, dupe_map.yAxSlv, dupe_map.yAxMstr) # 不能用 plot_cid_frame 抽象, 因为这里不是 plot cid, 而是任意指定的 id
                 label= self.seslabel_deck[plot_id]
             else:
-                dpg.delete_item(dupe_map.yAx, children_only=True)
-                label =  " "
-            dpg.configure_item(thePlot, label=label)
+                for yax in [dupe_map.yAxSlv, dupe_map.yAxMstr]:
+                    dpg.delete_item(yax, children_only=True)
+                label =  ' '
+            for yax in [dupe_map.yAxSlv, dupe_map.yAxMstr]:
+                thePlot = dpg.get_item_parent(yax)
+                dpg.configure_item(thePlot, label=label)
     def _append_save_plot(self, this_frame: npt.NDArray[np.uint16]):
         """
         在单线程无并发时, 本函数是重排(如果 awg 开启)后的全套任务
@@ -615,7 +677,7 @@ def collect_awg_params() -> tuple:
     move_time *= 1e-3
     percentage_total_power_for_list = dpg.get_value("percentage_total_power_for_list")
     ramp_type = dpg.get_value("ramp_type")
-    user_tgt_arr_input = dpg.get_value("target array binary text input")
+    user_tgt_arr_input: str = dpg.get_value("target array binary text input")
     lines = user_tgt_arr_input.replace(" ", "").strip().splitlines()
     tgt2darr = np.array([[int(ch) for ch in line] for line in lines if line != ""], dtype=int)
     return (x1,y1, x2, y2, x3, y3, nx, ny, x0, y0, rec_x, rec_y, count_threshold,
