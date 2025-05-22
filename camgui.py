@@ -185,6 +185,15 @@ if __name__ == '__main__':
                     next_state = not state
                     flag = user_data["acq thread flag"] # flag for st and mt, but not for mp
                     global raw_card, controller
+                    if next_state:
+                        str_json_saved = save_camgui_json_to_savetree()
+                        str_json_displayed =  str_json_saved[:-5] + '已保存'
+                        dpg.set_value(labelJson, str_json_displayed)
+                    else:
+                        str_json_displayed = dpg.get_value(labelJson)
+                        json_num = int(str_json_displayed[2:][:-3])
+                        str_json_displayed = 'CA' + str(json_num+1)
+                        dpg.set_value(labelJson, str_json_displayed)
                     if dpg.get_value(mItemSingleThread):
                         if next_state:
                             t_worker_do_all = threading.Thread(target=st_workerf_flagged_do_all, args=(cam, flag, frame_deck, controller))
