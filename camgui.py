@@ -54,25 +54,25 @@ if __name__ == '__main__':
                         vsync=False) # important option to dismiss input lab, see https://github.com/hoffstadt/DearPyGui/issues/1571
 
     with dpg.viewport_menu_bar():
-        with dpg.menu(label="Windows"):
-            dpg.add_menu_item(label="显示控制面板")
+        with dpg.menu(label='Windows'):
+            dpg.add_menu_item(label='显示控制面板')
             def _show_and_highlight_win(*cbargs):
                 dpg.configure_item(winCtrlPanels, show=True, collapsed = False)
                 dpg.focus_item(winCtrlPanels)
             dpg.set_item_callback(dpg.last_item(), _show_and_highlight_win)
             #=============================
-            dpg.add_menu_item(label="显示预览帧窗口")
+            dpg.add_menu_item(label='显示预览帧窗口')
             def _show_and_highlight_win(*cbargs):
                 dpg.configure_item(winFramePreview, show=True, collapsed = False)
                 dpg.focus_item(winFramePreview)
             dpg.set_item_callback(dpg.last_item(), _show_and_highlight_win)
             #=============================
-            dpg.add_menu_item(label="显示直方图窗口")
+            dpg.add_menu_item(label='显示直方图窗口')
             def _show_and_highlight_win(*cbargs):
                 dpg.configure_item(winHist, show=True, collapsed = False)
                 dpg.focus_item(winHist)
             dpg.set_item_callback(dpg.last_item(), _show_and_highlight_win)
-        with dpg.menu(label="并发方式") as menuConcurrency:
+        with dpg.menu(label='并发方式') as menuConcurrency:
             def _set_exclusive_True(sender, *args):
                 if type(sender) is str:
                     sender = dpg.get_alias_id(sender)
@@ -88,7 +88,7 @@ if __name__ == '__main__':
             _str = '双进程: 采集重排 & 绘图保存'
             mItemDualProcesses = dpg.add_menu_item(tag = _str, label=_str,  check=True, callback=_set_exclusive_True)
             # print(mItemSingleThread, mItemDualThreads, mItemDualProcesses)
-        dpg.add_menu_item(label = "软件信息")
+        dpg.add_menu_item(label = '软件信息')
         dpg.set_item_callback(dpg.last_item(),
                                 factory_cb_yn_modal_dialog(
                                     dialog_text=
@@ -97,21 +97,21 @@ if __name__ == '__main__':
     作者: 吴海腾, 张云龙
     repo: https://github.com/ltmsyvag/camera
                                     """, 
-                                    win_label="info", just_close=True))
+                                    win_label='info', just_close=True))
     dummy_acq = True # 假采集代码的总开关
     if dummy_acq:
         _mp_dummy_remote_buffer = multiprocessing.Queue() # mp dummy remote buffer 必须在主脚本中创建, 才能确保 mp dummy buffer feeder 和 mp producer 所用的 Queue 对象是同一个
-    with dpg.window(label= "控制面板", tag = winCtrlPanels):
+    with dpg.window(label= '控制面板', tag = winCtrlPanels):
         with dpg.menu_bar():
             mItemLoadJson = dpg.add_menu_item(label = '载入 json', callback= lambda: dpg.show_item(jsonDialog))
-        with dpg.group(label = "col panels", horizontal=True):
+        with dpg.group(label = 'col panels', horizontal=True):
             with dpg.child_window(label = "cam panel", width=190):
                 _wid, _hi = 175, 40
                 togCam = dpg.add_button(
                     width=_wid, height=_hi, user_data={
-                        "is on" : False, 
-                        "off label" : "相机已关闭",
-                        "on label" : "相机已开启",
+                        'is on' : False, 
+                        'off label' : "相机已关闭",
+                        'on label' : "相机已开启",
                         })
                 def do_set_cam_params_by_gui():
                     expFieldValInMs = dpg.get_value(fldExposure) 
@@ -774,6 +774,40 @@ if __name__ == '__main__':
                         callback=sync_axes, 
                         # user_data = [rectsXax, rectsYax, 'frame xax', 'frame yax']
                         user_data = [xAxSlv, yAxSlv, xAxMstr, yAxMstr])
+                    def ctrl_add_rect(*args):
+                        """
+                        drag rect in dpg 2.0.0 is strange, 其行为很可能在后续 dpg 版本中得到修正
+                        c.f. https://github.com/hoffstadt/DearPyGui/issues/2511
+                        - drag rect 属于 plot, 不属于 axes
+                        - drag rect 不能绑定任何 item handler registry
+                        - drag rect 没有 app_data (None)
+                        - drag rect 的当前四角位置可以通过 dpg.get_value(dragRect) 获取,
+                          其实时四角位置可以通过 drag rect 的 callback 连续获取(人工拖动时才连续触发)
+                        """
+                        if dpg.is_key_down(dpg.mvKey_LControl):
+                            x, y = dpg.get_plot_mouse_pos()
+                            """
+                            the default_value of dpg.add_drag_rect can be:
+                            (x1, y1) -> o---o
+                                        |   |
+                                        o---o <- (x2, y2)
+                            can also be:
+                                        o---o <- (x1, y1)
+                                        |   |
+                            (x2, y2) -> o---o
+                            what matters is the order of the two points
+                            x/y1 > x/y2 is always
+                            """
+                            dr = dpg.add_drag_rect(
+                                parent = dpg.get_item_parent(yAxMstr),
+                                default_value=(
+                                    x-0.5, # init x edge, or x1
+                                    y-0.5, # init y edge, or y1
+                                    x+0.5, # end x edge, or x2
+                                    y+0.5), # end y edge, or y2
+                                )
+                            frame_deck.add_dr(dr)
+                    dpg.add_item_clicked_handler(callback=ctrl_add_rect)
                 return ihrMaster
             def _dupe_heatmap():
                 dupe_map = DupeMap(
@@ -801,8 +835,8 @@ if __name__ == '__main__':
                             frame_deck._update_dupe_map(dupe_map)
                         dpg.set_item_callback(dupe_map.inputInt, _cb_input_int)
                         #===============================
-                        dpg.add_radio_button(("倒数帧", "正数帧"), tag=dupe_map.radioBtn,
-                                            default_value="倒数帧", horizontal=True,
+                        dpg.add_radio_button(('倒数帧', '正数帧'), tag=dupe_map.radioBtn,
+                                            default_value = '倒数帧', horizontal=True,
                                             #  callback=_log
                                             )
                         def _cb_radio(_, app_data, __):
@@ -815,12 +849,12 @@ if __name__ == '__main__':
                             if empty_deck:
                                 dpg.set_value(dupe_map.inputInt, 0)
                             else:
-                                if app_data == "倒数帧": # convert forward id to backward id
+                                if app_data == '倒数帧': # convert forward id to backward id
                                     converted_id = input_id - len(frame_deck) + 1
                                 else: # convert backward id to forward id
                                     converted_id = input_id + len(frame_deck) - 1 
                                 dpg.set_value(dupe_map.inputInt, converted_id)
-                            if app_data == "倒数帧": # unlim low bound, lim high bound to 0
+                            if app_data == '倒数帧': # unlim low bound, lim high bound to 0
                                 dpg.configure_item(dupe_map.inputInt, min_clamped = False)
                                 dpg.configure_item(dupe_map.inputInt, max_value = 0, max_clamped = True)
                             else: # unlim high bound, lim low bound to 0
@@ -943,7 +977,7 @@ if __name__ == '__main__':
                                 _update_hist(hLhRvLvR, frame_deck)
                     else: # this is only needed for the current query rect solution for hist udpates. actions from other items cannot check app_data of this item directly (usually dpg.get_value(item) can check the app_data of an item, but not for this very special query rect coordinates app_data belonging to the heatmap plot!), so they check the user_data of this item. since I mean to stop any histogram updating when no query rect is present, then this no-rect info is given by user_data = None of the heatmap plot.
                         dpg.set_item_user_data(sender, None)
-                dpg.set_item_callback(framePlot,callback=_update_hist_on_query_)
+                dpg.set_item_callback(framePlot, callback=_update_hist_on_query_)
                 #===本 checkbox 需要画在 plot 上面, 因此在 plot 后添加
                 dpg.add_checkbox(tag="toggle 积分/单张 map", pos = (0, 0))
                 @toggle_checkbox_and_disable(leftArr, rightArr, 

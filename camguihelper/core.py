@@ -3,12 +3,13 @@ camgui 相关的帮助函数
 """
 #%%
 camgui_ver = '1.3-pre'
+import matplotlib.pyplot as plt
 from itertools import cycle
 from collections import namedtuple
 import multiprocessing.connection
 DupeMap = namedtuple(typename='DupeMap', # class for useful dpg items in a dupe heatmap window
                         field_names=['yAxSlv', 'yAxMstr', 'inputInt', 'radioBtn', 'cBox'])
-from icecream import ic
+# from icecream import ic
 import json
 import traceback
 import multiprocessing
@@ -39,7 +40,6 @@ class FrameDeck(list):
     """
     class of a special list with my own methods for manipulating the frames it stores
     """
-
     def __init__(self, *args, **kwargs):
         """
         将状态变量作为 instance attr 初始化
@@ -52,6 +52,7 @@ class FrameDeck(list):
         self.frame_avg: npt.NDArray[np.floating] | None = None
         self.lst_dupe_maps : List[DupeMap] = [] # 保存 duplicated heatmaps window 中的 item tuple
         self.seslabel_deck: List[str] = []
+        self.dict_dr : Dict[int, Dict[str, Sequence[int|float]]] = dict() # drag rect dict, {<group number> : <dict of two items: {'tags' : <list of tags of the grouped drag rects>}, {'fence' : (xmin, xmax, vmin, vmax)}, which is the group fence>}
     def memory_report(self) -> str:
         len_deck = len(self)
         if len_deck>0:
@@ -333,6 +334,70 @@ class FrameDeck(list):
             _update_hist(hLhRvLvR, self)
         end = time.time()
         push_log(f"绘图和存储耗时{(end-beg)*1e3:.3f} ms")
+    @staticmethod
+    def get_dr_color_in_group(grp_id):
+        rgb_lst_tab10 = plt.get_cmap('tab10').colors
+        color_cycle = cycle(rgb_lst_tab10)
+        for _ in range(grp_id+1):
+            this_color = next(color_cycle)
+        return [225*e for e in this_color]
+    def add_dr(self, tagDr : int):
+        """
+        to understand x1y1x2y2, check docstring in ctrl_add_rect
+        """
+        def merge_dr_into_grp(drTag: int, grp_id: int):
+            """
+            将一个 dr 融入 dr 组 <grp_id> 中, 融入前不做任何判断(依赖函数外判断)
+            1. 如果 grp_id 不存在, 初始化 self.dict_dr[grp_id]
+            2. 将 drTag 添加到 self.dict_dr[grp_id]['dr tags'] 中
+            3. 将 drTag 的范围 merge 到 dr grp 原始的 fence 范围之上,
+               如果 drTag 是 dr grp 的第一个 dr, 那么这个 dr 的大小就定义了这个新 dr group 的 fence 范围
+            4. 将 dr 的 user_data 设为 grp_id: int
+            5. 为该 dr 分配颜色
+            """
+            if grp_id not in self.dict_dr: # 在 grp_id 不存在时, 初始化这个 ddict
+                ddict = self.dict_dr[grp_id] = dict()
+                ddict['dr tags'] = []
+            else:
+                ddict = self.dict_dr[grp_id]
+
+            ddict['dr tags'].append(drTag)
+            xmin, ymin, xmax, ymax = dpg.get_value(tagDr)
+            if xmin>xmax:
+                xmin, xmax = xmax, xmin
+            if ymin>ymax:
+                ymin, ymax = ymax, ymin
+            
+            if 'fence' in ddict:
+                xmin_old, ymin_old, xmax_old, ymax_old = ddict['fence']
+                xmin_new = xmin if xmin < xmin_old else xmin_old
+                ymin_new = ymin if ymin < ymin_old else ymin_old
+                xmax_new = xmax if xmax > xmax_old else xmax_old
+                ymax_new = ymax if ymax > ymax_old else ymax_old
+                ddict['fence'] = xmin_new, ymin_new, xmax_new, ymax_new
+            else: # the very first dr tag in ddict, its size defines the fence completely
+                ddict['fence'] = xmin, ymin, xmax, ymax # the true xmin, ymin, xmax, ymax
+            dpg.set_item_user_data(tagDr, grp_id)
+            dpg.configure_item(tagDr, color=self.get_dr_color_in_group(grp_id))
+        if not self.dict_dr: # if dr dict is empty
+            merge_dr_into_grp(tagDr, grp_id = 0)
+        else:
+            x1, y1, x2, y2 = dpg.get_value(tagDr)
+            xmean, ymean = (x1+x2)/2, (y1+y2)/2
+            merged = False
+            for grp_id, ddict in self.dict_dr.items():
+                xmin, ymin, xmax, ymax = ddict['fence']
+                if (xmin-1<xmean<xmax+1) and (ymin-1<ymean<ymax+1):
+                    merge_dr_into_grp(tagDr, grp_id)
+                    merged = True
+                    break # 两个 fence 有 overlap 是完全可能的, 这时候随缘 merge 到第一个 fence 中
+            if not merged:
+                merge_dr_into_grp(tagDr, 
+                                  max(list(self.dict_dr))+1)
+
+
+
+
 
 
 def find_latest_camguiparams_json() ->MyPath:
@@ -365,7 +430,7 @@ def ZYLconversion(frame: np.ndarray)->np.ndarray:
     """
     ZYL formula to infer photon counts
     """
-    frame = (frame -300) * 0.1/0.9
+    frame = (frame -200) * 0.1/0.9
     return frame
 
 def _update_hist(hLhRvLvR: tuple, frame_deck: FrameDeck, yax = "hist plot yax")->None:

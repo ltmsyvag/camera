@@ -94,14 +94,16 @@ with dpg.item_handler_registry() as ihrRect:
     def _cb(*args):
         if dpg.is_key_down(dpg.mvKey_LAlt):
             print('hello')
-    dpg.add_item_hover_handler(callback = _cb)
+    # dpg.add_item_resize_handler(callback = _cb)
+    dpg.add_item_deactivated_handler(callback = _cb)
 
 def report_pos(sender, *args):
     print(dpg.get_value(sender))
 
 dpg.add_button(parent=win1, label='hello', 
             #    callback=lambda: print(dpg.get_value('stuff'))
-               callback=lambda: dpg.set_value(scatterSeries, [[-5,-5,5,5],[0,-10,0,-10], [], [], []])
+            #    callback=lambda: dpg.set_value(scatterSeries, [[-5,-5,5,5],[0,-10,0,-10], [], [], []])
+               callback=lambda: print(dpg.get_value('stuff'))
                )
 
 with dpg.item_handler_registry(tag= "master-slave sync hreg"):
@@ -110,8 +112,9 @@ with dpg.item_handler_registry(tag= "master-slave sync hreg"):
         if dpg.is_key_down(dpg.mvKey_LControl):
             x,y = dpg.get_plot_mouse_pos()
             dpg.add_drag_rect(parent = 'master plot', tag='stuff', callback= report_pos,
-                                default_value=(x-0.5,y-0.5, x+0.5, y+0.5)
+                                default_value=(x-0.5,y-0.5, x+0.5, y+0.5), color=(255,0,0)
                                 )
+            print(dpg.get_value(dpg.last_item()))
             # dpg.bind_item_handler_registry('stuff', ihrRect)
     dpg.add_item_clicked_handler(callback = ctrl_add_rect)
     dpg.add_item_clicked_handler(callback = lambda: print('hello'))
