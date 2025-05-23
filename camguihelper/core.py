@@ -378,25 +378,6 @@ class FrameDeck(list):
             if ymin>ymax:
                 ymin, ymax = ymax, ymin
             return xmin, ymin, xmax, ymax
-        def reset_fence(ddict : dict, # 特定的组
-                     xmin : float,
-                     ymin : float,
-                     xmax : float,
-                     ymax : float,
-                     new_dr : bool)->None:
-            """
-            给定新 rect 的 pos 参数(或者旧 rect 的新 pos 参数),
-            重设 group rect dict `ddict` 中的 'fence' 值
-            """
-            if new_dr: 
-                xmin_old, ymin_old, xmax_old, ymax_old = ddict['fence']
-                xmin_new = xmin if xmin < xmin_old else xmin_old
-                ymin_new = ymin if ymin < ymin_old else ymin_old
-                xmax_new = xmax if xmax > xmax_old else xmax_old
-                ymax_new = ymax if ymax > ymax_old else ymax_old
-            else: # 旧 drag rect resize 时的新 pos 参数, 可能扩大也可能缩小 fence
-                ...
-            ddict['fence'] = xmin_new, ymin_new, xmax_new, ymax_new
         def merge_dr_series_into_grp(dr_series: pd.Series, grp_id: int):
             """
             每次在一个 heatmap 上添加一个 dr, 实际上都要在所有的 heatmaps 上添加相同的 dr,
@@ -405,7 +386,8 @@ class FrameDeck(list):
             融入前不做任何判断(依赖函数外判断)
             1. 如果 grp_id 作为字典 key 不存在, 初始化 self.dict_dr[grp_id]
             2. 如果 grp_id 作为字典 key 存在, 但是相应的 val 为 `None` (用户手动清空一个 grp 组中的 rects 时, 会出现的情况), 同样初始化 self.dict_dr[grp_id]
-            3. 如果 dr series 中的 dr 中心落在 grp fence 的 fence +/- 1 的范围内, 将 dr 的范围 merge 到 dr grp 原始的 fence 范围之上
+            3. 引入 group fence 的概念, group fence 是一个与 dr 组中所有的 dr 相切的一个大矩形区域
+               如果 dr series 中的 dr 中心落在 grp fence 的 fence +/- 1 的范围内, 将 dr 的范围 merge 到 dr grp 原始的 fence 范围之上
                如果 dr series 是 dr grp 的第一个 dr, 那么 series 中的 dr (都一样)就定义了这个新 dr group 的 fence 范围
             4. 将 series 中的每个 dr 的 user_data 设为 (grp_id: int, uuid : str)
             5. 为 series 中的 dr 按照 grp_id 分配颜色

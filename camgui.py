@@ -761,6 +761,9 @@ if __name__ == '__main__':
                 因此每一对 slave-master 的 ihr 都不一样, 需要一个 factory 来生成
                 """
                 with dpg.item_handler_registry() as ihrMaster:
+                    dpg.add_item_visible_handler(
+                        # user_data = [rectsXax, rectsYax, 'frame xax', 'frame yax']
+                        user_data = [xAxSlv, yAxSlv, xAxMstr, yAxMstr])
                     def sync_axes(_,__, user_data):
                         """
                         obtain master plot's axes range, using which we set the axes range of slave plot,
@@ -771,11 +774,10 @@ if __name__ == '__main__':
                         if not params_master==params_slave:
                             dpg.set_axis_limits(xax_slave, xmin_mst, xmax_mst)
                             dpg.set_axis_limits(yax_slave, ymin_mst, ymax_mst)
-                    dpg.add_item_visible_handler(
-                        callback=sync_axes, 
-                        # user_data = [rectsXax, rectsYax, 'frame xax', 'frame yax']
-                        user_data = [xAxSlv, yAxSlv, xAxMstr, yAxMstr])
-                    def ctrl_add_rect(*args):
+                    dpg.set_item_callback(dpg.last_item(), sync_axes)
+                    #=====================================
+                    dpg.add_item_clicked_handler()
+                    def ctrl_add_dr(*args):
                         """
                         drag rect in dpg 2.0.0 is strange, 其行为很可能在后续 dpg 版本中得到修正
                         c.f. https://github.com/hoffstadt/DearPyGui/issues/2511
@@ -788,7 +790,9 @@ if __name__ == '__main__':
                         if dpg.is_key_down(dpg.mvKey_LControl):
                             x, y = dpg.get_plot_mouse_pos()
                             frame_deck.add_dr_to_all(x, y)
-                    dpg.add_item_clicked_handler(callback=ctrl_add_rect)
+                    dpg.set_item_callback(dpg.last_item(), ctrl_add_dr)
+                    #=====================================
+                    # dpg.add_item_clicked_handler()
                 return ihrMaster
             gen_dupemap_label = cycle(range(100)) # 假设不可能同时打开 100 个窗口, 因此新开的窗口 label 可以是 0-99 的循环, 足以保证 label uniqueness
             def _dupe_heatmap():
@@ -869,13 +873,13 @@ if __name__ == '__main__':
                             xAxSlv = apply_common_plt_children_setups_slv_mstr(dupe_map.yAxSlv)
                             lst_axes.append(xAxSlv)
                             lst_axes.append(dupe_map.yAxSlv)
-                        with dpg.plot(tag = dupe_map.pltMstr, **heatmap_pltkwargs) as rectsPlot: # master plot
+                        with dpg.plot(tag = dupe_map.pltMstr, **heatmap_pltkwargs): # master plot
                             xAxMstr = apply_common_plt_children_setups_slv_mstr(dupe_map.yAxMstr)
                             lst_axes.append(xAxMstr)
                             lst_axes.append(dupe_map.yAxMstr)
-                        dpg.bind_item_theme(rectsPlot, thmTranspBGforMaster)
+                        dpg.bind_item_theme(dupe_map.pltMstr, thmTranspBGforMaster)
                         dpg.bind_item_handler_registry(
-                            rectsPlot, factory_ihr_master_plot(*lst_axes))
+                            dupe_map.pltMstr, factory_ihr_master_plot(*lst_axes))
                         #======================
                         dpg.add_checkbox(pos = (0,0), tag = dupe_map.cBox) # 要画在 plot 上, 所以在 plot 后添加
                         @toggle_checkbox_and_disable(_grp)
@@ -911,12 +915,12 @@ if __name__ == '__main__':
                     dpg.add_plot_axis(dpg.mvXAxis, tag = "frame xax", **heatmap_xkwargs, **heatmap_xyaxkwargs)
                     frameYax = dpg.add_plot_axis(dpg.mvYAxis, tag= "frame yax", **heatmap_ykwargs, **heatmap_xyaxkwargs)
                 #==master plot=============================
-                with dpg.plot(**heatmap_pltkwargs) as rectsPlot:
+                with dpg.plot(**heatmap_pltkwargs) as _pltMstr:
                     rectsXax = dpg.add_plot_axis(dpg.mvXAxis, **heatmap_xkwargs, **heatmap_xyaxkwargs)
                     rectsYax = dpg.add_plot_axis(dpg.mvYAxis, tag = 'rects yax', **heatmap_ykwargs, **heatmap_xyaxkwargs)
-                dpg.bind_item_theme(rectsPlot, thmTranspBGforMaster)
+                dpg.bind_item_theme(_pltMstr, thmTranspBGforMaster)
                 dpg.bind_item_handler_registry(
-                    rectsPlot, factory_ihr_master_plot('frame xax', 'frame yax', rectsXax, rectsYax))
+                    _pltMstr, factory_ihr_master_plot('frame xax', 'frame yax', rectsXax, rectsYax))
                 for ax in ["frame xax", "frame yax", rectsXax, rectsYax]:
                     dpg.set_axis_limits(ax, 0, 240)
                     # dpg.split_frame() # waits forever because frames are not rolling in the context creation stage
