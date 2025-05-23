@@ -715,7 +715,7 @@ if __name__ == '__main__':
                 fmin, fmax, *_ = app_data
                 # print(heatSeries)
                 dpg.configure_item(frameColBar, min_scale = fmin, max_scale = fmax)
-                for yAxSlv in frame_deck.get_all_tags_yaxes()[0]:
+                for yAxSlv in frame_deck.get_all_maptags()[0]:
                     heatmapSlot = dpg.get_item_children(yAxSlv)[1]
                     if heatmapSlot:
                         heatSeries, = heatmapSlot
@@ -793,6 +793,8 @@ if __name__ == '__main__':
             gen_dupemap_label = cycle(range(100)) # 假设不可能同时打开 100 个窗口, 因此新开的窗口 label 可以是 0-99 的循环, 足以保证 label uniqueness
             def _dupe_heatmap():
                 dupe_map = DupeMap(
+                    pltSlv = dpg.generate_uuid(),
+                    pltMstr = dpg.generate_uuid(),
                     yAxSlv = dpg.generate_uuid(),
                     yAxMstr = dpg.generate_uuid(),
                     inputInt = dpg.generate_uuid(),
@@ -805,6 +807,13 @@ if __name__ == '__main__':
                     """
                     frame_deck.lst_dupe_maps.remove(dupe_map)
                     dpg.delete_item(sender)
+                    for ddict in frame_deck.dict_dr.values():
+                        if ddict is not None:
+                            print(ddict['grp dr df'])
+                            ddict['grp dr df'].drop(
+                                dupe_map.pltMstr,
+                                inplace=True)
+                            print(ddict['grp dr df'])
                 with dpg.window(width=300, height=300, on_close=_on_close,
                                 label = f"#{next(gen_dupemap_label)}"):
                     frame_deck.lst_dupe_maps.append(dupe_map)
@@ -855,12 +864,12 @@ if __name__ == '__main__':
                             dpg.set_axis_limits_auto(yAx)
                             return xax
                         lst_axes = []
-                        with dpg.plot(**heatmap_pltkwargs): # slave plot
+                        with dpg.plot(tag = dupe_map.pltSlv, **heatmap_pltkwargs): # slave plot
                             dpg.bind_colormap(dpg.last_item(), myCmap)
                             xAxSlv = apply_common_plt_children_setups_slv_mstr(dupe_map.yAxSlv)
                             lst_axes.append(xAxSlv)
                             lst_axes.append(dupe_map.yAxSlv)
-                        with dpg.plot(**heatmap_pltkwargs) as rectsPlot: # master plot
+                        with dpg.plot(tag = dupe_map.pltMstr, **heatmap_pltkwargs) as rectsPlot: # master plot
                             xAxMstr = apply_common_plt_children_setups_slv_mstr(dupe_map.yAxMstr)
                             lst_axes.append(xAxMstr)
                             lst_axes.append(dupe_map.yAxMstr)
@@ -893,26 +902,6 @@ if __name__ == '__main__':
                                 )
             dpg.bind_colormap(dpg.last_item(), myCmap)
             with dpg.child_window(**doubleplots_container_window_kwargs): # 这个 child window 的唯一作用是让 double layer 的 plots 能够用相同的 pos 参数
-                # with dpg.plot(tag="frame plot",
-                #             query=True, query_color=(255,0,0), max_query_rects=1, min_query_rects=0,
-                #             **heatmap_plot_kwargs) as framePlot:
-                #     dpg.bind_colormap(dpg.last_item(), myCmap)
-                    
-                #     dpg.add_plot_axis(dpg.mvXAxis, tag = "frame xax",**heatmap_xkwargs, **heatmap_xyaxkwargs)
-                #     frameYax = dpg.add_plot_axis(dpg.mvYAxis, tag= "frame yax", **heatmap_ykwargs, **heatmap_xyaxkwargs)
-                #     for ax in ["frame xax", "frame yax"]:
-                #         dpg.set_axis_limits(ax, 0, 240)
-                #         # dpg.split_frame() # waits forever because frames are not rolling in the context creation stage
-                #     def _do_loosen_initial_lims():
-                #         for ax in ["frame xax", "frame yax"]:
-                #             dpg.set_axis_limits_auto(ax)
-                #     dpg.set_frame_callback(2, _do_loosen_initial_lims) # seems this is the only way to set the initial limits
-                # _pltkwargs = dict(
-                #                 pos = (10,20), 
-                #                 height= -1, width=-1, 
-                #                 query=False, 
-                #                 equal_aspects= True, no_frame=False,
-                #                 )
                 #==slave plot=============================
                 with dpg.plot(tag="frame plot",
                             # query=True, query_color=(255,0,0), max_query_rects=1, min_query_rects=0,
@@ -996,6 +985,7 @@ if __name__ == '__main__':
         t_mp_remote_buffer_feeder = threading.Thread(target = _mp_workerf_dummy_remote_buffer_feeder, args=(_mp_dummy_remote_buffer,))
         t_mp_remote_buffer_feeder.start()
     # dpg.show_style_editor()
+    dpg.show_item_registry()
     dpg.setup_dearpygui()
     dpg.show_viewport()
     dpg.start_dearpygui()

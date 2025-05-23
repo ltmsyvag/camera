@@ -9,7 +9,14 @@ from itertools import cycle, count
 from collections import namedtuple
 import multiprocessing.connection
 DupeMap = namedtuple(typename='DupeMap', # class for useful dpg items in a dupe heatmap window
-                        field_names=['yAxSlv', 'yAxMstr', 'inputInt', 'radioBtn', 'cBox'])
+                        field_names=[
+                            'pltSlv',
+                            'pltMstr',
+                            'yAxSlv',
+                            'yAxMstr',
+                            'inputInt',
+                            'radioBtn',
+                            'cBox'])
 from icecream import ic
 import json
 import traceback
@@ -162,18 +169,20 @@ class FrameDeck(list):
         self.seslabel_deck = []
         dpg.set_value("frame deck display", self.memory_report())
         dpg.set_item_label("cid indicator", "N/A")
-        for lst_axes in self.get_all_tags_yaxes(): # clear heatmaps in all slaves, corner scatter points in all masters
-            for yax in lst_axes:
-                dpg.delete_item(yax, children_only=True)
-                # print('yax', yax)
-                thisPlot = dpg.get_item_parent(yax)
-                dpg.configure_item(thisPlot, label = ' ')
-    def get_all_tags_yaxes(self):
+        lst1, lst2, _ = self.get_all_maptags()
+        for yax in (lst1+lst2):  # clear heatmaps in all slaves, corner scatter points in all masters
+            dpg.delete_item(yax, children_only=True)
+            # print('yax', yax)
+            thisPlot = dpg.get_item_parent(yax)
+            dpg.configure_item(thisPlot, label = ' ')
+    def get_all_maptags(self):
         lst_allyaxes_slv = [map.yAxSlv for map in self.lst_dupe_maps]
         lst_allyaxes_slv.append('frame yax')
         lst_allyaxes_mstr = [map.yAxMstr for map in self.lst_dupe_maps]
         lst_allyaxes_mstr.append('rects yax')
-        return lst_allyaxes_slv, lst_allyaxes_mstr
+        lst_allplots_mstr = [dpg.get_item_parent(yax) for yax in lst_allyaxes_mstr]
+        # lst_allplots_mstr = [map.pltMstr for map in self.lst_dupe_maps]
+        return lst_allyaxes_slv, lst_allyaxes_mstr, lst_allplots_mstr
     @staticmethod
     def _plot_frame(frame: npt.NDArray[np.floating], 
                     # xax: str="frame xax", 
@@ -394,8 +403,7 @@ class FrameDeck(list):
                 dpg.set_item_user_data(tag, (grp_id, dr_series.name)) # group id and unique series id
                 dpg.configure_item(tag, color=self.get_dr_color_in_group(grp_id))
 
-        _, lst_allyaxes_mstr = self.get_all_tags_yaxes()
-        lst_allplts_mstr = [dpg.get_item_parent(e) for e in lst_allyaxes_mstr]
+        _, _, lst_allplts_mstr = self.get_all_maptags()
         """
         the default_value of dpg.add_drag_rect can be:
         (x1, y1) -> o---o
