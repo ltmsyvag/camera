@@ -3,13 +3,14 @@ camgui 相关的帮助函数
 """
 #%%
 camgui_ver = '1.3-pre'
+import pandas as pd
 import matplotlib.pyplot as plt
-from itertools import cycle
+from itertools import cycle, count
 from collections import namedtuple
 import multiprocessing.connection
 DupeMap = namedtuple(typename='DupeMap', # class for useful dpg items in a dupe heatmap window
                         field_names=['yAxSlv', 'yAxMstr', 'inputInt', 'radioBtn', 'cBox'])
-# from icecream import ic
+from icecream import ic
 import json
 import traceback
 import multiprocessing
@@ -29,7 +30,8 @@ import colorsys
 import tifffile
 from .utils import MyPath, UserInterrupt, camgui_params_root, _mk_save_tree_from_root_to_day, find_latest_sesframes_folder, find_newest_daypath_in_save_tree
 import dearpygui.dearpygui as dpg
-import platform, uuid
+import platform
+import uuid
 system = platform.system()
 if (system == "Windows") and (hex(uuid.getnode()) != '0xf4ce2305b4c7'): # code is A402 computer
     import spcm
@@ -52,7 +54,8 @@ class FrameDeck(list):
         self.frame_avg: npt.NDArray[np.floating] | None = None
         self.lst_dupe_maps : List[DupeMap] = [] # 保存 duplicated heatmaps window 中的 item tuple
         self.seslabel_deck: List[str] = []
-        self.dict_dr : Dict[int, Dict[str, Sequence[int|float]]] = dict() # drag rect dict, {<group number> : <dict of two items: {'tags' : <list of tags of the grouped drag rects>}, {'fence' : (xmin, xmax, vmin, vmax)}, which is the group fence>}
+        self.dict_dr : Dict[int, Dict[str, pd.DataFrame|Sequence[float]]] = dict() # drag rect dict, {<group number> : <dict of two items: {'grp dr df' : <dataframe of dr tags, row-indexed by yaxes, col-named by uuid>}, {'fence' : (xmin, xmax, vmin, vmax)}, which is the group fence>}
+        # self.series_id_gen= count() # guarantee a unique id as col name for each dr series in the per-group dataframes in self.dict_dr
     def memory_report(self) -> str:
         len_deck = len(self)
         if len_deck>0:
@@ -174,7 +177,8 @@ class FrameDeck(list):
     @staticmethod
     def _plot_frame(frame: npt.NDArray[np.floating], 
                     # xax: str="frame xax", 
-                    yaxSlave: str | int, yaxMaster: str | int)->None:
+                    yaxSlave: str | int, 
+                    yaxMaster: str | int)->None:
         assert np.issubdtype(frame.dtype, float), 'heatmap frame can only be float!'
         colorbar='frame colorbar'
         fmin, fmax, (nvrows, nhcols) = frame.min(), frame.max(), frame.shape
@@ -341,64 +345,103 @@ class FrameDeck(list):
         for _ in range(grp_id+1):
             this_color = next(color_cycle)
         return [225*e for e in this_color]
-    def add_dr(self, tagDr : int):
+    def add_dr_to_all(self, 
+                      xmean_dr : float, ymean_dr : float,
+                    #   tagDr : int
+                      ):
         """
-        to understand x1y1x2y2, check docstring in ctrl_add_rect
+        给定 drag rect 中心坐标 xmean_dr, ymean_dr,
+        将该中心坐标的 1x1 方块选取加入到所有的 heatmap 中
+        在 self.dict_dr 中记录好相应的方块分组信息
         """
-        def merge_dr_into_grp(drTag: int, grp_id: int):
+        def merge_dr_series_into_grp(dr_series: pd.Series, grp_id: int):
             """
-            将一个 dr 融入 dr 组 <grp_id> 中, 融入前不做任何判断(依赖函数外判断)
-            1. 如果 grp_id 不存在, 初始化 self.dict_dr[grp_id]
-            2. 将 drTag 添加到 self.dict_dr[grp_id]['dr tags'] 中
-            3. 将 drTag 的范围 merge 到 dr grp 原始的 fence 范围之上,
-               如果 drTag 是 dr grp 的第一个 dr, 那么这个 dr 的大小就定义了这个新 dr group 的 fence 范围
-            4. 将 dr 的 user_data 设为 grp_id: int
-            5. 为该 dr 分配颜色
+            每次在一个 heatmap 上添加一个 dr, 实际上都要在所有的 heatmaps 上添加相同的 dr,
+            因此每次添加的是一个 dr series
+            本函数将这样一个 dr series 融入记录 dr 信息的总字典 self.dict_dr 中
+            融入前不做任何判断(依赖函数外判断)
+            1. 如果 grp_id 作为字典 key 不存在, 初始化 self.dict_dr[grp_id]
+            2. 如果 grp_id 作为字典 key 存在, 但是相应的 val 为 `None` (用户手动清空一个 grp 组中的 rects 时, 会出现的情况), 同样初始化 self.dict_dr[grp_id]
+            3. 如果 dr series 中的 dr 中心落在 grp fence 的 fence +/- 1 的范围内, 将 dr 的范围 merge 到 dr grp 原始的 fence 范围之上
+               如果 dr series 是 dr grp 的第一个 dr, 那么 series 中的 dr (都一样)就定义了这个新 dr group 的 fence 范围
+            4. 将 series 中的每个 dr 的 user_data 设为 (grp_id: int, uuid : str)
+            5. 为 series 中的 dr 按照 grp_id 分配颜色
             """
-            if grp_id not in self.dict_dr: # 在 grp_id 不存在时, 初始化这个 ddict
+            if (grp_id not in self.dict_dr) or (self.dict_dr[grp_id] is None): # 在 grp_id 不存在时, 或则 self.dict_dr[grd_id] 为 None 时 (删除了所有某 dr 组中的 rects 后, 会出现这种情况, 组编号还存在, 但是其中没有任何 dr 了), 初始化这个 grp_id 对应的 ddict
                 ddict = self.dict_dr[grp_id] = dict()
-                ddict['dr tags'] = []
+                ddict['grp dr df'] = pd.DataFrame() # 空 df, 后续用于 concatenate series
             else:
                 ddict = self.dict_dr[grp_id]
-
-            ddict['dr tags'].append(drTag)
+            df_old = ddict['grp dr df']
+            ddict['grp dr df'] = pd.concat([df_old, dr_series], axis = 1)
+            tagDr = dr_series.iloc[0] # 取第一个 dr tag, 每个 series 中的所有的 dr 的位置必然都一样
             xmin, ymin, xmax, ymax = dpg.get_value(tagDr)
             if xmin>xmax:
                 xmin, xmax = xmax, xmin
             if ymin>ymax:
                 ymin, ymax = ymax, ymin
             
-            if 'fence' in ddict:
+            if 'fence' in ddict: # ddict 不是刚初始化的字典, 则会有 fence 这个 key
                 xmin_old, ymin_old, xmax_old, ymax_old = ddict['fence']
                 xmin_new = xmin if xmin < xmin_old else xmin_old
                 ymin_new = ymin if ymin < ymin_old else ymin_old
                 xmax_new = xmax if xmax > xmax_old else xmax_old
                 ymax_new = ymax if ymax > ymax_old else ymax_old
                 ddict['fence'] = xmin_new, ymin_new, xmax_new, ymax_new
-            else: # the very first dr tag in ddict, its size defines the fence completely
+            else: # add the very first dr series in ddict, any dr's size defines the fence completely
                 ddict['fence'] = xmin, ymin, xmax, ymax # the true xmin, ymin, xmax, ymax
-            dpg.set_item_user_data(tagDr, grp_id)
-            dpg.configure_item(tagDr, color=self.get_dr_color_in_group(grp_id))
+            for tag in dr_series:
+                dpg.set_item_user_data(tag, (grp_id, dr_series.name)) # group id and unique series id
+                dpg.configure_item(tag, color=self.get_dr_color_in_group(grp_id))
+
+        _, lst_allyaxes_mstr = self.get_all_tags_yaxes()
+        lst_allplts_mstr = [dpg.get_item_parent(e) for e in lst_allyaxes_mstr]
+        """
+        the default_value of dpg.add_drag_rect can be:
+        (x1, y1) -> o---o
+                    |   |
+                    o---o <- (x2, y2)
+        can also be:
+                    o---o <- (x1, y1)
+                    |   |
+        (x2, y2) -> o---o
+        what matters is the order of the two points
+        x/y1 > x/y2 is always
+        """
+        dr_series = pd.Series([int(dpg.add_drag_rect(
+            parent=p, default_value=(
+                xmean_dr-0.5, # init x edge, or x1
+                ymean_dr-0.5, # init y edge, or y1
+                xmean_dr+0.5, # end x edge, or x2
+                ymean_dr+0.5, # end y edge, or y2
+                )
+            )) for p in lst_allplts_mstr], 
+            index = lst_allplts_mstr,
+            name= uuid.uuid4().hex,
+            dtype= 'object' # 必须有这行, 这样 dr tag 才能被存储为 python int, 而不是 numpy.int64, 后者 dpg 不认. 若没有这行, pandas series 中的整数类型貌似被强制为 numpy.int64
+            )
         if not self.dict_dr: # if dr dict is empty
-            merge_dr_into_grp(tagDr, grp_id = 0)
+            merge_dr_series_into_grp(dr_series, grp_id = 0)
         else:
+            tagDr = dr_series.iloc[0] # 取第一个 dr tag, 每个 series 中的所有的 dr 的位置必然都一样
             x1, y1, x2, y2 = dpg.get_value(tagDr)
             xmean, ymean = (x1+x2)/2, (y1+y2)/2
             merged = False
             for grp_id, ddict in self.dict_dr.items():
-                xmin, ymin, xmax, ymax = ddict['fence']
-                if (xmin-1<xmean<xmax+1) and (ymin-1<ymean<ymax+1):
-                    merge_dr_into_grp(tagDr, grp_id)
-                    merged = True
-                    break # 两个 fence 有 overlap 是完全可能的, 这时候随缘 merge 到第一个 fence 中
-            if not merged:
-                merge_dr_into_grp(tagDr, 
+                if ddict is not None: # skip empty groups
+                    xmin, ymin, xmax, ymax = ddict['fence']
+                    if (xmin-1<xmean<xmax+1) and (ymin-1<ymean<ymax+1):
+                        merge_dr_series_into_grp(dr_series, grp_id)
+                        merged = True
+                        break # 两个 fence 有 overlap 是完全可能的, 这时候随缘 merge 到第一个 fence 中
+            if not merged: # 如果新 dr 无法融入已存在的任何一个 dr 组的 fence 中, 则需要创建一个新的 dr grp
+                for grp_id, val in self.dict_dr.items(): # 先看现存组中有没有空组可占用
+                    if val is None: # 空 grp 组
+                        merge_dr_series_into_grp(dr_series, grp_id)
+                        merged = True
+            if not merged: # 若上一步并没有找到任何空 grp 组可以用新 series 占用
+                merge_dr_series_into_grp(dr_series, 
                                   max(list(self.dict_dr))+1)
-
-
-
-
-
 
 def find_latest_camguiparams_json() ->MyPath:
     dpath_day = find_newest_daypath_in_save_tree(camgui_params_root)

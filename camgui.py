@@ -14,6 +14,7 @@ from camguihelper import (
     push_exception, push_log, save_camgui_json_to_savetree, camgui_ver)
 from pylablib.devices import DCAM
 if __name__ == '__main__':
+    from itertools import cycle
     import json
     import multiprocessing
     from pathlib import Path
@@ -786,29 +787,10 @@ if __name__ == '__main__':
                         """
                         if dpg.is_key_down(dpg.mvKey_LControl):
                             x, y = dpg.get_plot_mouse_pos()
-                            """
-                            the default_value of dpg.add_drag_rect can be:
-                            (x1, y1) -> o---o
-                                        |   |
-                                        o---o <- (x2, y2)
-                            can also be:
-                                        o---o <- (x1, y1)
-                                        |   |
-                            (x2, y2) -> o---o
-                            what matters is the order of the two points
-                            x/y1 > x/y2 is always
-                            """
-                            dr = dpg.add_drag_rect(
-                                parent = dpg.get_item_parent(yAxMstr),
-                                default_value=(
-                                    x-0.5, # init x edge, or x1
-                                    y-0.5, # init y edge, or y1
-                                    x+0.5, # end x edge, or x2
-                                    y+0.5), # end y edge, or y2
-                                )
-                            frame_deck.add_dr(dr)
+                            frame_deck.add_dr_to_all(x, y)
                     dpg.add_item_clicked_handler(callback=ctrl_add_rect)
                 return ihrMaster
+            gen_dupemap_label = cycle(range(100)) # 假设不可能同时打开 100 个窗口, 因此新开的窗口 label 可以是 0-99 的循环, 足以保证 label uniqueness
             def _dupe_heatmap():
                 dupe_map = DupeMap(
                     yAxSlv = dpg.generate_uuid(),
@@ -824,7 +806,7 @@ if __name__ == '__main__':
                     frame_deck.lst_dupe_maps.remove(dupe_map)
                     dpg.delete_item(sender)
                 with dpg.window(width=300, height=300, on_close=_on_close,
-                                label = f"#{len(frame_deck.lst_dupe_maps)}"):
+                                label = f"#{next(gen_dupemap_label)}"):
                     frame_deck.lst_dupe_maps.append(dupe_map)
                     with dpg.group(horizontal=True) as _grp:
                         #==============================
