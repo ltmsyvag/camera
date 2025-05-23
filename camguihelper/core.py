@@ -5,7 +5,7 @@ camgui 相关的帮助函数
 camgui_ver = '1.3-pre'
 import pandas as pd
 import matplotlib.pyplot as plt
-from itertools import cycle, count
+from itertools import cycle
 from collections import namedtuple
 import multiprocessing.connection
 DupeMap = namedtuple(typename='DupeMap', # class for useful dpg items in a dupe heatmap window
@@ -25,7 +25,7 @@ import queue
 import time
 import copy
 import numpy.typing as npt
-from typing import List, Dict, Sequence
+from typing import List, Dict, Sequence, Tuple
 import re
 # from deprecated import deprecated
 import math
@@ -363,6 +363,40 @@ class FrameDeck(list):
         将该中心坐标的 1x1 方块选取加入到所有的 heatmap 中
         在 self.dict_dr 中记录好相应的方块分组信息
         """
+        def ensure_minmax(
+                xmin : float, 
+                ymin : float, 
+                xmax : float, 
+                ymax : float
+                ) -> Tuple[float]:
+            """
+            dpg.get_value(<drag rect tag>) 返回的 tuple (xmin, ymin, xmax, ymax) 可能会有 min max 反转的情况,
+            本函数用于保证 min 是 min, max 是 max
+            """
+            if xmin>xmax:
+                xmin, xmax = xmax, xmin
+            if ymin>ymax:
+                ymin, ymax = ymax, ymin
+            return xmin, ymin, xmax, ymax
+        def reset_fence(ddict : dict, # 特定的组
+                     xmin : float,
+                     ymin : float,
+                     xmax : float,
+                     ymax : float,
+                     new_dr : bool)->None:
+            """
+            给定新 rect 的 pos 参数(或者旧 rect 的新 pos 参数),
+            重设 group rect dict `ddict` 中的 'fence' 值
+            """
+            if new_dr: 
+                xmin_old, ymin_old, xmax_old, ymax_old = ddict['fence']
+                xmin_new = xmin if xmin < xmin_old else xmin_old
+                ymin_new = ymin if ymin < ymin_old else ymin_old
+                xmax_new = xmax if xmax > xmax_old else xmax_old
+                ymax_new = ymax if ymax > ymax_old else ymax_old
+            else: # 旧 drag rect resize 时的新 pos 参数, 可能扩大也可能缩小 fence
+                ...
+            ddict['fence'] = xmin_new, ymin_new, xmax_new, ymax_new
         def merge_dr_series_into_grp(dr_series: pd.Series, grp_id: int):
             """
             每次在一个 heatmap 上添加一个 dr, 实际上都要在所有的 heatmaps 上添加相同的 dr,
@@ -384,21 +418,17 @@ class FrameDeck(list):
             df_old = ddict['grp dr df']
             ddict['grp dr df'] = pd.concat([df_old, dr_series], axis = 1)
             tagDr = dr_series.iloc[0] # 取第一个 dr tag, 每个 series 中的所有的 dr 的位置必然都一样
-            xmin, ymin, xmax, ymax = dpg.get_value(tagDr)
-            if xmin>xmax:
-                xmin, xmax = xmax, xmin
-            if ymin>ymax:
-                ymin, ymax = ymax, ymin
+            xmin, ymin, xmax, ymax = ensure_minmax(*dpg.get_value(tagDr))
             
             if 'fence' in ddict: # ddict 不是刚初始化的字典, 则会有 fence 这个 key
-                xmin_old, ymin_old, xmax_old, ymax_old = ddict['fence']
+                xmin_old, ymin_old, xmax_old, ymax_old = ddict['fence'] # 新 drag rect 可能扩大 fence (但不可能缩小)
                 xmin_new = xmin if xmin < xmin_old else xmin_old
                 ymin_new = ymin if ymin < ymin_old else ymin_old
                 xmax_new = xmax if xmax > xmax_old else xmax_old
                 ymax_new = ymax if ymax > ymax_old else ymax_old
                 ddict['fence'] = xmin_new, ymin_new, xmax_new, ymax_new
             else: # add the very first dr series in ddict, any dr's size defines the fence completely
-                ddict['fence'] = xmin, ymin, xmax, ymax # the true xmin, ymin, xmax, ymax
+                ddict['fence'] = xmin, ymin, xmax, ymax
             for tag in dr_series:
                 dpg.set_item_user_data(tag, (grp_id, dr_series.name)) # group id and unique series id
                 dpg.configure_item(tag, color=self.get_dr_color_in_group(grp_id))
@@ -416,13 +446,32 @@ class FrameDeck(list):
         what matters is the order of the two points
         x/y1 > x/y2 is always
         """
+        def sync_rects_and_adjust_fence(sender, _, user_data):
+            # 第一部分, sync 其他热图中 dr 的 resize
+            grp_id, series_id = user_data
+            ddict = self.dict_dr[grp_id]
+            dr_series = ddict['grp dr df'][series_id]
+            sender_pos = dpg.get_value(sender)
+            for drTag in dr_series:
+                if drTag != sender:
+                    dpg.set_value(drTag, sender_pos)
+            # 第二部分: 调整本 dr 组的 fence.
+            #  调整现有的 drag rect, 可能扩大也可能缩小 fence, 也可能保持不变, 但是不管了统一 callback 重设
+            dr_row = ddict['grp dr df'].iloc[0,:] # 取第一行 drag rects, 代表了单张热图上的本组的所有 dr, 其他行(热图)上的 dr 都是同步的, 因此不用考虑
+            # reset_fence(ddict, ensure_minmax(*sender_pos), new_dr=False)
+            arr_minxminymaxxmaxy = np.array([
+                ensure_minmax(*dpg.get_value(tag)) for tag in dr_row
+            ])
+            xmin, ymin, _, _ = arr_minxminymaxxmaxy.min(axis=0)
+            _, _, xmax, ymax = arr_minxminymaxxmaxy.max(axis=0)
+            ddict['fence'] = xmin, ymin, xmax, ymax
         dr_series = pd.Series([int(dpg.add_drag_rect(
             parent=p, default_value=(
                 xmean_dr-0.5, # init x edge, or x1
                 ymean_dr-0.5, # init y edge, or y1
                 xmean_dr+0.5, # end x edge, or x2
                 ymean_dr+0.5, # end y edge, or y2
-                )
+                ), callback = sync_rects_and_adjust_fence
             )) for p in lst_allplts_mstr], 
             index = lst_allplts_mstr,
             name= uuid.uuid4().hex,
