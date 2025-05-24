@@ -15,6 +15,7 @@ from camguihelper import (
 from pylablib.devices import DCAM
 if __name__ == '__main__':
     from itertools import cycle
+    import pandas as pd
     import json
     import multiprocessing
     from pathlib import Path
@@ -792,7 +793,12 @@ if __name__ == '__main__':
                             frame_deck.add_dr_to_all(x, y)
                     dpg.set_item_callback(dpg.last_item(), ctrl_add_dr)
                     #=====================================
-                    # dpg.add_item_clicked_handler()
+                    dpg.add_item_clicked_handler()
+                    def alt_remove_dr(*args):
+                        if dpg.is_key_down(dpg.mvKey_LAlt):
+                            x, y = dpg.get_plot_mouse_pos()
+                            frame_deck.remove_dr_from_all(x,y)
+                    dpg.set_item_callback(dpg.last_item(), alt_remove_dr)
                 return ihrMaster
             gen_dupemap_label = cycle(range(100)) # 假设不可能同时打开 100 个窗口, 因此新开的窗口 label 可以是 0-99 的循环, 足以保证 label uniqueness
             def _dupe_heatmap():
@@ -888,8 +894,21 @@ if __name__ == '__main__':
                         dpg.set_item_callback(dupe_map.cBox, _toggle_id_and_avg_map_)
                         with dpg.tooltip(dupe_map.cBox, **ttpkwargs):
                             dpg.add_text("切换单帧/平均帧")
-
+                #=== 在创建好 dupe map 后, 载入热图和 dr
                 frame_deck.plot_cid_frame(dupe_map.yAxSlv, dupe_map.yAxMstr)
+                # what follows could be an add_dr_to_this_dupemap function, but 
+                # for grp_id, ddict in frame_deck.dict_dr.items():
+                #     if ddict is not None:
+                #         df = ddict['grp dr df']
+                #         dr_row = df.iloc[0,:] # 取主热图上所有的 dr
+                #         lst_dr_in_dupemap = [
+                #             dpg.add_drag_rect(
+                #                 parent = dupe_map.pltMstr,
+                #                 default_value=dpg.get_value(drTag),
+                #                 callback = frame_deck.sync_rects_and_update_fence
+                #                 )
+                #             for drTag in dr_row]
+                #         df.iloc[]
 
             dpg.set_item_callback(cidIndcator, _dupe_heatmap)
             #==========================================

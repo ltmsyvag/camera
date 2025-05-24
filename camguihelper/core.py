@@ -17,7 +17,7 @@ DupeMap = namedtuple(typename='DupeMap', # class for useful dpg items in a dupe 
                             'inputInt',
                             'radioBtn',
                             'cBox'])
-from icecream import ic
+# from icecream import ic
 import json
 import traceback
 import multiprocessing
@@ -354,6 +354,46 @@ class FrameDeck(list):
         for _ in range(grp_id+1):
             this_color = next(color_cycle)
         return [225*e for e in this_color]
+    @staticmethod
+    def ensure_minmax(
+            xmin : float, 
+            ymin : float, 
+            xmax : float, 
+            ymax : float
+            ) -> Tuple[float]:
+        """
+        dpg.get_value(<drag rect tag>) 返回的 tuple (xmin, ymin, xmax, ymax) 可能会有 min max 反转的情况,
+        本函数用于保证 min 是 min, max 是 max
+        """
+        if xmin>xmax:
+            xmin, xmax = xmax, xmin
+        if ymin>ymax:
+            ymin, ymax = ymax, ymin
+        return xmin, ymin, xmax, ymax
+    def _update_grp_fence(self, grp_id: int):
+        """
+        在保证当前 grp_id 存在并且 grp 不为空时才能使用
+        """
+        ddict = self.dict_dr[grp_id]
+        dr_row = ddict['grp dr df'].iloc[0, :] # 取第一行 drag rects, 代表了单张热图上的本组的所有 dr, 其他行(热图)上的 dr 都是同步的, 因此不用考虑
+        arr_minxminymaxxmaxy = np.array([
+            self.ensure_minmax(*dpg.get_value(tag)) for tag in dr_row
+        ])
+        xmin, ymin, _, _ = arr_minxminymaxxmaxy.min(axis=0)
+        _, _, xmax, ymax = arr_minxminymaxxmaxy.max(axis=0)
+        ddict['fence'] = xmin, ymin, xmax, ymax
+    def sync_rects_and_update_fence(self, sender, _, user_data):
+        # 第一部分, sync 其他热图中 dr 的 resize
+        grp_id, series_id = user_data
+        ddict = self.dict_dr[grp_id]
+        dr_series = ddict['grp dr df'][series_id]
+        sender_pos = dpg.get_value(sender)
+        for drTag in dr_series:
+            if drTag != sender:
+                dpg.set_value(drTag, sender_pos)
+        # 第二部分: 调整本 dr 组的 fence.
+        #  调整现有的 drag rect, 可能扩大也可能缩小 fence, 也可能保持不变, 但是不管了统一 callback 重设
+        self._update_grp_fence(grp_id)
     def add_dr_to_all(self, 
                       xmean_dr : float, ymean_dr : float,
                     #   tagDr : int
@@ -363,21 +403,6 @@ class FrameDeck(list):
         将该中心坐标的 1x1 方块选取加入到所有的 heatmap 中
         在 self.dict_dr 中记录好相应的方块分组信息
         """
-        def ensure_minmax(
-                xmin : float, 
-                ymin : float, 
-                xmax : float, 
-                ymax : float
-                ) -> Tuple[float]:
-            """
-            dpg.get_value(<drag rect tag>) 返回的 tuple (xmin, ymin, xmax, ymax) 可能会有 min max 反转的情况,
-            本函数用于保证 min 是 min, max 是 max
-            """
-            if xmin>xmax:
-                xmin, xmax = xmax, xmin
-            if ymin>ymax:
-                ymin, ymax = ymax, ymin
-            return xmin, ymin, xmax, ymax
         def merge_dr_series_into_grp(dr_series: pd.Series, grp_id: int):
             """
             每次在一个 heatmap 上添加一个 dr, 实际上都要在所有的 heatmaps 上添加相同的 dr,
@@ -400,7 +425,7 @@ class FrameDeck(list):
             df_old = ddict['grp dr df']
             ddict['grp dr df'] = pd.concat([df_old, dr_series], axis = 1)
             tagDr = dr_series.iloc[0] # 取第一个 dr tag, 每个 series 中的所有的 dr 的位置必然都一样
-            xmin, ymin, xmax, ymax = ensure_minmax(*dpg.get_value(tagDr))
+            xmin, ymin, xmax, ymax = self.ensure_minmax(*dpg.get_value(tagDr))
             
             if 'fence' in ddict: # ddict 不是刚初始化的字典, 则会有 fence 这个 key
                 xmin_old, ymin_old, xmax_old, ymax_old = ddict['fence'] # 新 drag rect 可能扩大 fence (但不可能缩小)
@@ -428,32 +453,14 @@ class FrameDeck(list):
         what matters is the order of the two points
         x/y1 > x/y2 is always
         """
-        def sync_rects_and_adjust_fence(sender, _, user_data):
-            # 第一部分, sync 其他热图中 dr 的 resize
-            grp_id, series_id = user_data
-            ddict = self.dict_dr[grp_id]
-            dr_series = ddict['grp dr df'][series_id]
-            sender_pos = dpg.get_value(sender)
-            for drTag in dr_series:
-                if drTag != sender:
-                    dpg.set_value(drTag, sender_pos)
-            # 第二部分: 调整本 dr 组的 fence.
-            #  调整现有的 drag rect, 可能扩大也可能缩小 fence, 也可能保持不变, 但是不管了统一 callback 重设
-            dr_row = ddict['grp dr df'].iloc[0,:] # 取第一行 drag rects, 代表了单张热图上的本组的所有 dr, 其他行(热图)上的 dr 都是同步的, 因此不用考虑
-            # reset_fence(ddict, ensure_minmax(*sender_pos), new_dr=False)
-            arr_minxminymaxxmaxy = np.array([
-                ensure_minmax(*dpg.get_value(tag)) for tag in dr_row
-            ])
-            xmin, ymin, _, _ = arr_minxminymaxxmaxy.min(axis=0)
-            _, _, xmax, ymax = arr_minxminymaxxmaxy.max(axis=0)
-            ddict['fence'] = xmin, ymin, xmax, ymax
+
         dr_series = pd.Series([int(dpg.add_drag_rect(
             parent=p, default_value=(
                 xmean_dr-0.5, # init x edge, or x1
                 ymean_dr-0.5, # init y edge, or y1
                 xmean_dr+0.5, # end x edge, or x2
                 ymean_dr+0.5, # end y edge, or y2
-                ), callback = sync_rects_and_adjust_fence
+                ), callback = self.sync_rects_and_update_fence
             )) for p in lst_allplts_mstr], 
             index = lst_allplts_mstr,
             name= uuid.uuid4().hex,
@@ -475,13 +482,44 @@ class FrameDeck(list):
                         break # 两个 fence 有 overlap 是完全可能的, 这时候随缘 merge 到第一个 fence 中
             if not merged: # 如果新 dr 无法融入已存在的任何一个 dr 组的 fence 中, 则需要创建一个新的 dr grp
                 for grp_id, val in self.dict_dr.items(): # 先看现存组中有没有空组可占用
+                    # print(f'checking if grp {grp_id} is empty')
                     if val is None: # 空 grp 组
                         merge_dr_series_into_grp(dr_series, grp_id)
+                        # print(f'dr added in grp {grp_id}')
                         merged = True
+                        break
             if not merged: # 若上一步并没有找到任何空 grp 组可以用新 series 占用
                 merge_dr_series_into_grp(dr_series, 
                                   max(list(self.dict_dr))+1)
-
+    def remove_dr_from_all(self, x_mouse: float, y_mouse: float):
+        for grp_id, ddict in self.dict_dr.items():
+            # for key, val in self.dict_dr.items():
+            #     print("before key ", key)
+            #     print("before val ", val)
+            if ddict is not None: # skip empty groups
+                xminf, yminf, xmaxf, ymaxf = ddict['fence']
+                if (xminf<x_mouse<xmaxf) and (yminf<y_mouse<ymaxf): # 粗筛, 首先判定鼠标点击在某个 dr 组的 fence 内
+                    df = ddict['grp dr df']
+                    dr_row = df.iloc[0,:] # 取第一行 drag rects, 代表了单张热图上的本组的所有 dr, 其他行(热图)上的 dr 都是同步的, 因此不用考虑
+                    for drTag in dr_row: # 若鼠标点击在某个 dr 内, 则删除 dr 所在整列
+                        # ic(dr_row)
+                        # ic(drTag)
+                        # ic(dpg.get_value(drTag))
+                        xmindr, ymindr, xmaxdr, ymaxdr = self.ensure_minmax(*dpg.get_value(drTag))
+                        if (xmindr<x_mouse<xmaxdr) and (ymindr<y_mouse<ymaxdr): # 细筛, 看鼠标是否点击在某个 dr 内
+                            _, series_id = dpg.get_item_user_data(drTag)
+                            for tag in df[series_id]:
+                                dpg.delete_item(tag)
+                            df.drop(series_id, axis=1, inplace=True)
+                    # print(self.dict_dr)
+                    if df.size: # 如果 df 没被删空
+                        ddict['grp dr df'] = df
+                        self._update_grp_fence(grp_id)
+                    else: # 如果 df 被删空了, 那么将 dr 组在总字典中的值设为 None
+                        self.dict_dr[grp_id] = None
+            # for key, val in self.dict_dr.items():
+            #     print("after key ", key)
+            #     print("after val ", val)
 def find_latest_camguiparams_json() ->MyPath:
     dpath_day = find_newest_daypath_in_save_tree(camgui_params_root)
     json_pattern = r'^CA([0-9]+)\.json$'
