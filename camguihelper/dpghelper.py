@@ -296,6 +296,10 @@ def factory_cb_yn_modal_dialog(*, cb_on_confirm: Callable = None,
                 dpg.add_spacer(height=10)
                 with dpg.group(horizontal=True):
                     dpg.add_spacer(width=30)
-                    dpg.add_button(label = "Yes", callback = cb_on_confirm)
+                    yesBtn = dpg.add_button(label = "Yes")
+                    def confirm_then_close(*args):
+                        cb_on_confirm(*args)
+                        dpg.delete_item(tagModalWin)
+                    dpg.set_item_callback(yesBtn, confirm_then_close)
                     dpg.add_button(label = "No", callback = cb_on_cancel if cb_on_cancel else _cb_on_cancel)
     return pop_yn_modal_win

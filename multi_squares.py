@@ -55,7 +55,8 @@ with dpg.window(width = 400, height= 500) as win1:
                                 scale_min=0, scale_max=137, 
                                 bounds_min= (xbeg, ybeg), 
                                 bounds_max= (xend, yend),
-                                format="")
+                                # format=""
+                                )
         dpg.fit_axis_data('slave xax')
         dpg.fit_axis_data('slave yax')
     with dpg.plot(tag="master plot", callback = _log, **pltkwargs):

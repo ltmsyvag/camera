@@ -95,7 +95,7 @@ if __name__ == '__main__':
             dpg.set_item_callback(dpg.last_item(),
                                     factory_cb_yn_modal_dialog(
                                         dialog_text=
-                                        f"""\
+                                        """\
 添加直方图选区:
 - 添加一个: ctrl + 左键
 
@@ -644,13 +644,10 @@ repo: https://github.com/ltmsyvag/camera
                 dpg.set_item_callback(dpg.last_item(), lambda: frame_deck.save_deck())
                 #================================
                 dpg.add_menu_item(label = "清空内存中的帧")
-                def _on_confirm(sender):
-                    frame_deck.clear()
-                    dpg.delete_item(
-                        dpg.get_item_parent(dpg.get_item_parent(sender))
-                        )  # Close the modal after confirming
                 dpg.set_item_callback(dpg.last_item(),
-                                        factory_cb_yn_modal_dialog(cb_on_confirm=_on_confirm, dialog_text="确认要清空内存中的所有帧吗?"))
+                                        factory_cb_yn_modal_dialog(
+                                            cb_on_confirm=frame_deck.clear, 
+                                            dialog_text='确认要清空内存中的所有帧吗?'))
             #=========================
             dpg.add_menu_item(label = "载入帧", callback=lambda: dpg.show_item(fileDialog))
             with dpg.menu(label = "热图主题"):
@@ -815,8 +812,12 @@ repo: https://github.com/ltmsyvag/camera
                     dpg.set_item_callback(dpg.last_item(), alt_remove_dr)
                 return ihrMaster
             gen_dupemap_label = cycle(range(100)) # 假设不可能同时打开 100 个窗口, 因此新开的窗口 label 可以是 0-99 的循环, 足以保证 label uniqueness
-            with dpg.handler_registry() as globalHr:
-                dpg.add_key_press_handler(dpg.mvKey_F12, callback = frame_deck.clear_dr)
+            with dpg.handler_registry():
+                dpg.add_key_press_handler(
+                    dpg.mvKey_F12, 
+                    callback = factory_cb_yn_modal_dialog(
+                        cb_on_confirm= frame_deck.clear_dr,
+                        dialog_text='确认要清除所有的直方图选区吗?'))
             def _dupe_heatmap():
                 dupe_map = DupeMap(
                     pltSlv = dpg.generate_uuid(),
@@ -1020,8 +1021,9 @@ repo: https://github.com/ltmsyvag/camera
                     height=-1, width=-1, no_mouse_pos=True):
             dpg.add_plot_axis(dpg.mvXAxis, label = "converted counts ((<frame pixel counts>-200)*0.1/0.9)")
             dpg.add_plot_axis(dpg.mvYAxis, label = "frequency", tag = "hist plot yax")
-    
-    if dummy_acq: #Trueummy acquisition
+    # with dpg.window(label = '阵列直方图', width = 200, height=300):
+    #     ...
+    if dummy_acq: #True is dummy acquisition
         dpg.set_item_callback(togCam,_dummy_cam_toggle_cb_)
         dpg.set_item_callback(togAcq, _dummy_toggle_acq_cb)
         cam = None # probably needed for dummy acquisition, the same reason as needing controller = None
