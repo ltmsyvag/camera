@@ -397,7 +397,11 @@ class FrameDeck(list):
         self._update_grp_fence(grp_id)
     def add_dr_to_loc(self, 
                       xmean_dr : float, 
-                      ymean_dr : float,):
+                      ymean_dr : float,
+                      sidex: float = 1,
+                      sidey: float = 1,
+                      always_new_grp: bool = False # if True, 新添加的 dr 总是融入进一个新的组(或占据一个旧的空组), 不尝试判断是否能融入现存 dr 组的 fence 中
+                      ):
         """
         给定 drag rect 中心坐标 xmean_dr, ymean_dr,
         将该中心坐标的 1x1 方块选取加入到所有的 heatmap 中
@@ -458,10 +462,10 @@ class FrameDeck(list):
 
         dr_series = pd.Series([int(dpg.add_drag_rect(
             parent=p, default_value=(
-                xmean_dr-0.5, # init x edge, or x1
-                ymean_dr-0.5, # init y edge, or y1
-                xmean_dr+0.5, # end x edge, or x2
-                ymean_dr+0.5, # end y edge, or y2
+                xmean_dr-sidex/2, # init x edge, or x1
+                ymean_dr-sidey/2, # init y edge, or y1
+                xmean_dr+sidex/2, # end x edge, or x2
+                ymean_dr+sidey/2, # end y edge, or y2
                 ), callback = self.sync_rects_and_update_fence
             )) for p in lst_allplts_mstr], 
             index = lst_allplts_mstr,
@@ -476,19 +480,18 @@ class FrameDeck(list):
             x1, y1, x2, y2 = dpg.get_value(tagDr)
             xmean, ymean = (x1+x2)/2, (y1+y2)/2
             grp_id_final = None
-            for grp_id, ddict in self.dict_dr.items():
-                if ddict is not None: # skip empty groups
-                    xmin, ymin, xmax, ymax = ddict['fence']
-                    if (xmin-1<xmean<xmax+1) and (ymin-1<ymean<ymax+1):
-                        merge_dr_series_into_grp(dr_series, grp_id)
-                        grp_id_final = grp_id
-                        break # 两个 fence 有 overlap 是完全可能的, 这时候随缘 merge 到第一个 fence 中
+            if not always_new_grp:
+                for grp_id, ddict in self.dict_dr.items():
+                    if ddict is not None: # skip empty groups
+                        xmin, ymin, xmax, ymax = ddict['fence']
+                        if (xmin-1<xmean<xmax+1) and (ymin-1<ymean<ymax+1):
+                            merge_dr_series_into_grp(dr_series, grp_id)
+                            grp_id_final = grp_id
+                            break # 两个 fence 有 overlap 是完全可能的, 这时候随缘 merge 到第一个 fence 中
             if grp_id_final is None: # 如果新 dr 无法融入已存在的任何一个 dr 组的 fence 中, 则需要创建一个新的 dr grp
                 for grp_id, val in self.dict_dr.items(): # 先看现存组中有没有空组可占用
-                    # print(f'checking if grp {grp_id} is empty')
                     if val is None: # 空 grp 组
                         merge_dr_series_into_grp(dr_series, grp_id)
-                        # print(f'dr added in grp {grp_id}')
                         grp_id_final = grp_id
                         break
             if grp_id_final is None: # 若上一步并没有找到任何空 grp 组可以用新 series 占用
@@ -496,10 +499,10 @@ class FrameDeck(list):
                 merge_dr_series_into_grp(dr_series, 
                                   grp_id_final)
         return grp_id_final, dr_series.name
-    def remove_dr_series(self, grp_id, series_id):
+    def expunge_dr_series(self, grp_id, series_id):
         """
-        删除给定 dr 组, 给定 uuid col 中的所有 dr
-        更新 self.dict_dr
+        在所有热图和 self.dict_dr 中都删掉一个特定的 dr series
+        它和 remove_dr_from_loc 的区别在于, 后者可以一次去除多个重叠的 dr
         """
         ddict = self.dict_dr[grp_id]
         df = ddict['grp dr df']
@@ -522,15 +525,15 @@ class FrameDeck(list):
                         xmindr, ymindr, xmaxdr, ymaxdr = self.ensure_minmax(*dpg.get_value(drTag))
                         if (xmindr<x_mouse<xmaxdr) and (ymindr<y_mouse<ymaxdr): # 细筛, 看鼠标是否点击在某个 dr 内
                             _, series_id = dpg.get_item_user_data(drTag)
-                            # self._remove_dr_series(grp_id, series_id)
-                            for tag in df[series_id]:
-                                dpg.delete_item(tag)
-                            df.drop(series_id, axis=1, inplace=True)
-                    if df.size: # 如果 df 没被删空
-                        ddict['grp dr df'] = df
-                        self._update_grp_fence(grp_id)
-                    else: # 如果 df 被删空了, 那么将 dr 组在总字典中的值设为 None
-                        self.dict_dr[grp_id] = None
+                            self.expunge_dr_series(grp_id, series_id)
+                    #         for tag in df[series_id]:
+                    #             dpg.delete_item(tag)
+                    #         df.drop(series_id, axis=1, inplace=True)
+                    # if df.size: # 如果 df 没被删空
+                    #     ddict['grp dr df'] = df
+                    #     self._update_grp_fence(grp_id)
+                    # else: # 如果 df 被删空了, 那么将 dr 组在总字典中的值设为 None
+                    #     self.dict_dr[grp_id] = None
     def clear_dr(self):
         for grp_id, ddict in self.dict_dr.items():
             if ddict is not None:

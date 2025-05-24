@@ -847,24 +847,30 @@ repo: https://github.com/ltmsyvag/camera
                     dpg.set_item_user_data(sender, user_data)
                 dpg.set_item_callback(dpg.last_item(), _show_hide_grp_id)
                 #================================
-                dpg.add_key_press_handler(dpg.mvKey_F9)
+                _kph = dpg.add_key_press_handler(dpg.mvKey_F9)
                 def make_dr_arr(*args):
+                    print('inside')
                     if len(frame_deck.dq2)<2: # 如果(单张热图上)的直方图选区少于两个, 则不触发选区阵列选取
+                        print('before return')
                         return
+                    print('past return')
+                    
                     with dpg.window(
                         label = '添加阵列选区', modal = True, pos = get_viewport_centerpos(),
                         on_close = lambda sender: dpg.delete_item(sender)) as query_win:
+                        print('in window container')
                         dpg.add_text('在最近创建的两个选区之间(含), 你要创建多少选区\n(新创建的选区面积和当前最新的选区一致)')
+                        print('past text')
                         inputInt1D = dpg.add_input_int(default_value= 10, min_value=2, min_clamped=True)
                         dpg.add_spacer(height=10)
                         with dpg.group(horizontal=True):
                             dpg.add_spacer(width = 30)
-                            yesBtn = dpg.add_buton(label = 'Yes')
+                            yesBtn = dpg.add_button(label = 'Yes')
                             def make_1d_dr_arr_and_query_for_2d(*args):
                                 (grp1, uuid1), (grp2, uuid2) = frame_deck.dq2 # 2 is newer, 1 older
                                 df1 = frame_deck.dict_dr[grp1]['grp dr df']
                                 df2 = frame_deck.dict_dr[grp2]['grp dr df']
-                                drTag1, drTag2 = df1[uuid1][0], df2[uuid2][0] # 在两个 dr series 中选取两个代表性的 dr, 求其位置和尺寸(2号)
+                                drTag1, drTag2 = df1[uuid1].iloc[0], df2[uuid2].iloc[0] # 在两个 dr series 中选取两个代表性的 dr, 求其位置和尺寸(2号)
                                 x1dr1, y1dr1, x2dr1, y2dr1 = dpg.get_value(drTag1)
                                 x1dr2, y1dr2, x2dr2, y2dr2 = dpg.get_value(drTag2)
                                 xmeandr1, ymeandr1 = (x1dr1+x2dr1)/2, (y1dr1+y2dr1)/2
@@ -872,15 +878,18 @@ repo: https://github.com/ltmsyvag/camera
                                 sidex_dr2, sidey_dr2 = abs(x1dr2-x2dr2), abs(y1dr2-y2dr2)
                                 n_dr1d = dpg.get_value(inputInt1D)
                                 lst_xymeans_todo_for_1darr = [
-                                    (x,y) for (x,y) in 
+                                    (x,y) for (x,y) in
                                     zip(np.linspace(xmeandr1, xmeandr2, n_dr1d), 
                                         np.linspace(ymeandr1, ymeandr2, n_dr1d))]
                                 lst_xymeans_todo_for_1darr = lst_xymeans_todo_for_1darr[1:]
-                                frame_deck.remove_dr_series(grp2, uuid2)
+                                frame_deck.expunge_dr_series(grp2, uuid2)
+                                for xcen, ycen in lst_xymeans_todo_for_1darr:
+                                    frame_deck.add_dr_to_loc(xcen, ycen, sidex=sidex_dr2, sidey=sidey_dr2, always_new_grp=True)
+                                dpg.delete_item(query_win)
 
                             dpg.set_item_callback(yesBtn, make_1d_dr_arr_and_query_for_2d)
-                            dpg.add_button(label = 'No', callback = dpg.delete_item(query_win))
-
+                            dpg.add_button(label = 'No', callback = lambda: dpg.delete_item(query_win))
+                dpg.set_item_callback(_kph, make_dr_arr)
             def _dupe_heatmap():
                 dupe_map = DupeMap(
                     pltSlv = dpg.generate_uuid(),
