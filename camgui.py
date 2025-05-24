@@ -14,6 +14,8 @@ from camguihelper import (
     push_exception, push_log, save_camgui_json_to_savetree, camgui_ver)
 from pylablib.devices import DCAM
 if __name__ == '__main__':
+    import numpy as np
+    # from collections import deque
     from itertools import cycle
     # import pandas as pd
     import json
@@ -33,6 +35,7 @@ if __name__ == '__main__':
         do_bind_my_global_nosave_theme,
         do_initialize_chinese_fonts,
         do_extend_add_button,
+        get_viewport_centerpos,
         toggle_checkbox_and_disable,
         factory_cb_yn_modal_dialog)
 
@@ -776,7 +779,6 @@ repo: https://github.com/ltmsyvag/camera
                 """
                 with dpg.item_handler_registry() as ihrMaster:
                     dpg.add_item_visible_handler(
-                        # user_data = [rectsXax, rectsYax, 'frame xax', 'frame yax']
                         user_data = [xAxSlv, yAxSlv, xAxMstr, yAxMstr])
                     def sync_axes(_,__, user_data):
                         """
@@ -803,14 +805,15 @@ repo: https://github.com/ltmsyvag/camera
                         """
                         if dpg.is_key_down(dpg.mvKey_LControl):
                             x, y = dpg.get_plot_mouse_pos()
-                            frame_deck.add_dr_to_all(x, y)
+                            grp_id, uuid_dr_series = frame_deck.add_dr_to_loc(x, y)
+                            frame_deck.dq2.append((grp_id, uuid_dr_series))
                     dpg.set_item_callback(dpg.last_item(), ctrl_add_dr)
                     #=====================================
                     dpg.add_item_clicked_handler()
                     def alt_remove_dr(*args):
                         if dpg.is_key_down(dpg.mvKey_LAlt):
                             x, y = dpg.get_plot_mouse_pos()
-                            frame_deck.remove_dr_from_all(x,y)
+                            frame_deck.remove_dr_from_loc(x,y)
                     dpg.set_item_callback(dpg.last_item(), alt_remove_dr)
                 return ihrMaster
             gen_dupemap_label = cycle(range(100)) # 假设不可能同时打开 100 个窗口, 因此新开的窗口 label 可以是 0-99 的循环, 足以保证 label uniqueness
@@ -825,8 +828,6 @@ repo: https://github.com/ltmsyvag/camera
                                           user_data=[] # list for holding annotation item tags
                                           )
                 def _show_hide_grp_id(sender, __, user_data):
-                    # print('usr data', user_data)
-                    # print('sender and handler', sender, _handler)
                     if user_data:
                         while user_data:
                             dpg.delete_item(user_data.pop())
@@ -836,19 +837,50 @@ repo: https://github.com/ltmsyvag/camera
                             if ddict is not None:
                                 xminf, yminf, xmaxf, ymaxf = ddict['fence']
                                 xmeanf, ymeanf = (xminf+xmaxf)/2, (yminf+ymaxf)/2
-                                # print('mean', xmeanf, ymeanf)
                                 for thisPlot in lst_pltMstr:
                                     annoTag = dpg.add_plot_annotation(
                                         parent=thisPlot,
                                         label= str(grp_id),
                                         default_value=(xmeanf, ymeanf),
-                                        color = [255,255,0]
-                                        )
-                                    # print('anno', annoTag)
+                                        color = [255,255,0])
                                     user_data.append(annoTag)
                     dpg.set_item_user_data(sender, user_data)
                 dpg.set_item_callback(dpg.last_item(), _show_hide_grp_id)
-                # dpg.set_item_callback(dpg.last_item(), _log)
+                #================================
+                dpg.add_key_press_handler(dpg.mvKey_F9)
+                def make_dr_arr(*args):
+                    if len(frame_deck.dq2)<2: # 如果(单张热图上)的直方图选区少于两个, 则不触发选区阵列选取
+                        return
+                    with dpg.window(
+                        label = '添加阵列选区', modal = True, pos = get_viewport_centerpos(),
+                        on_close = lambda sender: dpg.delete_item(sender)) as query_win:
+                        dpg.add_text('在最近创建的两个选区之间(含), 你要创建多少选区\n(新创建的选区面积和当前最新的选区一致)')
+                        inputInt1D = dpg.add_input_int(default_value= 10, min_value=2, min_clamped=True)
+                        dpg.add_spacer(height=10)
+                        with dpg.group(horizontal=True):
+                            dpg.add_spacer(width = 30)
+                            yesBtn = dpg.add_buton(label = 'Yes')
+                            def make_1d_dr_arr_and_query_for_2d(*args):
+                                (grp1, uuid1), (grp2, uuid2) = frame_deck.dq2 # 2 is newer, 1 older
+                                df1 = frame_deck.dict_dr[grp1]['grp dr df']
+                                df2 = frame_deck.dict_dr[grp2]['grp dr df']
+                                drTag1, drTag2 = df1[uuid1][0], df2[uuid2][0] # 在两个 dr series 中选取两个代表性的 dr, 求其位置和尺寸(2号)
+                                x1dr1, y1dr1, x2dr1, y2dr1 = dpg.get_value(drTag1)
+                                x1dr2, y1dr2, x2dr2, y2dr2 = dpg.get_value(drTag2)
+                                xmeandr1, ymeandr1 = (x1dr1+x2dr1)/2, (y1dr1+y2dr1)/2
+                                xmeandr2, ymeandr2 = (x1dr2+x2dr2)/2, (y1dr2+y2dr2)/2
+                                sidex_dr2, sidey_dr2 = abs(x1dr2-x2dr2), abs(y1dr2-y2dr2)
+                                n_dr1d = dpg.get_value(inputInt1D)
+                                lst_xymeans_todo_for_1darr = [
+                                    (x,y) for (x,y) in 
+                                    zip(np.linspace(xmeandr1, xmeandr2, n_dr1d), 
+                                        np.linspace(ymeandr1, ymeandr2, n_dr1d))]
+                                lst_xymeans_todo_for_1darr = lst_xymeans_todo_for_1darr[1:]
+                                frame_deck.remove_dr_series(grp2, uuid2)
+
+                            dpg.set_item_callback(yesBtn, make_1d_dr_arr_and_query_for_2d)
+                            dpg.add_button(label = 'No', callback = dpg.delete_item(query_win))
+
             def _dupe_heatmap():
                 dupe_map = DupeMap(
                     pltSlv = dpg.generate_uuid(),
@@ -885,9 +917,7 @@ repo: https://github.com/ltmsyvag/camera
                         dpg.set_item_callback(dupe_map.inputInt, _cb_input_int)
                         #===============================
                         dpg.add_radio_button(('倒数帧', '正数帧'), tag=dupe_map.radioBtn,
-                                            default_value = '倒数帧', horizontal=True,
-                                            #  callback=_log
-                                            )
+                                            default_value = '倒数帧', horizontal=True,)
                         def _cb_radio(_, app_data, __):
                             """
                             这个 radio button 的 callback 必须放在 enclosing 的 _dupe_heatmap callback 定义中,

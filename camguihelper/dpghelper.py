@@ -268,7 +268,7 @@ def _return_func_if_not_wrapped(func, wrapper):
     else:
         return func
 
-def _get_viewport_centerpos():
+def get_viewport_centerpos():
     center_x = dpg.get_viewport_client_width()//2
     center_y = dpg.get_viewport_client_height()//2
     return center_x, center_y
@@ -287,7 +287,7 @@ def factory_cb_yn_modal_dialog(*, cb_on_confirm: Callable = None,
         dpg.delete_item(tagModalWin)  # Close the modal after cancelling
     def pop_yn_modal_win():
         with dpg.window(label = win_label, modal = True, tag = tagModalWin,
-                        pos = _get_viewport_centerpos(), 
+                        pos = get_viewport_centerpos(), 
                         on_close=lambda sender: dpg.delete_item(sender)):
             dpg.add_text(dialog_text)
             if just_close:
