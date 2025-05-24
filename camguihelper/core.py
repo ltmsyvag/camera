@@ -519,6 +519,12 @@ class FrameDeck(list):
             # for key, val in self.dict_dr.items():
             #     print("after key ", key)
             #     print("after val ", val)
+    def clear_dr(self):
+        for grp_id, ddict in self.dict_dr.items():
+            if ddict is not None:
+                for drTag in ddict['grp dr df'].values.flatten():
+                    dpg.delete_item(drTag)
+                self.dict_dr[grp_id] = None
 def find_latest_camguiparams_json() ->MyPath:
     dpath_day = find_newest_daypath_in_save_tree(camgui_params_root)
     json_pattern = r'^CA([0-9]+)\.json$'

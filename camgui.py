@@ -90,16 +90,30 @@ if __name__ == '__main__':
             _str = '双进程: 采集重排 & 绘图保存'
             mItemDualProcesses = dpg.add_menu_item(tag = _str, label=_str,  check=True, callback=_set_exclusive_True)
             # print(mItemSingleThread, mItemDualThreads, mItemDualProcesses)
-        dpg.add_menu_item(label = '软件信息')
-        dpg.set_item_callback(dpg.last_item(),
-                                factory_cb_yn_modal_dialog(
-                                    dialog_text=
-                                    f"""\
-    camgui {camgui_ver} for A105
-    作者: 吴海腾, 张云龙
-    repo: https://github.com/ltmsyvag/camera
-                                    """, 
-                                    win_label='info', just_close=True))
+        with dpg.menu(label = '软件信息'):
+            dpg.add_menu_item(label = '帮助')
+            dpg.set_item_callback(dpg.last_item(),
+                                    factory_cb_yn_modal_dialog(
+                                        dialog_text=
+                                        f"""\
+添加直方图选区:
+- 添加一个: ctrl + 左键
+
+删除直方图选区:
+- 删除一个: alt + 左键
+- 全部删除: F12
+                                        """, 
+                                        win_label='帮助', just_close=True))
+            dpg.add_menu_item(label = '关于')
+            dpg.set_item_callback(dpg.last_item(),
+                                    factory_cb_yn_modal_dialog(
+                                        dialog_text=
+                                        f"""\
+camgui {camgui_ver} for A105
+作者: 吴海腾, 张云龙
+repo: https://github.com/ltmsyvag/camera
+                                        """, 
+                                        win_label='info', just_close=True))
     dummy_acq = True # 假采集代码的总开关
     if dummy_acq:
         _mp_dummy_remote_buffer = multiprocessing.Queue() # mp dummy remote buffer 必须在主脚本中创建, 才能确保 mp dummy buffer feeder 和 mp producer 所用的 Queue 对象是同一个
@@ -801,6 +815,8 @@ if __name__ == '__main__':
                     dpg.set_item_callback(dpg.last_item(), alt_remove_dr)
                 return ihrMaster
             gen_dupemap_label = cycle(range(100)) # 假设不可能同时打开 100 个窗口, 因此新开的窗口 label 可以是 0-99 的循环, 足以保证 label uniqueness
+            with dpg.handler_registry() as globalHr:
+                dpg.add_key_press_handler(dpg.mvKey_F12, callback = frame_deck.clear_dr)
             def _dupe_heatmap():
                 dupe_map = DupeMap(
                     pltSlv = dpg.generate_uuid(),
