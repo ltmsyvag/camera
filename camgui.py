@@ -101,8 +101,10 @@ if __name__ == '__main__':
 
 删除直方图选区:
 - 删除一个: alt + 左键
-- 全部删除: F12
-                                        """, 
+- 全部删除: F11
+
+显示/隐藏选取组编号: F12
+""", 
                                         win_label='帮助', just_close=True))
             dpg.add_menu_item(label = '关于')
             dpg.set_item_callback(dpg.last_item(),
@@ -814,10 +816,39 @@ repo: https://github.com/ltmsyvag/camera
             gen_dupemap_label = cycle(range(100)) # 假设不可能同时打开 100 个窗口, 因此新开的窗口 label 可以是 0-99 的循环, 足以保证 label uniqueness
             with dpg.handler_registry():
                 dpg.add_key_press_handler(
-                    dpg.mvKey_F12, 
+                    dpg.mvKey_F11, 
                     callback = factory_cb_yn_modal_dialog(
                         cb_on_confirm= frame_deck.clear_dr,
                         dialog_text='确认要清除所有的直方图选区吗?'))
+                #========================================
+                dpg.add_key_press_handler(dpg.mvKey_F12, 
+                                          user_data=[] # list for holding annotation item tags
+                                          )
+                def _show_hide_grp_id(sender, __, user_data):
+                    # print('usr data', user_data)
+                    # print('sender and handler', sender, _handler)
+                    if user_data:
+                        while user_data:
+                            dpg.delete_item(user_data.pop())
+                    else:
+                        _,_,lst_pltMstr = frame_deck.get_all_maptags()
+                        for grp_id, ddict in frame_deck.dict_dr.items():
+                            if ddict is not None:
+                                xminf, yminf, xmaxf, ymaxf = ddict['fence']
+                                xmeanf, ymeanf = (xminf+xmaxf)/2, (yminf+ymaxf)/2
+                                # print('mean', xmeanf, ymeanf)
+                                for thisPlot in lst_pltMstr:
+                                    annoTag = dpg.add_plot_annotation(
+                                        parent=thisPlot,
+                                        label= str(grp_id),
+                                        default_value=(xmeanf, ymeanf),
+                                        color = [255,255,0]
+                                        )
+                                    # print('anno', annoTag)
+                                    user_data.append(annoTag)
+                    dpg.set_item_user_data(sender, user_data)
+                dpg.set_item_callback(dpg.last_item(), _show_hide_grp_id)
+                # dpg.set_item_callback(dpg.last_item(), _log)
             def _dupe_heatmap():
                 dupe_map = DupeMap(
                     pltSlv = dpg.generate_uuid(),
