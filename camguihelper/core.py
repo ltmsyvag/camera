@@ -395,9 +395,8 @@ class FrameDeck(list):
         #  调整现有的 drag rect, 可能扩大也可能缩小 fence, 也可能保持不变, 但是不管了统一 callback 重设
         self._update_grp_fence(grp_id)
     def add_dr_to_all(self, 
-                      xmean_dr : float, ymean_dr : float,
-                    #   tagDr : int
-                      ):
+                      xmean_dr : float, 
+                      ymean_dr : float,):
         """
         给定 drag rect 中心坐标 xmean_dr, ymean_dr,
         将该中心坐标的 1x1 方块选取加入到所有的 heatmap 中

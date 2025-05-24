@@ -15,7 +15,7 @@ from camguihelper import (
 from pylablib.devices import DCAM
 if __name__ == '__main__':
     from itertools import cycle
-    import pandas as pd
+    # import pandas as pd
     import json
     import multiprocessing
     from pathlib import Path
@@ -896,19 +896,27 @@ if __name__ == '__main__':
                             dpg.add_text("切换单帧/平均帧")
                 #=== 在创建好 dupe map 后, 载入热图和 dr
                 frame_deck.plot_cid_frame(dupe_map.yAxSlv, dupe_map.yAxMstr)
-                # what follows could be an add_dr_to_this_dupemap function, but 
-                # for grp_id, ddict in frame_deck.dict_dr.items():
-                #     if ddict is not None:
-                #         df = ddict['grp dr df']
-                #         dr_row = df.iloc[0,:] # 取主热图上所有的 dr
-                #         lst_dr_in_dupemap = [
-                #             dpg.add_drag_rect(
-                #                 parent = dupe_map.pltMstr,
-                #                 default_value=dpg.get_value(drTag),
-                #                 callback = frame_deck.sync_rects_and_update_fence
-                #                 )
-                #             for drTag in dr_row]
-                #         df.iloc[]
+                # 下面的部分为 frame_deck.dict_dr['grp dr df'] 添加行, 而函数 frame_deck.add_dr_to_all 添加列
+                # 由于所有 maps 中的 dr 都需要同步, 因此这两种添加方式是唯二的两种添加方式, 不可能存在单独添加 cell 的添加方式
+                # 换句话说, 我可能设想用某个 add_dr_to_one_map 一个一个将 dr 添加到一个 map 上,
+                # 然后将其 wrap 为一个 add_dr_to_all_maps 函数, 用于处理多添加的情况, 但是这种逻辑破坏了我在 add_dr_to_all 中的同步逻辑
+                # 并且不见得比添加行/列的逻辑更优越
+                for grp_id, ddict in frame_deck.dict_dr.items():
+                    if ddict is not None:
+                        df = ddict['grp dr df']
+                        dr_row = df.iloc[0,:] # 取主热图上所有的 dr
+                        lst_dr_in_this_dupemap = [
+                            dpg.add_drag_rect(
+                                parent = dupe_map.pltMstr,
+                                default_value=dpg.get_value(drTag),
+                                callback = frame_deck.sync_rects_and_update_fence
+                                )
+                            for drTag in dr_row]
+                        for this_drTag, this_uuid in zip(lst_dr_in_this_dupemap, df.columns):
+                            dpg.set_item_user_data(this_drTag, (grp_id, this_uuid))
+                            dpg.configure_item(this_drTag, color = frame_deck.get_dr_color_in_group(grp_id))
+                        df.loc[dupe_map.pltMstr] = lst_dr_in_this_dupemap
+                        ddict['grp dr df'] = df
 
             dpg.set_item_callback(cidIndcator, _dupe_heatmap)
             #==========================================
@@ -1008,7 +1016,7 @@ if __name__ == '__main__':
         t_mp_remote_buffer_feeder = threading.Thread(target = _mp_workerf_dummy_remote_buffer_feeder, args=(_mp_dummy_remote_buffer,))
         t_mp_remote_buffer_feeder.start()
     # dpg.show_style_editor()
-    dpg.show_item_registry()
+    # dpg.show_item_registry()
     dpg.setup_dearpygui()
     dpg.show_viewport()
     dpg.start_dearpygui()
