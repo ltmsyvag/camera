@@ -534,6 +534,13 @@ class FrameDeck(list):
                     #     self._update_grp_fence(grp_id)
                     # else: # 如果 df 被删空了, 那么将 dr 组在总字典中的值设为 None
                     #     self.dict_dr[grp_id] = None
+    def get_all_dr_tags(self):
+        tag_list = []
+        for grp_id, ddict in self.dict_dr.items():
+            if ddict is not None:
+                tag_list += ddict['grp dr df'].values.flatten().tolist()
+        return tag_list
+
     def clear_dr(self):
         for grp_id, ddict in self.dict_dr.items():
             if ddict is not None:

@@ -758,7 +758,8 @@ repo: https://github.com/ltmsyvag/camera
             with dpg.tooltip(dpg.last_item(), **ttpkwargs):
                 dpg.add_text("数字是帧的 python id (从零开始)\n内存为空的时候显示 'N/A'")
             doubleplots_container_window_kwargs = dict(no_scrollbar = True, border=False)
-            heatmap_pltkwargs = dict(no_mouse_pos=False, height=-1, width=-1, equal_aspects=True,
+            heatmap_pltkwargs = dict(no_mouse_pos=False, height=-1, width=-1, 
+                                      equal_aspects=True,
                                        pos=(0,0), # double layer specific kwarg
                                        )
             heatmap_xyaxkwargs = dict(no_gridlines = True, no_tick_marks = True)
@@ -792,7 +793,7 @@ repo: https://github.com/ltmsyvag/camera
                             dpg.set_axis_limits(yax_slave, ymin_mst, ymax_mst)
                     dpg.set_item_callback(dpg.last_item(), sync_axes)
                     #=====================================
-                    dpg.add_item_clicked_handler()
+                    dpg.add_item_clicked_handler(dpg.mvMouseButton_Left)
                     def ctrl_add_dr(*args):
                         """
                         drag rect in dpg 2.0.0 is strange, 其行为很可能在后续 dpg 版本中得到修正
@@ -806,7 +807,6 @@ repo: https://github.com/ltmsyvag/camera
                         if dpg.is_key_down(dpg.mvKey_LControl):
                             x, y = dpg.get_plot_mouse_pos()
                             frame_deck.add_dr_to_loc(x, y)
-                            # frame_deck.dq2.append((grp_id, uuid_dr_series))
                     dpg.set_item_callback(dpg.last_item(), ctrl_add_dr)
                     #=====================================
                     dpg.add_item_clicked_handler()
@@ -849,11 +849,8 @@ repo: https://github.com/ltmsyvag/camera
                 #================================
                 _kph = dpg.add_key_press_handler(dpg.mvKey_F9)
                 def make_dr_arr(*args):
-                    # print('inside')
                     if len(frame_deck.dq2)<2: # 如果(单张热图上)的直方图选区少于两个, 则不触发选区阵列选取
-                        # print('before return')
                         return
-                    # print('past return')
                     
                     with dpg.window(
                         label = '添加阵列选区 - 1d', modal = True, pos = get_viewport_centerpos(),
@@ -879,11 +876,6 @@ repo: https://github.com/ltmsyvag/camera
                                     df = frame_deck.dict_dr[grp_id]['grp dr df']
                                     drTagRep = df[series_uuid].iloc[0]
                                     return dpg.get_value(drTagRep) # x1, y1, x2, y2
-                                # df1 = frame_deck.dict_dr[grp1]['grp dr df']
-                                # df2 = frame_deck.dict_dr[grp2]['grp dr df']
-                                # drTag1, drTag2 = df1[uuid1].iloc[0], df2[uuid2].iloc[0] # 在两个 dr series 中选取两个代表性的 dr, 求其位置和尺寸(2号)
-                                # x1dr1, y1dr1, x2dr1, y2dr1 = dpg.get_value(drTag1)
-                                # x1dr2, y1dr2, x2dr2, y2dr2 = dpg.get_value(drTag2)
                                 x1dr1, y1dr1, x2dr1, y2dr1 = get_dr_pos(grp1, uuid1)
                                 x1dr2, y1dr2, x2dr2, y2dr2 = get_dr_pos(grp2, uuid2)
                                 xmeandr1, ymeandr1 = (x1dr1+x2dr1)/2, (y1dr1+y2dr1)/2
@@ -897,8 +889,7 @@ repo: https://github.com/ltmsyvag/camera
                                 lst_xymeans_todo_for_1darr = lst_xymeans_todo_for_1darr[1:]
                                 frame_deck.expunge_dr_series(grp2, uuid2)
                                 for xcen, ycen in lst_xymeans_todo_for_1darr:
-                                    _, uuid_1dlast = frame_deck.add_dr_to_loc(xcen, ycen, sidex=sidex_dr2, sidey=sidey_dr2, always_new_grp=True)
-                                    # print('uuidlast', uuid_1dlast)
+                                    _, uuid_1dlast = frame_deck.add_dr_to_loc(xcen, ycen, sidex=sidex_dr2, sidey=sidey_dr2)
                                 dpg.delete_item(queryWin1)
                                 with dpg.window(
                                     label = '添加阵列选取 - 2d',
@@ -914,20 +905,12 @@ repo: https://github.com/ltmsyvag/camera
                                         yesBtn2= dpg.add_button(label='好')
                                         def make_2d_dr_arr(*args):
                                             grp3, uuid3 = frame_deck.dq2[-1]
-                                            # print('deque', frame_deck.dq2)
-                                            # print(uuid3)
-                                            # print(uuid_1dlast)
                                             if uuid3==uuid_1dlast:
-                                                print('inside')
                                                 push_log('请添加 2d 选区阵列所需的新选区', is_warning = True)
                                                 return
                                             x1dr3, y1dr3, x2dr3, y2dr3 = get_dr_pos(grp3, uuid3)
                                             frame_deck.expunge_dr_series(grp3, uuid3)
                                             xmeandr3, ymeandr3 = (x1dr3+x2dr3)/2, (y1dr3+y2dr3)/2
-                                            # distance_3to12 = abs(
-                                            #     (xmeandr1-xmeandr3)(ymeandr2-ymeandr3) 
-                                            #     - (ymeandr1-ymeandr3)(ymeandr2-ymeandr3) # 分子: 31 矢量和 32 矢量的叉积, 平行四边形面积
-                                            #     )/np.sqrt((xmeandr2-xmeandr1)**2+(ymeandr2-ymeandr1)**2) # 分子: 三角形底边 12 的长度
                                             def rz(theta : float)-> np.ndarray:
                                                 """
                                                 before rotation:
@@ -965,7 +948,7 @@ repo: https://github.com/ltmsyvag/camera
                                             xyarr = xyarr[n_dr1d:] # the 1d arr is already done, do not re-create it
                                             xyarr_rot_back = [rz(theta)@p for p in xyarr]
                                             for xcen, ycen in xyarr_rot_back:
-                                                frame_deck.add_dr_to_loc(xcen, ycen, sidex=sidex_dr2, sidey=sidey_dr2, always_new_grp=True)
+                                                frame_deck.add_dr_to_loc(xcen, ycen, sidex=sidex_dr2, sidey=sidey_dr2)
                                             dpg.delete_item(queryWin2)
                                         dpg.set_item_callback(yesBtn2, make_2d_dr_arr)
 
@@ -989,11 +972,9 @@ repo: https://github.com/ltmsyvag/camera
                     dpg.delete_item(sender)
                     for ddict in frame_deck.dict_dr.values():
                         if ddict is not None:
-                            print(ddict['grp dr df'])
                             ddict['grp dr df'].drop(
                                 dupe_map.pltMstr,
                                 inplace=True)
-                            print(ddict['grp dr df'])
                 with dpg.window(width=300, height=300, on_close=_on_close,
                                 label = f"#{next(gen_dupemap_label)}"):
                     frame_deck.lst_dupe_maps.append(dupe_map)
@@ -1095,7 +1076,7 @@ repo: https://github.com/ltmsyvag/camera
                     frame_deck.plot_cid_frame()
                     dpg.set_item_label(cidIndcator, f"{frame_deck.cid}")
             dpg.set_item_callback(rightArr, _right_arrow_cb_)
-        with dpg.group(horizontal=True):
+        with dpg.group(horizontal=True) as GrpMainFramePlot:
             frameColBar = dpg.add_colormap_scale(tag = "frame colorbar", min_scale=0, max_scale=500, 
                                 height=-1
                                 )
@@ -1161,6 +1142,19 @@ repo: https://github.com/ltmsyvag/camera
                 dpg.set_item_callback(dpg.last_item(), _toggle_cid_and_avg_map_)
                 with dpg.tooltip(dpg.last_item(), **ttpkwargs):
                     dpg.add_text("切换单帧/平均帧")
+        with dpg.group(label = '四个箭头按钮, 单像素整体移动所有直方图选区', horizontal=True):
+                dpg.add_button(arrow=True, direction=dpg.mvDir_Left)
+                dpg.add_button(arrow=True, direction=dpg.mvDir_Right)
+                dpg.add_button(arrow=True, direction=dpg.mvDir_Up)
+                dpg.add_button(arrow=True, direction=dpg.mvDir_Down)
+                dpg.add_text('单像素移动所有直方图选区')
+    with dpg.item_handler_registry() as ihrWinFramePreview:
+        def show_bottom_arrows(*args):
+            width, height = dpg.get_item_rect_size(winFramePreview)
+            reserved_height = 165
+            dpg.configure_item(GrpMainFramePlot, height=height - reserved_height)
+        dpg.add_item_resize_handler(callback = show_bottom_arrows)
+    dpg.bind_item_handler_registry(winFramePreview, ihrWinFramePreview)
     with dpg.window(label="直方图", tag=winHist, 
                     width = 500, height =300):
         dpg.add_input_int(
@@ -1172,8 +1166,8 @@ repo: https://github.com/ltmsyvag/camera
                     height=-1, width=-1, no_mouse_pos=True):
             dpg.add_plot_axis(dpg.mvXAxis, label = "converted counts ((<frame pixel counts>-200)*0.1/0.9)")
             dpg.add_plot_axis(dpg.mvYAxis, label = "frequency", tag = "hist plot yax")
-    # with dpg.window(label = '阵列直方图', width = 200, height=300):
-    #     ...
+    with dpg.window(label = '阵列直方图', width = 200, height=300):
+        ...
     if dummy_acq: #True is dummy acquisition
         dpg.set_item_callback(togCam,_dummy_cam_toggle_cb_)
         dpg.set_item_callback(togAcq, _dummy_toggle_acq_cb)
