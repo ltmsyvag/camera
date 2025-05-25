@@ -977,7 +977,8 @@ repo: https://github.com/ltmsyvag/camera
                                 dupe_map.pltMstr,
                                 inplace=True)
                 with dpg.window(width=300, height=300, on_close=_on_close,
-                                label = f"#{next(gen_dupemap_label)}"):
+                                label = f"#{next(gen_dupemap_label)}",
+                                no_saved_settings=True):
                     frame_deck.lst_dupe_maps.append(dupe_map)
                     with dpg.group(horizontal=True) as _grp:
                         #==============================
@@ -1203,7 +1204,7 @@ repo: https://github.com/ltmsyvag/camera
         with dpg.group(horizontal=True):
             dpg.add_input_int(label = '列数', width = 100, default_value=2, max_value=64, max_clamped=True, min_value=1, min_clamped=True)
             dpg.add_button(label='总直方图')
-        nrows, ncols = 2,30
+        nrows, ncols = 10,10
         with dpg.table(header_row=True, clipper=True, 
                     #    freeze_columns= 1, 
                        freeze_rows = 1, # scrollY 必须为 True, 该 freeze 才有效, freeze_rows 同理
@@ -1269,9 +1270,9 @@ repo: https://github.com/ltmsyvag/camera
     dpg.start_dearpygui()
     dpg.destroy_context()
     # init file 在 destroy context 时保存, 因此对 init file 的 truncation 需要在 destroy context 后执行
-    with open("dpginit.ini") as f:
-        lines = f.readlines()
-    lines = lines[:25+5] # delete line 26 and onward. 因为只记忆 4 个窗口的位置, 新创建的窗口(被 append 再 ini 文件末)都会被删掉
-    with open("dpginit.ini", "w") as f:
-        f.writelines(lines)
+    # with open("dpginit.ini") as f:
+    #     lines = f.readlines()
+    # lines = lines[:25+5] # delete line 26 and onward. 因为只记忆 4 个窗口的位置, 新创建的窗口(被 append 再 ini 文件末)都会被删掉
+    # with open("dpginit.ini", "w") as f:
+    #     f.writelines(lines)
 # %%
