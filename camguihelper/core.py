@@ -4,7 +4,7 @@ camgui 相关的帮助函数
 #%%
 camgui_ver = '1.3-pre'
 import pandas as pd
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 from itertools import cycle
 from collections import namedtuple, deque
 import multiprocessing.connection
@@ -350,7 +350,16 @@ class FrameDeck(list):
         push_log(f"绘图和存储耗时{(end-beg)*1e3:.3f} ms")
     @staticmethod
     def get_dr_color_in_group(grp_id):
-        rgb_lst_tab10 = plt.get_cmap('tab10').colors
+        rgb_lst_tab10 = ((0.12156862745098039, 0.4666666666666667, 0.7058823529411765), # 本来用 plt.get_cmap('tab10').colors, 改为直接用颜色数值,少 import一个包
+                        (1.0, 0.4980392156862745, 0.054901960784313725),
+                        (0.17254901960784313, 0.6274509803921569, 0.17254901960784313),
+                        (0.8392156862745098, 0.15294117647058825, 0.1568627450980392),
+                        (0.5803921568627451, 0.403921568627451, 0.7411764705882353),
+                        (0.5490196078431373, 0.33725490196078434, 0.29411764705882354),
+                        (0.8901960784313725, 0.4666666666666667, 0.7607843137254902),
+                        (0.4980392156862745, 0.4980392156862745, 0.4980392156862745),
+                        (0.7372549019607844, 0.7411764705882353, 0.13333333333333333),
+                        (0.09019607843137255, 0.7450980392156863, 0.8117647058823529))
         color_cycle = cycle(rgb_lst_tab10)
         for _ in range(grp_id+1):
             this_color = next(color_cycle)

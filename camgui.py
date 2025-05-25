@@ -1269,10 +1269,4 @@ repo: https://github.com/ltmsyvag/camera
     dpg.show_viewport()
     dpg.start_dearpygui()
     dpg.destroy_context()
-    # init file 在 destroy context 时保存, 因此对 init file 的 truncation 需要在 destroy context 后执行
-    # with open("dpginit.ini") as f:
-    #     lines = f.readlines()
-    # lines = lines[:25+5] # delete line 26 and onward. 因为只记忆 4 个窗口的位置, 新创建的窗口(被 append 再 ini 文件末)都会被删掉
-    # with open("dpginit.ini", "w") as f:
-    #     f.writelines(lines)
 # %%
