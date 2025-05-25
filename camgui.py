@@ -1143,11 +1143,39 @@ repo: https://github.com/ltmsyvag/camera
                 with dpg.tooltip(dpg.last_item(), **ttpkwargs):
                     dpg.add_text("切换单帧/平均帧")
         with dpg.group(label = '四个箭头按钮, 单像素整体移动所有直方图选区', horizontal=True):
-                dpg.add_button(arrow=True, direction=dpg.mvDir_Left)
-                dpg.add_button(arrow=True, direction=dpg.mvDir_Right)
-                dpg.add_button(arrow=True, direction=dpg.mvDir_Up)
-                dpg.add_button(arrow=True, direction=dpg.mvDir_Down)
-                dpg.add_text('单像素移动所有直方图选区')
+                def move_all_dr_1px(_,__, user_data):
+                    if user_data == 'left':
+                        for tag in frame_deck.get_all_dr_tags():
+                            x1,y1,x2,y2 = dpg.get_value(tag)
+                            x1-=1
+                            x2-=1
+                            dpg.set_value(tag, (x1,y1,x2,y2))
+                    elif user_data == 'right':
+                        for tag in frame_deck.get_all_dr_tags():
+                            x1,y1,x2,y2 = dpg.get_value(tag)
+                            x1+=1
+                            x2+=1
+                            dpg.set_value(tag, (x1,y1,x2,y2))
+                    elif user_data == 'up':
+                        for tag in frame_deck.get_all_dr_tags():
+                            x1,y1,x2,y2 = dpg.get_value(tag)
+                            y1-=1
+                            y2-=1
+                            dpg.set_value(tag, (x1,y1,x2,y2))
+                    elif user_data == 'down':
+                        for tag in frame_deck.get_all_dr_tags():
+                            x1,y1,x2,y2 = dpg.get_value(tag)
+                            y1+=1
+                            y2+=1
+                            dpg.set_value(tag, (x1,y1,x2,y2))
+                    else:
+                        return
+                    frame_deck.update_fences()
+                dpg.add_button(arrow=True, direction=dpg.mvDir_Left, callback = move_all_dr_1px, user_data = 'left')
+                dpg.add_button(arrow=True, direction=dpg.mvDir_Right, callback = move_all_dr_1px, user_data = 'right')
+                dpg.add_button(arrow=True, direction=dpg.mvDir_Up, callback = move_all_dr_1px, user_data = 'up')
+                dpg.add_button(arrow=True, direction=dpg.mvDir_Down, callback = move_all_dr_1px, user_data = 'down')
+                dpg.add_text('单像素平移所有直方图选区')
     with dpg.item_handler_registry() as ihrWinFramePreview:
         def show_bottom_arrows(*args):
             width, height = dpg.get_item_rect_size(winFramePreview)

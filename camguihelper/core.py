@@ -371,6 +371,10 @@ class FrameDeck(list):
         if ymin>ymax:
             ymin, ymax = ymax, ymin
         return xmin, ymin, xmax, ymax
+    def update_fences(self):
+        for grp_id, ddict in self.dict_dr.items():
+            if ddict is not None:
+                self._update_grp_fence(grp_id)
     def _update_grp_fence(self, grp_id: int):
         """
         在保证当前 grp_id 存在并且 grp 不为空时才能使用
@@ -536,10 +540,12 @@ class FrameDeck(list):
                     #     self.dict_dr[grp_id] = None
     def get_all_dr_tags(self):
         tag_list = []
+        # fence_list = []
         for grp_id, ddict in self.dict_dr.items():
             if ddict is not None:
                 tag_list += ddict['grp dr df'].values.flatten().tolist()
-        return tag_list
+                # fence_list.append(ddict['fence'])
+        return tag_list #, fence_list
 
     def clear_dr(self):
         for grp_id, ddict in self.dict_dr.items():
