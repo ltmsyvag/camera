@@ -45,6 +45,7 @@ if __name__ == '__main__':
     winCtrlPanels = dpg.generate_uuid() # need to generate win tags first thing to work with init file
     winFramePreview = dpg.generate_uuid()
     winHist = dpg.generate_uuid()
+    winHistArr = dpg.generate_uuid()
     winTgtArr = dpg.generate_uuid()
     dpg.configure_app(#docking = True, docking_space=True, docking_shift_only=True,
                     init_file = "dpginit.ini", )
@@ -840,7 +841,7 @@ repo: https://github.com/ltmsyvag/camera
                                 for thisPlot in lst_pltMstr:
                                     annoTag = dpg.add_plot_annotation(
                                         parent=thisPlot,
-                                        label= str(grp_id),
+                                        label= grp_id,
                                         default_value=(xmeanf, ymeanf),
                                         color = [255,255,0])
                                     user_data.append(annoTag)
@@ -1194,8 +1195,63 @@ repo: https://github.com/ltmsyvag/camera
                     height=-1, width=-1, no_mouse_pos=True):
             dpg.add_plot_axis(dpg.mvXAxis, label = "converted counts ((<frame pixel counts>-200)*0.1/0.9)")
             dpg.add_plot_axis(dpg.mvYAxis, label = "frequency", tag = "hist plot yax")
-    with dpg.window(label = '阵列直方图', width = 200, height=300):
-        ...
+    with dpg.window(tag = winHistArr, label = '阵列直方图', width = 500, height=500):
+        with dpg.item_handler_registry():
+            def set_simple_plot_height_by_width():
+                ...
+            dpg.add_item_resize_handler(callback=set_simple_plot_height_by_width)
+        with dpg.group(horizontal=True):
+            dpg.add_input_int(label = '列数', width = 100, default_value=2, max_value=64, max_clamped=True, min_value=1, min_clamped=True)
+            dpg.add_button(label='总直方图')
+        nrows, ncols = 2,30
+        with dpg.table(header_row=True, clipper=True, 
+                    #    freeze_columns= 1, 
+                       freeze_rows = 1, # scrollY 必须为 True, 该 freeze 才有效, freeze_rows 同理
+                    #    policy=dpg.mvTable_SizingFixedFit
+                    scrollY=True,
+                    # scrollX=True,
+                       ) as histTable:
+            for j in range(ncols):
+                dpg.add_table_column(label = f'{j+1}列')
+            # dpg.add_table_column(label = 'header')
+            # dpg.add_table_column(label = 'header')
+            yseries = np.sin(np.linspace(0,2*np.pi,101))**2
+            for i in range(nrows):
+                with dpg.table_row():
+                    for j in range(ncols):
+                        lin_id = i*ncols + j
+                            # dpg.add_text(lin_id)
+                        dpg.add_simple_plot(
+                            # label = lin_id,
+                            # width=50,
+                            height=50,
+                            overlay= lin_id,
+                            default_value = yseries,
+                            histogram=True
+                        )
+        
+        lst_rowTags : list = dpg.get_item_children(histTable)[1]
+        for rowContainer in lst_rowTags:
+            lst_simplePlots : list = dpg.get_item_children(rowContainer)[1]
+            for e in lst_simplePlots:
+                config_dict_simple_plot = dpg.get_item_configuration(e)
+                # print(dpg.get_item_configuration(e))
+                dpg.configure_item(e, height=200) # 可以设置 simple plots 的高度
+                print(dpg.get_value(e)) # 给出 simple plot 的 data series
+            # print(dpg.get_item_children(e))
+        # lst_colTags = dpg.get_item_children(histTable)[0]
+        # for e in lst_colTags:
+        #     print(dpg.get_item_children(e))
+                        # print(dpg.get_item_configuration(dpg.last_item()))
+                        # dpg.add_plot(label = lin_id,
+                        #              width=100, 
+                        #              height=100,
+                        #              no_mouse_pos=True,
+                        #              no_box_select=True,
+                        #              no_frame=True,
+                        #              no_title=True,
+                        #              )
+
     if dummy_acq: #True is dummy acquisition
         dpg.set_item_callback(togCam,_dummy_cam_toggle_cb_)
         dpg.set_item_callback(togAcq, _dummy_toggle_acq_cb)
@@ -1215,7 +1271,7 @@ repo: https://github.com/ltmsyvag/camera
     # init file 在 destroy context 时保存, 因此对 init file 的 truncation 需要在 destroy context 后执行
     with open("dpginit.ini") as f:
         lines = f.readlines()
-    lines = lines[:25] # delete line 26 and onward. 因为只记忆 4 个窗口的位置, 新创建的窗口(被 append 再 ini 文件末)都会被删掉
+    lines = lines[:25+5] # delete line 26 and onward. 因为只记忆 4 个窗口的位置, 新创建的窗口(被 append 再 ini 文件末)都会被删掉
     with open("dpginit.ini", "w") as f:
         f.writelines(lines)
 # %%
