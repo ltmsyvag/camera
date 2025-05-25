@@ -46,16 +46,20 @@ ykwargs = dict(label= "",
 xbeg, ybeg, xend, yend = 0,15, 10, 0
 # xbeg, ybeg, xend, yend = 0,0, 10, 15
 # xbeg, ybeg, xend, yend = 0,15, 10, 0
+with dpg.value_registry():
+    # dpg.add_float4_value(default_value = (-1,-1,1,1), tag='drfloat4')
+    # dpg.add_float_vect_value(default_value = (-1,-1,1,1), tag='drfloat4')
+    dpg.add_double4_value(default_value = (-1.,-1.,1.,1.), tag='drfloat4')
 with dpg.window(width = 400, height= 500) as win1:
     with dpg.plot(tag="slave plot", **pltkwargs):
         dpg.bind_colormap(dpg.last_item(), dpg.mvPlotColormap_Viridis)
         dpg.add_plot_axis(dpg.mvXAxis, tag= "slave xax", **xyaxkwargs, **xkwargs)
         with dpg.plot_axis(dpg.mvYAxis, tag = "slave yax", **xyaxkwargs, **ykwargs):
-            dpg.add_heat_series(mapdata,15,10,tag = "heat series",
+            hs = dpg.add_heat_series(mapdata,15,10,tag = "heat series",
                                 scale_min=0, scale_max=137, 
                                 bounds_min= (xbeg, ybeg), 
                                 bounds_max= (xend, yend),
-                                # format=""
+                                format=""
                                 )
         dpg.fit_axis_data('slave xax')
         dpg.fit_axis_data('slave yax')
@@ -70,7 +74,33 @@ with dpg.window(width = 400, height= 500) as win1:
                     dpg.add_theme_color(dpg.mvPlotCol_MarkerFill, (0,0,0,255), category=dpg.mvThemeCat_Plots)
                     dpg.add_theme_color(dpg.mvPlotCol_MarkerOutline, (0,0,0,0), category=dpg.mvThemeCat_Plots)
             dpg.bind_item_theme(scatterSeries, scatterThm)
+        dr1 = dpg.add_drag_rect(
+            default_value = (-1.,-1.,1.,1.), 
+                                source='drfloat4', 
+                                callback = lambda: print(dpg.get_value('drfloat4')))
+with dpg.window(label = 'win2', width = 400, height= 500) as win2:
+    with dpg.plot(tag="slave plot2", **pltkwargs):
+        dpg.bind_colormap(dpg.last_item(), dpg.mvPlotColormap_Viridis)
+        dpg.add_plot_axis(dpg.mvXAxis, tag= "slave xax2", **xyaxkwargs, **xkwargs)
+        with dpg.plot_axis(dpg.mvYAxis, tag = "slave yax2", **xyaxkwargs, **ykwargs):
+            # dpg.add_heat_series(mapdata,15,10,tag = "heat series2",
+            #                     scale_min=0, scale_max=137, 
+            #                     bounds_min= (xbeg, ybeg), 
+            #                     bounds_max= (xend, yend),
+            #                     # format=""
+            #                     )
+            dpg.add_heat_series([],15,10,tag = "heat series2",
+                                source= hs ,
+                                scale_min=0, scale_max=137, 
+                                bounds_min= (xbeg, ybeg), 
+                                bounds_max= (xend, yend),
+                                format=""
+                                )
+        # dpg.add_drag_rect(default_value = (-1,-1,1,1), source='drfloat4', callback = lambda: print(dpg.get_value('drfloat4')))
+        # dpg.fit_axis_data('slave xax')
+        # dpg.fit_axis_data('slave yax')
 # print(dpg.get_value(scatterSeries))
+print(dpg.get_value(hs))
 with dpg.theme() as masterplot_theme:
     with dpg.theme_component(dpg.mvPlot):
         dpg.add_theme_color(dpg.mvPlotCol_PlotBg, (0,0,0,0), category=dpg.mvThemeCat_Plots)

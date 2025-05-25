@@ -401,13 +401,14 @@ class FrameDeck(list):
                       sidex: float = 1,
                       sidey: float = 1,
                       always_new_grp: bool = False # if True, 新添加的 dr 总是融入进一个新的组(或占据一个旧的空组), 不尝试判断是否能融入现存 dr 组的 fence 中
-                      ):
+                      ) -> Tuple[int, str]:
         """
         给定 drag rect 中心坐标 xmean_dr, ymean_dr,
         将该中心坐标的 1x1 方块选取加入到所有的 heatmap 中
         在 self.dict_dr 中记录好相应的方块分组信息
+        返回添加的 series 最终 dr group id 以及该 series 在相应 df 中的 header (uuid)
         """
-        def merge_dr_series_into_grp(dr_series: pd.Series, grp_id: int)-> Tuple[int, str]:
+        def merge_dr_series_into_grp(dr_series: pd.Series, grp_id: int):
             """
             每次在一个 heatmap 上添加一个 dr, 实际上都要在所有的 heatmaps 上添加相同的 dr,
             因此每次添加的是一个 dr series
@@ -420,8 +421,6 @@ class FrameDeck(list):
                如果 dr series 是 dr grp 的第一个 dr, 那么 series 中的 dr (都一样)就定义了这个新 dr group 的 fence 范围
             4. 将 series 中的每个 dr 的 user_data 设为 (grp_id: int, uuid : str)
             5. 为 series 中的 dr 按照 grp_id 分配颜色
-
-            返回添加的 series 最终 dr group id 以及该 series 在相应 df 中的 header (uuid)
             """
             if (grp_id not in self.dict_dr) or (self.dict_dr[grp_id] is None): # 在 grp_id 不存在时, 或则 self.dict_dr[grd_id] 为 None 时 (删除了所有某 dr 组中的 rects 后, 会出现这种情况, 组编号还存在, 但是其中没有任何 dr 了), 初始化这个 grp_id 对应的 ddict
                 ddict = self.dict_dr[grp_id] = dict()
@@ -498,6 +497,7 @@ class FrameDeck(list):
                 grp_id_final = max(list(self.dict_dr))+1
                 merge_dr_series_into_grp(dr_series, 
                                   grp_id_final)
+        self.dq2.append((grp_id_final, dr_series.name))
         return grp_id_final, dr_series.name
     def expunge_dr_series(self, grp_id, series_id):
         """
@@ -540,6 +540,16 @@ class FrameDeck(list):
                 for drTag in ddict['grp dr df'].values.flatten():
                     dpg.delete_item(drTag)
                 self.dict_dr[grp_id] = None
+    def series_uuid_exists(self, series_uuid : str):
+        uuid_lst_tot = []
+        for ddict in self.dict_dr.values():
+            if ddict is not None:
+                df = ddict['grp dr df']
+                uuid_lst_tot += list(df.columns)
+        if series_uuid in uuid_lst_tot:
+            return True
+        else:
+            return False
 def find_latest_camguiparams_json() ->MyPath:
     dpath_day = find_newest_daypath_in_save_tree(camgui_params_root)
     json_pattern = r'^CA([0-9]+)\.json$'
