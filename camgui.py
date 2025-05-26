@@ -1060,7 +1060,8 @@ repo: https://github.com/ltmsyvag/camera
                             dpg.add_drag_rect(
                                 parent = dupe_map.pltMstr,
                                 default_value=dpg.get_value(drTag),
-                                callback = frame_deck.sync_rects_and_update_fence
+                                delayed = True,
+                                callback = frame_deck.snap_grid_sync_series_dr_update_grp_fence
                                 )
                             for drTag in dr_row]
                         for this_drTag, this_uuid in zip(lst_dr_in_this_dupemap, df.columns):
@@ -1236,23 +1237,9 @@ repo: https://github.com/ltmsyvag/camera
             lst_simplePlots : list = dpg.get_item_children(rowContainer)[1]
             for e in lst_simplePlots:
                 config_dict_simple_plot = dpg.get_item_configuration(e)
-                # print(dpg.get_item_configuration(e))
                 dpg.configure_item(e, height=200) # 可以设置 simple plots 的高度
-                print(dpg.get_value(e)) # 给出 simple plot 的 data series
-            # print(dpg.get_item_children(e))
-        # lst_colTags = dpg.get_item_children(histTable)[0]
-        # for e in lst_colTags:
-        #     print(dpg.get_item_children(e))
-                        # print(dpg.get_item_configuration(dpg.last_item()))
-                        # dpg.add_plot(label = lin_id,
-                        #              width=100, 
-                        #              height=100,
-                        #              no_mouse_pos=True,
-                        #              no_box_select=True,
-                        #              no_frame=True,
-                        #              no_title=True,
-                        #              )
-
+                # print(dpg.get_value(e)) # 给出 simple plot 的 data series
+           
     if dummy_acq: #True is dummy acquisition
         dpg.set_item_callback(togCam,_dummy_cam_toggle_cb_)
         dpg.set_item_callback(togAcq, _dummy_toggle_acq_cb)

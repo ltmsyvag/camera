@@ -396,15 +396,17 @@ class FrameDeck(list):
         xmin, ymin, _, _ = arr_minxminymaxxmaxy.min(axis=0)
         _, _, xmax, ymax = arr_minxminymaxxmaxy.max(axis=0)
         ddict['fence'] = xmin, ymin, xmax, ymax
-    def sync_rects_and_update_fence(self, sender, _, user_data):
+    def snap_grid_sync_series_dr_update_grp_fence(self, sender, _, user_data):
         # 第一部分, sync 其他热图中 dr 的 resize
         grp_id, series_id = user_data
         ddict = self.dict_dr[grp_id]
         dr_series = ddict['grp dr df'][series_id]
         sender_pos = dpg.get_value(sender)
+        sender_pos_snapped = [round(e) for e in sender_pos]
+        # dpg.set_value(sender, sender_pos_snapped)
         for drTag in dr_series:
-            if drTag != sender:
-                dpg.set_value(drTag, sender_pos)
+            # if drTag != sender:
+            dpg.set_value(drTag, sender_pos_snapped)
         # 第二部分: 调整本 dr 组的 fence.
         #  调整现有的 drag rect, 可能扩大也可能缩小 fence, 也可能保持不变, 但是不管了统一 callback 重设
         self._update_grp_fence(grp_id)
@@ -472,13 +474,13 @@ class FrameDeck(list):
         x/y1 > x/y2 is always
         """
 
-        dr_series = pd.Series([int(dpg.add_drag_rect(
+        dr_series = pd.Series([int(dpg.add_drag_rect(delayed = True,
             parent=p, default_value=(
-                xmean_dr-sidex/2, # init x edge, or x1
-                ymean_dr-sidey/2, # init y edge, or y1
-                xmean_dr+sidex/2, # end x edge, or x2
-                ymean_dr+sidey/2, # end y edge, or y2
-                ), callback = self.sync_rects_and_update_fence
+                round(xmean_dr-sidex/2), # init x edge, or x1
+                round(ymean_dr-sidey/2), # init y edge, or y1
+                round(xmean_dr+sidex/2), # end x edge, or x2
+                round(ymean_dr+sidey/2), # end y edge, or y2
+                ), callback = self.snap_grid_sync_series_dr_update_grp_fence
             )) for p in lst_allplts_mstr], 
             index = lst_allplts_mstr,
             name= uuid.uuid4().hex,
