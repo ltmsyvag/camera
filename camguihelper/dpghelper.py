@@ -52,7 +52,7 @@ def _default_global_theme_settings():
     with dpg.theme_component(dpg.mvSimplePlot):
         dpg.add_theme_color(dpg.mvThemeCol_PlotHistogram, (0,255,0,200), category=dpg.mvThemeCat_Core) # yes, simple plot's color's cat is core, not plot!! can plot cat would induce error!
         dpg.add_theme_color(dpg.mvThemeCol_PlotHistogramHovered, (255,0,255), category=dpg.mvThemeCat_Core) # yes, simple plot's color's cat is core, not plot!! can plot cat would induce error!
-        dpg.add_theme_color(dpg.mvThemeCol_Text, (255,0,255), category=dpg.mvThemeCat_Core)
+        dpg.add_theme_color(dpg.mvThemeCol_Text, (255,255,0), category=dpg.mvThemeCat_Core)
 def do_bind_my_default_global_theme()->None:
     with dpg.theme() as global_theme:
         _default_global_theme_settings()

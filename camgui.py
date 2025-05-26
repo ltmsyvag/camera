@@ -764,8 +764,8 @@ repo: https://github.com/ltmsyvag/camera
                                        pos=(0,0), # double layer specific kwarg
                                        )
             heatmap_xyaxkwargs = dict(no_gridlines = True, no_tick_marks = True)
-            heatmap_xkwargs = dict(label= "", opposite=True)
-            heatmap_ykwargs = dict(label= "", invert=True)
+            heatmap_xkwargs = dict(label= '', opposite=True)
+            heatmap_ykwargs = dict(label= '', invert=True)
             with dpg.theme() as thmTranspBGforMaster:
                 """
                 the transparent theme of master plot
@@ -820,7 +820,7 @@ repo: https://github.com/ltmsyvag/camera
             gen_dupemap_label = cycle(range(100)) # 假设不可能同时打开 100 个窗口, 因此新开的窗口 label 可以是 0-99 的循环, 足以保证 label uniqueness
             with dpg.handler_registry():
                 dpg.add_key_press_handler(
-                    dpg.mvKey_F11, 
+                    dpg.mvKey_F11,
                     callback = factory_cb_yn_modal_dialog(
                         cb_on_confirm= frame_deck.clear_dr,
                         dialog_text='确认要清除所有的直方图选区吗?'))
@@ -856,9 +856,7 @@ repo: https://github.com/ltmsyvag/camera
                     with dpg.window(
                         label = '添加阵列选区 - 1d', modal = True, pos = get_viewport_centerpos(),
                         on_close = lambda sender: dpg.delete_item(sender)) as queryWin1:
-                        # print('in window container')
                         dpg.add_text('在最近创建的两个选区之间(含), 你要创建多少选区\n(新创建的选区面积和当前最新的选区一致)')
-                        # print('past text')
                         inputInt1D = dpg.add_input_int(default_value= 10, min_value=2, min_clamped=True)
                         dpg.add_spacer(height=10)
                         with dpg.group(horizontal=True):
@@ -897,7 +895,7 @@ repo: https://github.com/ltmsyvag/camera
                                     pos = (0,0), #np.array(get_viewport_centerpos())/3,
                                     on_close = lambda sender: dpg.delete_item(sender)
                                     ) as queryWin2:
-                                    dpg.add_text('1d 选区组创建成功, 如果只需要 1d 选区组, 请直接关闭本窗口.\n\n\如果需要 2d 选区阵列, 请再添加一个选区, 过该选区中心与已创建的 1d 选区组相平行的线会界定待创建的 2d 选区阵列的另一条边. 在这两条边之间, 你希望存在几排 1d 选区组(含已经创建 1d 选区组)? 在下方设置',
+                                    dpg.add_text('1d 选区组创建成功, 如果只需要 1d 选区组, 请直接关闭本窗口.\n\n如果需要 2d 选区阵列, 请再添加一个选区, 过该选区中心与已创建的 1d 选区组相平行的线会界定待创建的 2d 选区阵列的另一条边. 在这两条边之间, 你希望存在几排 1d 选区组(含已经创建 1d 选区组)? 在下方设置',
                                                  wrap=300)
                                     inputInt2D = dpg.add_input_int(default_value= 10, min_value=2, min_clamped=True)
                                     dpg.add_spacer(height=10)
@@ -912,8 +910,16 @@ repo: https://github.com/ltmsyvag/camera
                                             x1dr3, y1dr3, x2dr3, y2dr3 = get_dr_pos(grp3, uuid3)
                                             frame_deck.expunge_dr_series(grp3, uuid3)
                                             xmeandr3, ymeandr3 = (x1dr3+x2dr3)/2, (y1dr3+y2dr3)/2
-                                            def rz(theta : float)-> np.ndarray:
+                                            def tsl(tx:float,ty:float) -> np.ndarray:
                                                 """
+                                                translation matrix
+
+                                                为了得到平行四边形阵列坐标, 需要进行
+                                                translation, rotation, shearing
+                                                三个变换后, 得到正矩形阵列坐标,
+                                                然后再用用相应的三个逆矩阵逆变换回去
+                                                ref. vince 2022
+
                                                 before rotation:
                                                         *2
                                                 *1   
@@ -936,19 +942,43 @@ repo: https://github.com/ltmsyvag/camera
                                                 now rotate them back to get their desirable coordinates
                                                 """
                                                 return np.array(
-                                                    [[np.cos(theta), -np.sin(theta)],
-                                                     [np.sin(theta), np.cos(theta)],])
+                                                    [[1, 0, tx],
+                                                     [0, 1, ty],
+                                                     [0, 0, 1 ],])
+                                            
+                                            def rz(theta : float)-> np.ndarray:
+                                                """
+                                                rotation matrix
+                                                """
+                                                return np.array(
+                                                    [[np.cos(theta), -np.sin(theta), 0],
+                                                     [np.sin(theta), np.cos(theta) , 0],
+                                                     [0            , 0             , 1],])
+                                            def shr(beta : float)-> np.ndarray:
+                                                return np.array(
+                                                    [[1, np.tan(beta), 0],
+                                                     [0, 1,            0],
+                                                     [0, 0,            1],])
                                             theta = np.arctan2(ymeandr2-ymeandr1, xmeandr2-xmeandr1)
-                                            x1r, y1r= rz(-theta)@(xmeandr1, ymeandr1) # point 1 rotated
-                                            x2r, y2r= rz(-theta)@(xmeandr2, ymeandr2) # point 2 rotated
-                                            x3r, y3r= rz(-theta)@(xmeandr3, ymeandr3) # point 3 rotated
+                                            x1tr, y1tr, z1tr= rz(-theta)@tsl(-xmeandr3, -ymeandr3)@(xmeandr1, ymeandr1, 1) # point 1 rotated, then translated using point3 vector (point3 ends up at the origin)
+                                            x2tr, y2tr, z2tr= rz(-theta)@tsl(-xmeandr3, -ymeandr3)@(xmeandr2, ymeandr2, 1) # point 2 rotated, then translated using point3 vector (point3 ends up at the origin)
+                                            x3tr, y3tr, z3tr= rz(-theta)@tsl(-xmeandr3, -ymeandr3)@(xmeandr3, ymeandr3, 1) # point 3 rotated, then translated using point3 vector (point3 ends up at the origin)
+
+                                            beta = np.arctan2((x1tr-x3tr), y1tr)
+                                            x1trs, y1trs, z1trs= shr(-beta)@(x1tr, y1tr, 1) # point 1 rotated, translated, and sheared
+                                            x2trs, y2trs, z2trs= shr(-beta)@(x2tr, y2tr, 1) # point 2 rotated, translated, and sheared
+                                            x3trs, y3trs, z3trs= shr(-beta)@(x3tr, y3tr, 1) # point 3 rotated, translated, and sheared
+
                                             n_dr2d = dpg.get_value(inputInt2D)
-                                            xx, yy = np.meshgrid(np.linspace(x1r, x2r, n_dr1d),
-                                                                 np.linspace(y1r, y3r, n_dr2d),)
+                                            xx, yy = np.meshgrid(np.linspace(x1trs, x2trs, n_dr1d),
+                                                                 np.linspace(y1trs, y3trs, n_dr2d),)
                                             xyarr = [(x,y) for x,y in zip(xx.flatten(), yy.flatten())] # .reshape((n_dr2d, -1))
                                             xyarr = xyarr[n_dr1d:] # the 1d arr is already done, do not re-create it
-                                            xyarr_rot_back = [rz(theta)@p for p in xyarr]
-                                            for xcen, ycen in xyarr_rot_back:
+                                            xyarr_trans_back = [(tsl(xmeandr3, ymeandr3)
+                                                                 @rz(theta)
+                                                                 @shr(beta)
+                                                                 @[*p, 1])[:-1] for p in xyarr]
+                                            for xcen, ycen in xyarr_trans_back:
                                                 frame_deck.add_dr_to_loc(xcen, ycen, sidex=sidex_dr2, sidey=sidey_dr2)
                                             dpg.delete_item(queryWin2)
                                         dpg.set_item_callback(yesBtn2, make_2d_dr_arr)
@@ -1205,7 +1235,7 @@ repo: https://github.com/ltmsyvag/camera
         with dpg.group(horizontal=True):
             dpg.add_input_int(label = '列数', width = 100, default_value=2, max_value=64, max_clamped=True, min_value=1, min_clamped=True)
             dpg.add_button(label='总直方图')
-        nrows, ncols = 10,10
+        nrows, ncols = 20,20
         with dpg.table(header_row=True, clipper=True, 
                     #    freeze_columns= 1, 
                        freeze_rows = 1, # scrollY 必须为 True, 该 freeze 才有效, freeze_rows 同理
@@ -1213,6 +1243,11 @@ repo: https://github.com/ltmsyvag/camera
                     scrollY=True,
                     # scrollX=True,
                        ) as histTable:
+            with dpg.item_handler_registry() as spIhr:
+                dpg.add_item_double_clicked_handler(callback = lambda: print('hello'))
+                # dpg.add_item_visible_handler(callback = lambda: print('hello'))
+                # def simple_plot_say_hello(_, app_data, __):
+                #     _, spTag = app_data
             for j in range(ncols):
                 dpg.add_table_column(label = f'{j+1}列')
             # dpg.add_table_column(label = 'header')
@@ -1223,14 +1258,16 @@ repo: https://github.com/ltmsyvag/camera
                     for j in range(ncols):
                         lin_id = i*ncols + j
                             # dpg.add_text(lin_id)
-                        dpg.add_simple_plot(
-                            # label = lin_id,
-                            # width=50,
-                            height=50,
-                            overlay= lin_id,
-                            default_value = yseries,
-                            histogram=True
-                        )
+                        with dpg.table_cell():
+                            dpg.add_simple_plot(
+                                # label = lin_id,
+                                width=-1,
+                                height=50,
+                                overlay= lin_id,
+                                default_value = yseries,
+                                histogram=True)
+                            dpg.add_text('0-100')
+                            dpg.bind_item_handler_registry(dpg.last_item(), spIhr)
         
         lst_rowTags : list = dpg.get_item_children(histTable)[1]
         for rowContainer in lst_rowTags:
@@ -1239,7 +1276,6 @@ repo: https://github.com/ltmsyvag/camera
                 config_dict_simple_plot = dpg.get_item_configuration(e)
                 dpg.configure_item(e, height=200) # 可以设置 simple plots 的高度
                 # print(dpg.get_value(e)) # 给出 simple plot 的 data series
-           
     if dummy_acq: #True is dummy acquisition
         dpg.set_item_callback(togCam,_dummy_cam_toggle_cb_)
         dpg.set_item_callback(togAcq, _dummy_toggle_acq_cb)

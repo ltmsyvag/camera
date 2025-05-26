@@ -558,7 +558,7 @@ class FrameDeck(list):
                 # fence_list.append(ddict['fence'])
         return tag_list #, fence_list
 
-    def clear_dr(self):
+    def clear_dr(self): # 不要用 get_all_dr_tags 来做, 因为 clear dr 的过程需要将相应的选取组设为 None
         for grp_id, ddict in self.dict_dr.items():
             if ddict is not None:
                 for drTag in ddict['grp dr df'].values.flatten():
@@ -574,6 +574,11 @@ class FrameDeck(list):
             return True
         else:
             return False
+    def redraw_hist_sheet(self):
+        for grp_id, ddict in self.dict_dr.items():
+            if ddict is not None:
+                df = ddict['grp dr df']
+                drs_this_grp: pd.Series = df.iloc[0,:]
 def find_latest_camguiparams_json() ->MyPath:
     dpath_day = find_newest_daypath_in_save_tree(camgui_params_root)
     json_pattern = r'^CA([0-9]+)\.json$'
@@ -792,7 +797,6 @@ def _mp_workerf_dummy_remote_buffer_feeder(
             else:
                 push_log("已向假相机 mp buffer 发送 500 帧", is_good=True)
                 break
-
 
 def _dummy_mp_producerf_polling_do_snag_rearrange_send(
         conn_sig: multiprocessing.connection.Connection,
