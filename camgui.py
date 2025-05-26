@@ -920,6 +920,8 @@ repo: https://github.com/ltmsyvag/camera
                                                 然后再用用相应的三个逆矩阵逆变换回去
                                                 ref. vince 2022
 
+                                                first, translate point3 to origin
+
                                                 before rotation:
                                                         *2
                                                 *1   
@@ -927,17 +929,23 @@ repo: https://github.com/ltmsyvag/camera
                                                 
                                                 *3
 
-                                                after rotation (where we get x1r, y1r, etc.):
+                                                after rotation
                                                      *1------*2
 
                                                 *3--------------
+                                                
+                                                after shearing
+                                                *1------*2
+                                                |   
+                                                |    
+                                                *3  
 
                                                 do meshgrid (where we get xx and yy):
-                                                    *1------*2
-                                                    + + + + +
-                                                    + + + + +
-                                                *3  + + + + +
-
+                                                *1------*2
+                                                + + + + +
+                                                + + + + +
+                                                +3+ + + +
+  
                                                 `+` points are the new points we want, 
                                                 now rotate them back to get their desirable coordinates
                                                 """
@@ -1209,6 +1217,7 @@ repo: https://github.com/ltmsyvag/camera
                 dpg.add_button(arrow=True, direction=dpg.mvDir_Up, callback = move_all_dr_1px, user_data = 'up')
                 dpg.add_button(arrow=True, direction=dpg.mvDir_Down, callback = move_all_dr_1px, user_data = 'down')
                 dpg.add_text('单像素平移所有直方图选区')
+                # dpg.add_button(label = 'print', callback = lambda: frame_deck.redraw_hist_sheet())
     with dpg.item_handler_registry() as ihrWinFramePreview:
         def show_bottom_arrows(*args):
             width, height = dpg.get_item_rect_size(winFramePreview)
@@ -1245,13 +1254,8 @@ repo: https://github.com/ltmsyvag/camera
                        ) as histTable:
             with dpg.item_handler_registry() as spIhr:
                 dpg.add_item_double_clicked_handler(callback = lambda: print('hello'))
-                # dpg.add_item_visible_handler(callback = lambda: print('hello'))
-                # def simple_plot_say_hello(_, app_data, __):
-                #     _, spTag = app_data
             for j in range(ncols):
                 dpg.add_table_column(label = f'{j+1}列')
-            # dpg.add_table_column(label = 'header')
-            # dpg.add_table_column(label = 'header')
             yseries = np.sin(np.linspace(0,2*np.pi,101))**2
             for i in range(nrows):
                 with dpg.table_row():

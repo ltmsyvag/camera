@@ -403,7 +403,13 @@ class FrameDeck(list):
         dr_series = ddict['grp dr df'][series_id]
         sender_pos = dpg.get_value(sender)
         sender_pos_snapped = [round(e) for e in sender_pos]
-        # dpg.set_value(sender, sender_pos_snapped)
+        if len(set(sender_pos_snapped))<4: # 保证选区至少是一个 1x1 的方块
+            x1, y1, x2, y2 = sender_pos_snapped
+            if x1 == x2:
+                x2+=1
+            if y1 == y2:
+                y2+=1
+            sender_pos_snapped = [x1, y1, x2, y2]
         for drTag in dr_series:
             # if drTag != sender:
             dpg.set_value(drTag, sender_pos_snapped)
@@ -574,11 +580,33 @@ class FrameDeck(list):
             return True
         else:
             return False
+    def _get_hist_series_in_grp(self, grp_id: int):
+        """
+        hist data is just ONE series (NOT two) of any data, nothing more, the yax of hist is just the data frequency
+        this func returns empty list when the group is empty (group ddict is None)
+        """
+        ddict = self.dict_dr[grp_id]
+        if ddict is None:
+            print('[]')
+            return []
+        df = ddict['grp dr df']
+        drs_this_grp = df.iloc[0,:]
+        frame_points_in_grp = set()
+        for dr in drs_this_grp:
+            xmin, ymin, xmax, ymax = [int(e) for e in self.ensure_minmax(*dpg.get_value(dr))]
+            xx, yy = np.meshgrid(range(xmin,xmax), range(ymin, ymax))
+            pnts_in_dr = set([(x,y) for x,y in zip(xx.flatten(), yy.flatten())])
+            frame_points_in_grp |= pnts_in_dr
+        print(frame_points_in_grp)
+        idarr_x, idarr_y = list(zip(*frame_points_in_grp))
+        hist_series = []
+        for frame in self.float_deck:
+            selected_pixel_val_series = ZYLconversion(frame[idarr_x, idarr_y])
+            hist_series.append(selected_pixel_val_series.sum())
+        return hist_series
     def redraw_hist_sheet(self):
-        for grp_id, ddict in self.dict_dr.items():
-            if ddict is not None:
-                df = ddict['grp dr df']
-                drs_this_grp: pd.Series = df.iloc[0,:]
+        for grp_id in self.dict_dr:
+            hist_series = self._get_hist_series_in_grp(grp_id)
 def find_latest_camguiparams_json() ->MyPath:
     dpath_day = find_newest_daypath_in_save_tree(camgui_params_root)
     json_pattern = r'^CA([0-9]+)\.json$'
@@ -627,7 +655,7 @@ def _update_hist(hLhRvLvR: tuple, frame_deck: FrameDeck, yax = "hist plot yax")-
         subFrame = frame[vidLo:vidHi+1, hidLo:hidHi+1]
         histData.append(subFrame.sum())
     dpg.delete_item(yax,children_only=True) # delete old hist, then get some hist params for new plot
-    binning = dpg.get_value("hist binning input")
+    binning = dpg.get_value('hist binning input')
     theMinInt, theMaxInt = math.floor(min(histData)), math.floor(max(histData))
     nBins = (theMaxInt-theMinInt)//binning + 1
     max_range = theMinInt + nBins*binning
