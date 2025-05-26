@@ -320,7 +320,7 @@ def ZYLconversion(frame: np.ndarray)->np.ndarray:
     """
     ZYL formula to infer photon counts
     """
-    frame = (frame -300) * 0.1/0.9
+    frame = (frame -200) * 0.1/0.9
     return frame
 
 def _update_hist(hLhRvLvR: tuple, frame_deck: FrameDeck, yax = "hist plot yax")->None:
