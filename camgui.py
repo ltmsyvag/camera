@@ -93,7 +93,6 @@ if __name__ == '__main__':
             mItemDualThreads = dpg.add_menu_item(tag = _str, label=_str,  check=True, callback=_set_exclusive_True)
             _str = '双进程: 采集重排 & 绘图保存'
             mItemDualProcesses = dpg.add_menu_item(tag = _str, label=_str,  check=True, callback=_set_exclusive_True)
-            # print(mItemSingleThread, mItemDualThreads, mItemDualProcesses)
         with dpg.menu(label = '软件信息'):
             dpg.add_menu_item(label = '帮助')
             dpg.set_item_callback(dpg.last_item(),
@@ -541,7 +540,6 @@ repo: https://github.com/ltmsyvag/camera
         _default_path = find_newest_daypath_in_save_tree(session_frames_root)
     except Exception:
         _default_path = session_frames_root
-    # print(_default_path)
     with dpg.file_dialog( # file dialog 就是一个独立的 window, 因此在应该在 root 定义, 与其他 window 内的元素在形式上解耦
         label= '载入帧数据', directory_selector=False, 
         show=False, modal=True, default_path= _default_path,
@@ -731,7 +729,6 @@ repo: https://github.com/ltmsyvag/camera
             with dpg.tooltip(_inputInt, **ttpkwargs): dpg.add_text("热图上下限, 最多 0-65535\n若未勾选'手动上下限', 则每次绘图自动用全帧最大/最小值作为上下限")
             def _set_color_scale(_, app_data, __):
                 fmin, fmax, *_ = app_data
-                # print(heatSeries)
                 dpg.configure_item(frameColBar, min_scale = fmin, max_scale = fmax)
                 for yAxSlv in frame_deck.get_all_maptags()[0]:
                     heatmapSlot = dpg.get_item_children(yAxSlv)[1]
@@ -1217,7 +1214,7 @@ repo: https://github.com/ltmsyvag/camera
                 dpg.add_button(arrow=True, direction=dpg.mvDir_Up, callback = move_all_dr_1px, user_data = 'up')
                 dpg.add_button(arrow=True, direction=dpg.mvDir_Down, callback = move_all_dr_1px, user_data = 'down')
                 dpg.add_text('单像素平移所有直方图选区')
-                # dpg.add_button(label = 'print', callback = lambda: frame_deck.redraw_hist_sheet())
+                dpg.add_button(label = 'print', callback = lambda: frame_deck.redraw_hist_sheet())
     with dpg.item_handler_registry() as ihrWinFramePreview:
         def show_bottom_arrows(*args):
             width, height = dpg.get_item_rect_size(winFramePreview)
@@ -1237,19 +1234,18 @@ repo: https://github.com/ltmsyvag/camera
             dpg.add_plot_axis(dpg.mvXAxis, label = "converted counts ((<frame pixel counts>-200)*0.1/0.9)")
             dpg.add_plot_axis(dpg.mvYAxis, label = "frequency", tag = "hist plot yax")
     with dpg.window(tag = winHistArr, label = '阵列直方图', width = 500, height=500):
-        with dpg.item_handler_registry():
-            def set_simple_plot_height_by_width():
-                ...
-            dpg.add_item_resize_handler(callback=set_simple_plot_height_by_width)
-        with dpg.group(horizontal=True):
-            dpg.add_input_int(label = '列数', width = 100, default_value=2, max_value=64, max_clamped=True, min_value=1, min_clamped=True)
-            dpg.add_button(label='总直方图')
         nrows, ncols = 20,20
-        with dpg.table(header_row=True, clipper=True, 
+        with dpg.group(horizontal=True):
+            nColHistSheet = dpg.add_input_int(tag = 'hist sheet 列数', label = '列数', width = 100, 
+                                              default_value=ncols, max_value=64, max_clamped=True, min_value=1, min_clamped=True)
+            dpg.add_button(label='总直方图')
+        
+        with dpg.table(tag = 'hist sheet table', header_row=True, clipper=True, 
                     #    freeze_columns= 1, 
                        freeze_rows = 1, # scrollY 必须为 True, 该 freeze 才有效, freeze_rows 同理
                     #    policy=dpg.mvTable_SizingFixedFit
                     scrollY=True,
+                    row_background=True,
                     # scrollX=True,
                        ) as histTable:
             with dpg.item_handler_registry() as spIhr:
@@ -1264,21 +1260,31 @@ repo: https://github.com/ltmsyvag/camera
                             # dpg.add_text(lin_id)
                         with dpg.table_cell():
                             dpg.add_simple_plot(
+                                tag = f'sp-{lin_id}',
                                 # label = lin_id,
                                 width=-1,
-                                height=50,
+                                # height=-1,
                                 overlay= lin_id,
                                 default_value = yseries,
                                 histogram=True)
                             dpg.add_text('0-100')
                             dpg.bind_item_handler_registry(dpg.last_item(), spIhr)
         
-        lst_rowTags : list = dpg.get_item_children(histTable)[1]
-        for rowContainer in lst_rowTags:
-            lst_simplePlots : list = dpg.get_item_children(rowContainer)[1]
-            for e in lst_simplePlots:
-                config_dict_simple_plot = dpg.get_item_configuration(e)
-                dpg.configure_item(e, height=200) # 可以设置 simple plots 的高度
+        with dpg.item_handler_registry() as ihrWinHistArr:
+            def set_simple_plot_height_by_width():
+                width, height = dpg.get_item_rect_size(winHistArr)
+                single_sp_width = width / dpg.get_value(nColHistSheet)*0.5
+                for i in range(nrows*ncols):
+                    dpg.configure_item(f'sp-{i}', height=single_sp_width)
+            dpg.add_item_resize_handler(callback=set_simple_plot_height_by_width)
+        # dpg.bind_item_handler_registry(winHistArr, ihrWinHistArr)
+
+        # lst_rowTags : list = dpg.get_item_children(histTable)[1]
+        # for rowContainer in lst_rowTags:
+        #     lst_simplePlots : list = dpg.get_item_children(rowContainer)[1]
+        #     for e in lst_simplePlots:
+        #         config_dict_simple_plot = dpg.get_item_configuration(e)
+        #         dpg.configure_item(e, height=200) # 可以设置 simple plots 的高度
                 # print(dpg.get_value(e)) # 给出 simple plot 的 data series
     if dummy_acq: #True is dummy acquisition
         dpg.set_item_callback(togCam,_dummy_cam_toggle_cb_)

@@ -605,8 +605,37 @@ class FrameDeck(list):
             hist_series.append(selected_pixel_val_series.sum())
         return hist_series
     def redraw_hist_sheet(self):
+        """
+        when to redraw:
+        1. 清除所有 drag rects 时, 本命令等效于清空 hist sheet (因此应该放在 self.clear_dr() 最末)
+        2. 批量添加 drag rects 阵列时, 不宜每增加一个 dr 就 update hist sheet 一次. 可以留待 dr 批量添加完毕后, 最后 redraw sheet
+        3. 每次修改 hist sheet 的列数时, table 结构改变, 因此需要 redraw
+        """
+        yseries = np.sin(np.linspace(0,2*np.pi,101))**2
+        dpg.delete_item('hist sheet table', children_only=True) # clear old hist table before redraw
+        ncols = dpg.get_value('hist sheet 列数')
+        for icol in range(ncols):
+            dpg.add_table_column(parent='hist sheet table', label = f'{icol+1}列')
+        
+        # lst_spTags = [f'sp-{e}' for e in range(len(self.dict_dr))]
         for grp_id in self.dict_dr:
-            hist_series = self._get_hist_series_in_grp(grp_id)
+            print('grp_id', grp_id)
+            if grp_id%ncols == 0:
+                thisRow = dpg.add_table_row(parent='hist sheet table')
+                print('new row', thisRow)
+            with dpg.table_cell(parent=thisRow):
+                ...
+                dpg.add_simple_plot(tag = f'sp-{grp_id}', width = -1, overlay = grp_id,
+                                    default_value= yseries, histogram=True)
+                with dpg.theme(tag = f'theme-sp-{grp_id}'):
+                    sp_rgb = self.get_dr_color_in_group(grp_id)
+                    with dpg.theme_component(dpg.mvSimplePlot):
+                        dpg.add_theme_color(dpg.mvThemeCol_PlotHistogram, sp_rgb + [255], category=dpg.mvThemeCat_Core) # yes, simple plot's color's cat is core, not plot!! can plot cat would induce error!
+                        dpg.add_theme_color(dpg.mvThemeCol_PlotHistogramHovered, rgb_opposite(*sp_rgb), category=dpg.mvThemeCat_Core) # yes, simple plot's color's cat is core, not plot!! can plot cat would induce error!
+                        dpg.add_theme_color(dpg.mvThemeCol_Text, (255,255,0), category=dpg.mvThemeCat_Core)
+                dpg.bind_item_theme(f'sp-{grp_id}', f'theme-sp-{grp_id}')
+                dpg.add_text('0-100')
+
 def find_latest_camguiparams_json() ->MyPath:
     dpath_day = find_newest_daypath_in_save_tree(camgui_params_root)
     json_pattern = r'^CA([0-9]+)\.json$'
