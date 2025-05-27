@@ -406,6 +406,7 @@ class FrameDeck(list):
         for drTag in dr_series:
             if drTag != sender:
                 dpg.set_value(drTag, sender_pos)
+        # 第二部分, 将正在拖拽的 drTag 放入 framePlot 的 user data 中, 供 mouse release handler 获取, 在释放 mouse 的时候进行 snapping
         plot_dict = dpg.get_item_user_data('frame plot')
         if plot_dict['dr being dragged'] is None: # dr 拖动时 callback 会被频繁触发, 需要避免反复写入 sender 这样可能好一些
             plot_dict['dr being dragged'] = sender # 记录当前被拖动的 dr tag

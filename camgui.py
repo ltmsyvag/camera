@@ -914,6 +914,7 @@ repo: https://github.com/ltmsyvag/camera
                                     _, uuid_1dlast = frame_deck.add_dr_to_loc(xcen, ycen, sidex=sidex_dr2, sidey=sidey_dr2)
                                 dpg.delete_item(queryWin1)
                                 with dpg.window(
+                                    no_focus_on_appearing=True,
                                     label = '添加阵列选取 - 2d',
                                     pos = (0,0), #np.array(get_viewport_centerpos())/3,
                                     on_close = lambda sender: dpg.delete_item(sender)
@@ -1121,6 +1122,7 @@ repo: https://github.com/ltmsyvag/camera
                             dpg.add_drag_rect(
                                 parent = dupe_map.pltMstr,
                                 default_value=dpg.get_value(drTag),
+                                delayed = True,
                                 callback = frame_deck.snap_grid_sync_series_dr_update_grp_fence
                                 )
                             for drTag in dr_row]
