@@ -32,7 +32,19 @@ with dpg.handler_registry():
         dr = thePlot_dict['dr being dragged']
         if dr is not None:
             x1, y1, x2, y2 = dpg.get_value(dr)
-            dpg.set_value(dr, (round(x1), round(y1), round(x2), round(y2)))
+            x1r, y1r, x2r, y2r = round(x1), round(y1), round(x2), round(y2)
+            if len(set([x1r, y1r, x2r, y2r])) < 4:
+                if abs(y1 - y2) < 0.5:
+                    if int(y2) == y2:
+                        y1r = y2+1 if y1>y2 else y2-1
+                    else:
+                        y2r = y1+1 if y1<y2 else y1-1
+                if abs(x1 - x2) < 0.5:
+                    if int(x2) == x2:
+                        x1r = x2+1 if x1>x2 else x2-1
+                    else:
+                        x2r = x1+1 if x1<x2 else x1-1
+            dpg.set_value(dr, (x1r, y1r, x2r, y2r))
             thePlot_dict['dr being dragged'] = None
         
     mrh = dpg.add_mouse_release_handler(callback= _cb)
