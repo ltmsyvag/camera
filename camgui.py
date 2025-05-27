@@ -816,6 +816,32 @@ repo: https://github.com/ltmsyvag/camera
                 return ihrMaster
             gen_dupemap_label = cycle(range(100)) # 假设不可能同时打开 100 个窗口, 因此新开的窗口 label 可以是 0-99 的循环, 足以保证 label uniqueness
             with dpg.handler_registry():
+                dpg.add_mouse_release_handler()
+                def snap_dr_series_being_dragged(*args):
+                    framePlot_dict = dpg.get_item_user_data(framePlot)
+                    thisDr = framePlot_dict['dr being dragged']
+                    if thisDr is not None:
+                        grp_id, series_uuid = dpg.get_item_user_data(thisDr)
+                        dr_series = frame_deck.dict_dr[grp_id]['grp dr df'][series_uuid]
+                        for dr in dr_series:
+                            x1, y1, x2, y2 = dpg.get_value(dr)
+                            x1r, y1r, x2r, y2r = round(x1), round(y1), round(x2), round(y2)
+                            if len(set([x1r, y1r, x2r, y2r])) < 4:
+                                if abs(y1 - y2) < 0.5:
+                                    if int(y2) == y2:
+                                        y1r = y2+1 if y1>y2 else y2-1
+                                    else:
+                                        y2r = y1+1 if y1<y2 else y1-1
+                                if abs(x1 - x2) < 0.5:
+                                    if int(x2) == x2:
+                                        x1r = x2+1 if x1>x2 else x2-1
+                                    else:
+                                        x2r = x1+1 if x1<x2 else x1-1
+                            dpg.set_value(dr, (x1r, y1r, x2r, y2r))
+                        framePlot_dict['dr being dragged'] = None
+                        frame_deck._update_grp_fence(grp_id)
+                dpg.set_item_callback(dpg.last_item(), snap_dr_series_being_dragged)
+                #=========================
                 dpg.add_key_press_handler(
                     dpg.mvKey_F11,
                     callback = factory_cb_yn_modal_dialog(
@@ -1095,7 +1121,6 @@ repo: https://github.com/ltmsyvag/camera
                             dpg.add_drag_rect(
                                 parent = dupe_map.pltMstr,
                                 default_value=dpg.get_value(drTag),
-                                delayed = True,
                                 callback = frame_deck.snap_grid_sync_series_dr_update_grp_fence
                                 )
                             for drTag in dr_row]
@@ -1121,7 +1146,7 @@ repo: https://github.com/ltmsyvag/camera
             dpg.bind_colormap(dpg.last_item(), myCmap)
             with dpg.child_window(**doubleplots_container_window_kwargs): # 这个 child window 的唯一作用是让 double layer 的 plots 能够用相同的 pos 参数
                 #==slave plot=============================
-                with dpg.plot(tag="frame plot",
+                with dpg.plot(tag='frame plot', user_data = {'dr being dragged': None},
                             # query=True, query_color=(255,0,0), max_query_rects=1, min_query_rects=0,
                             **heatmap_pltkwargs) as framePlot:
                     dpg.bind_colormap(dpg.last_item(), myCmap)

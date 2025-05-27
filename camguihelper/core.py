@@ -259,6 +259,7 @@ class FrameDeck(list):
         if had_series_child_p: # if had series child, then also had scatter child
             # scatterChild = dpg.get_item_children(yaxMaster)[1]
             dpg.delete_item(yaxMaster, children_only=True)
+        # print(yaxMaster)
         scatterSeries = dpg.add_scatter_series(
             [0,0,nhcols, nhcols], [0, nvrows, 0, nvrows], parent=yaxMaster)
         with dpg.theme() as scatterThm:
@@ -339,11 +340,11 @@ class FrameDeck(list):
                 str_ses = self._find_lastest_sesframes_folder_and_save_frame()
                 self.seslabel_deck.append(str_ses)
             except UserInterrupt:
-                self.seslabel_deck.append("未保存!")
+                self.seslabel_deck.append('未保存!')
         else:
-            self.seslabel_deck.append("未保存!")
+            self.seslabel_deck.append('未保存!')
         self.plot_frame_dwim()
-        hLhRvLvR = dpg.get_item_user_data("frame plot")
+        hLhRvLvR = dpg.get_item_user_data('frame plot')
         if hLhRvLvR:
             _update_hist(hLhRvLvR, self)
         end = time.time()
@@ -398,24 +399,27 @@ class FrameDeck(list):
         ddict['fence'] = xmin, ymin, xmax, ymax
     def snap_grid_sync_series_dr_update_grp_fence(self, sender, _, user_data):
         # 第一部分, sync 其他热图中 dr 的 resize
+        sender_pos = dpg.get_value(sender)
         grp_id, series_id = user_data
         ddict = self.dict_dr[grp_id]
         dr_series = ddict['grp dr df'][series_id]
-        sender_pos = dpg.get_value(sender)
-        sender_pos_snapped = [round(e) for e in sender_pos]
-        if len(set(sender_pos_snapped))<4: # 保证选区至少是一个 1x1 的方块
-            x1, y1, x2, y2 = sender_pos_snapped
-            if x1 == x2:
-                x2+=1
-            if y1 == y2:
-                y2+=1
-            sender_pos_snapped = [x1, y1, x2, y2]
         for drTag in dr_series:
-            # if drTag != sender:
-            dpg.set_value(drTag, sender_pos_snapped)
+            if drTag != sender:
+                dpg.set_value(drTag, sender_pos)
+        plot_dict = dpg.get_item_user_data('frame plot')
+        if plot_dict['dr being dragged'] is None: # dr 拖动时 callback 会被频繁触发, 需要避免反复写入 sender 这样可能好一些
+            plot_dict['dr being dragged'] = sender # 记录当前被拖动的 dr tag
+        # sender_pos_snapped = [round(e) for e in sender_pos]
+        # if len(set(sender_pos_snapped))<4: # 保证选区至少是一个 1x1 的方块
+        #     x1, y1, x2, y2 = sender_pos_snapped
+        #     if x1 == x2:
+        #         x2+=1
+        #     if y1 == y2:
+        #         y2+=1
+        #     sender_pos_snapped = [x1, y1, x2, y2]
         # 第二部分: 调整本 dr 组的 fence.
         #  调整现有的 drag rect, 可能扩大也可能缩小 fence, 也可能保持不变, 但是不管了统一 callback 重设
-        self._update_grp_fence(grp_id)
+        # self._update_grp_fence(grp_id)
     def add_dr_to_loc(self, 
                       xmean_dr : float, 
                       ymean_dr : float,
@@ -480,7 +484,7 @@ class FrameDeck(list):
         x/y1 > x/y2 is always
         """
 
-        dr_series = pd.Series([int(dpg.add_drag_rect(delayed = True,
+        dr_series = pd.Series([int(dpg.add_drag_rect(
             parent=p, default_value=(
                 round(xmean_dr-sidex/2), # init x edge, or x1
                 round(ymean_dr-sidey/2), # init y edge, or y1
@@ -675,22 +679,23 @@ def _update_hist(hLhRvLvR: tuple, frame_deck: FrameDeck, yax = "hist plot yax")-
     这些值确定了所选取的像素集合。然后，在此选择基础上将 frame deck 中的每一张 frame 在该选区中的部分的 counts 求得，
     加入 histdata 数据列表
     """
-    hLlim, hRlim, vLlim, vRlim = hLhRvLvR
-    vidLo, vidHi = math.floor(vLlim), math.floor(vRlim)
-    hidLo, hidHi = math.floor(hLlim), math.floor(hRlim)
-    histData = []
-    for frame in frame_deck.float_deck: # make hist data
-        frame = ZYLconversion(frame)
-        subFrame = frame[vidLo:vidHi+1, hidLo:hidHi+1]
-        histData.append(subFrame.sum())
-    dpg.delete_item(yax,children_only=True) # delete old hist, then get some hist params for new plot
-    binning = dpg.get_value('hist binning input')
-    theMinInt, theMaxInt = math.floor(min(histData)), math.floor(max(histData))
-    nBins = (theMaxInt-theMinInt)//binning + 1
-    max_range = theMinInt + nBins*binning
-    dpg.add_histogram_series(
-        histData, parent = yax, bins =nBins, 
-        min_range=theMinInt,max_range=max_range)
+    ...
+    # hLlim, hRlim, vLlim, vRlim = hLhRvLvR
+    # vidLo, vidHi = math.floor(vLlim), math.floor(vRlim)
+    # hidLo, hidHi = math.floor(hLlim), math.floor(hRlim)
+    # histData = []
+    # for frame in frame_deck.float_deck: # make hist data
+    #     frame = ZYLconversion(frame)
+    #     subFrame = frame[vidLo:vidHi+1, hidLo:hidHi+1]
+    #     histData.append(subFrame.sum())
+    # dpg.delete_item(yax,children_only=True) # delete old hist, then get some hist params for new plot
+    # binning = dpg.get_value('hist binning input')
+    # theMinInt, theMaxInt = math.floor(min(histData)), math.floor(max(histData))
+    # nBins = (theMaxInt-theMinInt)//binning + 1
+    # max_range = theMinInt + nBins*binning
+    # dpg.add_histogram_series(
+    #     histData, parent = yax, bins =nBins, 
+    #     min_range=theMinInt,max_range=max_range)
 
 def st_workerf_flagged_do_all(
     cam: DCAM.DCAM.DCAMCamera,
