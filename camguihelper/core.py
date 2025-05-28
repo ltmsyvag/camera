@@ -418,21 +418,10 @@ class FrameDeck(list):
         for drTag in dr_series:
             if drTag != sender:
                 dpg.set_value(drTag, sender_pos)
-        # 第二部分, 将正在拖拽的 drTag 放入 framePlot 的 user data 中, 供 mouse release handler 获取, 在释放 mouse 的时候进行 snapping
+        # 第二部分, 将正在拖拽的 drTag 放入 mouse release handler 的 user data 中, 供 mouse release handler 获取, 在释放 mouse 的时候进行 snapping
         mrh_dict = dpg.get_item_user_data('mouse release handler')
         if mrh_dict['dr being dragged'] is None: # dr 拖动时 callback 会被频繁触发, 需要避免反复写入 sender 这样可能好一些
             mrh_dict['dr being dragged'] = sender # 记录当前被拖动的 dr tag
-        # sender_pos_snapped = [round(e) for e in sender_pos]
-        # if len(set(sender_pos_snapped))<4: # 保证选区至少是一个 1x1 的方块
-        #     x1, y1, x2, y2 = sender_pos_snapped
-        #     if x1 == x2:
-        #         x2+=1
-        #     if y1 == y2:
-        #         y2+=1
-        #     sender_pos_snapped = [x1, y1, x2, y2]
-        # 第二部分: 调整本 dr 组的 fence.
-        #  调整现有的 drag rect, 可能扩大也可能缩小 fence, 也可能保持不变, 但是不管了统一 callback 重设
-        # self._update_grp_fence(grp_id)
     def add_dr_to_loc(self, 
                       xmean_dr : float, 
                       ymean_dr : float,
@@ -637,8 +626,8 @@ class FrameDeck(list):
         for grp_id, ddict in self.dict_dr.items():
             if grp_id%ncols == 0:
                 thisRow = dpg.add_table_row(parent='hist sheet table')
-            if ddict is not None:
-                with dpg.table_cell(parent=thisRow):
+            with dpg.table_cell(parent=thisRow):
+                if ddict is not None: # leaves an empty table cell as place holder if ddict is None
                     dpg.add_simple_plot(tag = f'sp-{grp_id}', width = -1, overlay = grp_id,
                                         default_value= yseries, histogram=True)
 

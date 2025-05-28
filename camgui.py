@@ -1101,13 +1101,15 @@ repo: https://github.com/ltmsyvag/camera
                             dpg.add_text('0-100')
                             dpg.bind_item_handler_registry(dpg.last_item(), spIhr)
         
-        with dpg.item_handler_registry() as ihrWinHistArr:
-            def set_simple_plot_height_by_width():
-                width, height = dpg.get_item_rect_size(winHistArr)
-                single_sp_width = width / dpg.get_value(nColHistSheet)*0.5
-                for i in range(nrows*ncols):
-                    dpg.configure_item(f'sp-{i}', height=single_sp_width)
-            dpg.add_item_resize_handler(callback=set_simple_plot_height_by_width)
+        # with dpg.item_handler_registry() as ihrWinHistArr:
+        #     def set_simple_plot_height_by_width():
+        #         width, height = dpg.get_item_rect_size(winHistArr)
+        #         single_sp_width = width / dpg.get_value(nColHistSheet)*0.5
+        #         lst_rowTags: list = dpg.get_item_children(histTable)[1]
+        #         for rowContainer in lst_rowTags:
+        #         for i in range(nrows*ncols):
+        #             dpg.configure_item(f'sp-{i}', height=single_sp_width)
+        #     dpg.add_item_resize_handler(callback=set_simple_plot_height_by_width)
         # dpg.bind_item_handler_registry(winHistArr, ihrWinHistArr)
 
         # lst_rowTags : list = dpg.get_item_children(histTable)[1]
@@ -1117,26 +1119,23 @@ repo: https://github.com/ltmsyvag/camera
         #         config_dict_simple_plot = dpg.get_item_configuration(e)
         #         dpg.configure_item(e, height=200) # 可以设置 simple plots 的高度
                 # print(dpg.get_value(e)) # 给出 simple plot 的 data series
-    if dummy_acq: #True is dummy acquisition
-        dpg.set_item_callback(togCam,_dummy_cam_toggle_cb_)
-        dpg.set_item_callback(togAcq, _dummy_toggle_acq_cb)
-        cam = None # probably needed for dummy acquisition, the same reason as needing controller = None
-        dpg.add_checkbox(tag = "假触发", label = "假触发", parent=grpPaging, callback=_log)
-        from camguihelper.core import _workerf_dummy_remote_buffer_feeder, _mp_workerf_dummy_remote_buffer_feeder
-        t_mt_remote_buffer_feeder = threading.Thread(target = _workerf_dummy_remote_buffer_feeder)
-        t_mt_remote_buffer_feeder.start()
-        t_mp_remote_buffer_feeder = threading.Thread(target = _mp_workerf_dummy_remote_buffer_feeder, args=(_mp_dummy_remote_buffer,))
-        t_mp_remote_buffer_feeder.start()
-    # dpg.show_style_editor()
-    # dpg.show_item_registry()
+    
     with dpg.item_handler_registry() as ihrQueryWin2AlwaysOnTop:
         def focus_queryWin2():
-            if dpg.get_active_window() != queryWin2: # this check is essential!! without it, the gui crashes
-                dpg.focus_item(queryWin2)
+            if not mouse_down_flag.is_set():
+                if dpg.get_active_window() != queryWin2: # this check is essential!! without it, the gui crashes
+                    dpg.focus_item(queryWin2)
         dpg.add_item_visible_handler(callback = focus_queryWin2)
     with dpg.handler_registry():
+        mouse_down_flag = threading.Event()
+        dpg.add_mouse_click_handler(
+            callback=lambda: mouse_down_flag.set() )
+        #=======================================
         dpg.add_mouse_release_handler(tag= 'mouse release handler', 
                                         user_data={'dr being dragged': None})
+        def do_mouse_release_cbs(_,__,user_data):
+            mouse_down_flag.clear()
+            snap_dr_series_being_dragged(_, __, user_data)
         def snap_dr_series_being_dragged(_,__, user_data):
             thisDr = user_data['dr being dragged']
             if thisDr is not None:
@@ -1159,7 +1158,8 @@ repo: https://github.com/ltmsyvag/camera
                     dpg.set_value(dr, (x1r, y1r, x2r, y2r))
                 user_data['dr being dragged'] = None
                 frame_deck._update_grp_fence(grp_id)
-        dpg.set_item_callback(dpg.last_item(), snap_dr_series_being_dragged)
+        dpg.set_item_callback(dpg.last_item(), do_mouse_release_cbs #snap_dr_series_being_dragged
+                              )
         #=========================
         dpg.add_key_press_handler(
             dpg.mvKey_F11,
@@ -1244,6 +1244,7 @@ repo: https://github.com/ltmsyvag/camera
   *  *  *  *  *  *  *  *  *
 *3 *  *  *  *  *  *  *  *
 
+添加 *3 点(添加好后可以移动但不要删除)
 在选区 *1 和 *3 定义的平行四边形第二维轴上, 你希望存存在多少个选区? 新选区的形状和 *2 一致
 (若不需要二位选区阵列, 请直接关闭本窗口)
 """,
@@ -1344,13 +1345,22 @@ repo: https://github.com/ltmsyvag/camera
                                     # dpg.delete_item(dpg.get_item_user_data(queryWin2)) # delete the item handler registry
                                     dpg.delete_item(queryWin2)
                                 dpg.set_item_callback(yesBtn2, make_2d_dr_arr)
-                        # with dpg.item_handler_registry() as ihrQueryWin2AlwaysOnTop:
-                        #     dpg.add_item_visible_handler(callback = lambda *args: dpg.focus_item(queryWin2))
-                        # dpg.set_item_user_data(queryWin2, ihrQueryWin2AlwaysOnTop)
                         dpg.bind_item_handler_registry(queryWin2, ihrQueryWin2AlwaysOnTop)
                     dpg.set_item_callback(yesBtn1, make_1d_dr_arr_and_query_for_2d)
         dpg.set_item_callback(_kph, make_dr_arr)
-            
+    if dummy_acq: #True is dummy acquisition
+        dpg.set_item_callback(togCam,_dummy_cam_toggle_cb_)
+        dpg.set_item_callback(togAcq, _dummy_toggle_acq_cb)
+        cam = None # probably needed for dummy acquisition, the same reason as needing controller = None
+        dpg.add_checkbox(tag = "假触发", label = "假触发", parent=grpPaging, callback=_log)
+        from camguihelper.core import _workerf_dummy_remote_buffer_feeder, _mp_workerf_dummy_remote_buffer_feeder
+        t_mt_remote_buffer_feeder = threading.Thread(target = _workerf_dummy_remote_buffer_feeder)
+        t_mt_remote_buffer_feeder.start()
+        t_mp_remote_buffer_feeder = threading.Thread(target = _mp_workerf_dummy_remote_buffer_feeder, args=(_mp_dummy_remote_buffer,))
+        t_mp_remote_buffer_feeder.start()
+    # dpg.show_style_editor()
+    # dpg.show_debug()
+    # dpg.show_item_registry()
     dpg.setup_dearpygui()
     dpg.show_viewport()
     dpg.start_dearpygui()
