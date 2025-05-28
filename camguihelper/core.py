@@ -28,7 +28,7 @@ import copy
 import numpy.typing as npt
 from typing import List, Dict, Sequence, Tuple
 import re
-# from deprecated import deprecated
+from deprecated import deprecated
 import math
 from datetime import datetime
 from pylablib.devices import DCAM
@@ -64,7 +64,7 @@ class FrameDeck(list):
         self.seslabel_deck: List[str] = []
         self.dict_dr : Dict[int, None|Dict[str, pd.DataFrame|Sequence[float]]] = dict() # drag rect dict, {<group number> : <dict of two items: {'grp dr df' : <dataframe of dr tags, row-indexed by yaxes, col-named by uuid>}, {'fence' : (xmin, xmax, vmin, vmax)}, which is the group fence>}
         # self.series_id_gen= count() # guarantee a unique id as col name for each dr series in the per-group dataframes in self.dict_dr
-        self.dq2 = deque(maxlen=2) # 保存最近两次添加的 dr series 的信息, 用于批量添加阵列 dr
+        self.dq100 = deque(maxlen=100) # 保存最近100次添加的 dr series 的信息, 用于批量添加阵列 dr
 
         def tab_10_spTheme_factory(color_id :int):
             with dpg.theme() as spTheme:
@@ -524,10 +524,10 @@ class FrameDeck(list):
                 grp_id_final = max(list(self.dict_dr))+1
                 merge_dr_series_into_grp(dr_series, 
                                   grp_id_final)
-        if self.dq2:
-            if self.dq2[-1][0] == grp_id_final: # 如果最新的 dr 和历史次新的 dr 属于同一组, 这表示用户在删除并重建 dr, 在犹疑不决, 此时去掉同组次新的 dr
-                self.dq2.pop()
-        self.dq2.append((grp_id_final, dr_series.name))
+        # if self.dq100:
+        #     if self.dq100[-1][0] == grp_id_final: # 如果最新的 dr 和历史次新的 dr 属于同一组, 这表示用户在删除并重建 dr, 在犹疑不决, 此时去掉同组次新的 dr
+        #         self.dq100.pop()
+        self.dq100.append((grp_id_final, dr_series.name))
         return grp_id_final, dr_series.name
     def expunge_dr_series(self, grp_id, series_id):
         """
@@ -539,6 +539,10 @@ class FrameDeck(list):
         for tag in df[series_id]:
             dpg.delete_item(tag)
         df.drop(series_id, axis=1, inplace=True)
+        try:
+            self.dq100.remove((grp_id, series_id))
+        except ValueError:
+            pass # 如果 dq100 中不存在待删除的条目, 也不要报错
         if df.size: # 如果 df 没被删空
             ddict['grp dr df'] = df
             self._update_grp_fence(grp_id)
@@ -579,6 +583,8 @@ class FrameDeck(list):
                 for drTag in ddict['grp dr df'].values.flatten():
                     dpg.delete_item(drTag)
                 self.dict_dr[grp_id] = None
+        self.dq100.clear()
+    @deprecated
     def series_uuid_exists(self, series_uuid : str):
         uuid_lst_tot = []
         for ddict in self.dict_dr.values():

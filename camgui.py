@@ -1192,20 +1192,20 @@ repo: https://github.com/ltmsyvag/camera
         #================================
         _kph = dpg.add_key_press_handler(dpg.mvKey_F9)
         def make_dr_arr(*args):
-            if len(frame_deck.dq2)<2: # 如果(单张热图上)的直方图选区少于两个, 则不触发选区阵列选取
+            if len(frame_deck.dq100)<2: # 如果(单张热图上)的直方图选区少于两个, 则不触发选区阵列选取
                 return
             
             with dpg.window(no_saved_settings=True,
                 label = '添加阵列选区 - 1d', modal = True, pos = get_viewport_centerpos(),
                 on_close = lambda sender: dpg.delete_item(sender)) as queryWin1:
-                dpg.add_text('*1 *  *  *  *  *  *  *  *2\n在选区 *1 和 *2 定义的一维轴上, 你希望存存在多少个选区? 新选区的形状和 *2 一致', wrap=300)
+                dpg.add_text('*1 *  *  *  *  *  *  *  *2\n\n在选区 *1 和 *2 定义的一维轴上, 你希望存存在多少个选区? 新选区的形状和 *2 一致', wrap=300)
                 inputInt1D = dpg.add_input_int(width = 100, default_value= 10, min_value=2, min_clamped=True)
                 dpg.add_spacer(height=10)
                 with dpg.group(horizontal=True):
                     dpg.add_spacer(width = 30)
                     yesBtn1 = dpg.add_button(label = '好')
                     def make_1d_dr_arr_and_query_for_2d(*args):
-                        (grp1, uuid1), (grp2, uuid2) = frame_deck.dq2 # 2 is newer, 1 older
+                        (grp1, uuid1), (grp2, uuid2) = frame_deck.dq100[-2], frame_deck.dq100[-1] # 2 is newer, 1 older
                         def get_dr_pos(grp_id: int, series_uuid: str)->Tuple[float]:
                             df = frame_deck.dict_dr[grp_id]['grp dr df']
                             drTagRep = df[series_uuid].iloc[0]
@@ -1255,7 +1255,7 @@ repo: https://github.com/ltmsyvag/camera
                                 dpg.add_spacer(width=30)
                                 yesBtn2= dpg.add_button(label='好')
                                 def make_2d_dr_arr(*args):
-                                    grp3, uuid3 = frame_deck.dq2[-1]
+                                    grp3, uuid3 = frame_deck.dq100[-1]
                                     if uuid3==uuid_1dlast:
                                         push_log('请添加 2d 选区阵列所需的新选区', is_warning = True)
                                         return
