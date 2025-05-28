@@ -5,6 +5,7 @@ camgui 相关的帮助函数
 camgui_ver = '1.3-pre'
 import pandas as pd
 # import matplotlib.pyplot as plt
+from functools import cache
 from itertools import cycle
 from collections import namedtuple, deque
 import multiprocessing.connection
@@ -64,6 +65,17 @@ class FrameDeck(list):
         self.dict_dr : Dict[int, None|Dict[str, pd.DataFrame|Sequence[float]]] = dict() # drag rect dict, {<group number> : <dict of two items: {'grp dr df' : <dataframe of dr tags, row-indexed by yaxes, col-named by uuid>}, {'fence' : (xmin, xmax, vmin, vmax)}, which is the group fence>}
         # self.series_id_gen= count() # guarantee a unique id as col name for each dr series in the per-group dataframes in self.dict_dr
         self.dq2 = deque(maxlen=2) # 保存最近两次添加的 dr series 的信息, 用于批量添加阵列 dr
+
+        def tab_10_spTheme_factory(color_id :int):
+            with dpg.theme() as spTheme:
+                sp_rgb = self.get_dr_color_in_group(color_id)
+                with dpg.theme_component(dpg.mvSimplePlot):
+                    dpg.add_theme_color(dpg.mvThemeCol_PlotHistogram, sp_rgb + [255], category=dpg.mvThemeCat_Core) # yes, simple plot's color's cat is core, not plot!! can plot cat would induce error!
+                    dpg.add_theme_color(dpg.mvThemeCol_PlotHistogramHovered, rgb_opposite(*sp_rgb), category=dpg.mvThemeCat_Core) # yes, simple plot's color's cat is core, not plot!! can plot cat would induce error!
+                    dpg.add_theme_color(dpg.mvThemeCol_Text, (255,255,0), category=dpg.mvThemeCat_Core)
+            return spTheme
+        self.tab_10_spThemes = [tab_10_spTheme_factory(i) for i in range(10)]
+
     def memory_report(self) -> str:
         len_deck = len(self)
         if len_deck>0:
@@ -407,9 +419,9 @@ class FrameDeck(list):
             if drTag != sender:
                 dpg.set_value(drTag, sender_pos)
         # 第二部分, 将正在拖拽的 drTag 放入 framePlot 的 user data 中, 供 mouse release handler 获取, 在释放 mouse 的时候进行 snapping
-        plot_dict = dpg.get_item_user_data('frame plot')
-        if plot_dict['dr being dragged'] is None: # dr 拖动时 callback 会被频繁触发, 需要避免反复写入 sender 这样可能好一些
-            plot_dict['dr being dragged'] = sender # 记录当前被拖动的 dr tag
+        mrh_dict = dpg.get_item_user_data('mouse release handler')
+        if mrh_dict['dr being dragged'] is None: # dr 拖动时 callback 会被频繁触发, 需要避免反复写入 sender 这样可能好一些
+            mrh_dict['dr being dragged'] = sender # 记录当前被拖动的 dr tag
         # sender_pos_snapped = [round(e) for e in sender_pos]
         # if len(set(sender_pos_snapped))<4: # 保证选区至少是一个 1x1 的方块
         #     x1, y1, x2, y2 = sender_pos_snapped
@@ -523,6 +535,9 @@ class FrameDeck(list):
                 grp_id_final = max(list(self.dict_dr))+1
                 merge_dr_series_into_grp(dr_series, 
                                   grp_id_final)
+        if self.dq2:
+            if self.dq2[-1][0] == grp_id_final: # 如果最新的 dr 和历史次新的 dr 属于同一组, 这表示用户在删除并重建 dr, 在犹疑不决, 此时去掉同组次新的 dr
+                self.dq2.pop()
         self.dq2.append((grp_id_final, dr_series.name))
         return grp_id_final, dr_series.name
     def expunge_dr_series(self, grp_id, series_id):
@@ -592,7 +607,6 @@ class FrameDeck(list):
         """
         ddict = self.dict_dr[grp_id]
         if ddict is None:
-            print('[]')
             return []
         df = ddict['grp dr df']
         drs_this_grp = df.iloc[0,:]
@@ -602,7 +616,6 @@ class FrameDeck(list):
             xx, yy = np.meshgrid(range(xmin,xmax), range(ymin, ymax))
             pnts_in_dr = set([(x,y) for x,y in zip(xx.flatten(), yy.flatten())])
             frame_points_in_grp |= pnts_in_dr
-        print(frame_points_in_grp)
         idarr_x, idarr_y = list(zip(*frame_points_in_grp))
         hist_series = []
         for frame in self.float_deck:
@@ -621,25 +634,16 @@ class FrameDeck(list):
         ncols = dpg.get_value('hist sheet 列数')
         for icol in range(ncols):
             dpg.add_table_column(parent='hist sheet table', label = f'{icol+1}列')
-        
-        # lst_spTags = [f'sp-{e}' for e in range(len(self.dict_dr))]
-        for grp_id in self.dict_dr:
-            print('grp_id', grp_id)
+        for grp_id, ddict in self.dict_dr.items():
             if grp_id%ncols == 0:
                 thisRow = dpg.add_table_row(parent='hist sheet table')
-                print('new row', thisRow)
-            with dpg.table_cell(parent=thisRow):
-                ...
-                dpg.add_simple_plot(tag = f'sp-{grp_id}', width = -1, overlay = grp_id,
-                                    default_value= yseries, histogram=True)
-                with dpg.theme(tag = f'theme-sp-{grp_id}'):
-                    sp_rgb = self.get_dr_color_in_group(grp_id)
-                    with dpg.theme_component(dpg.mvSimplePlot):
-                        dpg.add_theme_color(dpg.mvThemeCol_PlotHistogram, sp_rgb + [255], category=dpg.mvThemeCat_Core) # yes, simple plot's color's cat is core, not plot!! can plot cat would induce error!
-                        dpg.add_theme_color(dpg.mvThemeCol_PlotHistogramHovered, rgb_opposite(*sp_rgb), category=dpg.mvThemeCat_Core) # yes, simple plot's color's cat is core, not plot!! can plot cat would induce error!
-                        dpg.add_theme_color(dpg.mvThemeCol_Text, (255,255,0), category=dpg.mvThemeCat_Core)
-                dpg.bind_item_theme(f'sp-{grp_id}', f'theme-sp-{grp_id}')
-                dpg.add_text('0-100')
+            if ddict is not None:
+                with dpg.table_cell(parent=thisRow):
+                    dpg.add_simple_plot(tag = f'sp-{grp_id}', width = -1, overlay = grp_id,
+                                        default_value= yseries, histogram=True)
+
+                    dpg.bind_item_theme(f'sp-{grp_id}', self.tab_10_spThemes[grp_id % 10])
+                    dpg.add_text('0-100')
 
 def find_latest_camguiparams_json() ->MyPath:
     dpath_day = find_newest_daypath_in_save_tree(camgui_params_root)
@@ -680,23 +684,22 @@ def _update_hist(hLhRvLvR: tuple, frame_deck: FrameDeck, yax = "hist plot yax")-
     这些值确定了所选取的像素集合。然后，在此选择基础上将 frame deck 中的每一张 frame 在该选区中的部分的 counts 求得，
     加入 histdata 数据列表
     """
-    ...
-    # hLlim, hRlim, vLlim, vRlim = hLhRvLvR
-    # vidLo, vidHi = math.floor(vLlim), math.floor(vRlim)
-    # hidLo, hidHi = math.floor(hLlim), math.floor(hRlim)
-    # histData = []
-    # for frame in frame_deck.float_deck: # make hist data
-    #     frame = ZYLconversion(frame)
-    #     subFrame = frame[vidLo:vidHi+1, hidLo:hidHi+1]
-    #     histData.append(subFrame.sum())
-    # dpg.delete_item(yax,children_only=True) # delete old hist, then get some hist params for new plot
-    # binning = dpg.get_value('hist binning input')
-    # theMinInt, theMaxInt = math.floor(min(histData)), math.floor(max(histData))
-    # nBins = (theMaxInt-theMinInt)//binning + 1
-    # max_range = theMinInt + nBins*binning
-    # dpg.add_histogram_series(
-    #     histData, parent = yax, bins =nBins, 
-    #     min_range=theMinInt,max_range=max_range)
+    hLlim, hRlim, vLlim, vRlim = hLhRvLvR
+    vidLo, vidHi = math.floor(vLlim), math.floor(vRlim)
+    hidLo, hidHi = math.floor(hLlim), math.floor(hRlim)
+    histData = []
+    for frame in frame_deck.float_deck: # make hist data
+        frame = ZYLconversion(frame)
+        subFrame = frame[vidLo:vidHi+1, hidLo:hidHi+1]
+        histData.append(subFrame.sum())
+    dpg.delete_item(yax,children_only=True) # delete old hist, then get some hist params for new plot
+    binning = dpg.get_value('hist binning input')
+    theMinInt, theMaxInt = math.floor(min(histData)), math.floor(max(histData))
+    nBins = (theMaxInt-theMinInt)//binning + 1
+    max_range = theMinInt + nBins*binning
+    dpg.add_histogram_series(
+        histData, parent = yax, bins =nBins, 
+        min_range=theMinInt,max_range=max_range)
 
 def st_workerf_flagged_do_all(
     cam: DCAM.DCAM.DCAMCamera,

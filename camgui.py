@@ -40,8 +40,9 @@ if __name__ == '__main__':
         factory_cb_yn_modal_dialog)
 
     controller = None # controller always has to exist, we can't wait for it to be created by a callback (like `cam`), since it is the argument of the func `start_flag_watching_acq` (and ultimately, the required arg of ZYL func `feed_AWG`) that runs in the thread thread_acq. When awg is off, `controller` won't be used and won't be created either, but the `controller` var still has to exist (as a global variable because I deem `controller` suitable to be a global var) as a formal argument (or placeholder) of `start_flag_watching_acq`. This is more or less an awkward situation because I want to put `start_flag_watching_acq` in a module file (where the functions do not have access to working script global vars), not in the working script. Essentailly, the func in a module py file has no closure access to the global varibles in the working script, unless I choose to explicitly pass the working script global var as an argument to the imported func
-    frame_deck = FrameDeck() # the normal empty frame_deck creation
     dpg.create_context()
+    frame_deck = FrameDeck() # the normal empty frame_deck creation, 因为 FrameDeck 中初始化了一些 dpg themes, 因此要放在 create context 之后
+    # in dpginit.init you should see exatly 5 windows after the initial debug window
     winCtrlPanels = dpg.generate_uuid() # need to generate win tags first thing to work with init file
     winFramePreview = dpg.generate_uuid()
     winHist = dpg.generate_uuid()
@@ -623,7 +624,6 @@ repo: https://github.com/ltmsyvag/camera
                         awg_toggle_cb(togAwg, _ , dpg.get_item_user_data(togAwg))
                 push_log(f'已载入 {fpath_json}', is_good = True)
         dpg.set_item_callback(jsonDialog, _ok_cb_)
-
     with dpg.window(label = "帧预览", tag=winFramePreview,
                     height=700, width=700
                     ):
@@ -815,208 +815,7 @@ repo: https://github.com/ltmsyvag/camera
                     dpg.set_item_callback(dpg.last_item(), alt_remove_dr)
                 return ihrMaster
             gen_dupemap_label = cycle(range(100)) # 假设不可能同时打开 100 个窗口, 因此新开的窗口 label 可以是 0-99 的循环, 足以保证 label uniqueness
-            with dpg.handler_registry():
-                dpg.add_mouse_release_handler()
-                def snap_dr_series_being_dragged(*args):
-                    framePlot_dict = dpg.get_item_user_data(framePlot)
-                    thisDr = framePlot_dict['dr being dragged']
-                    if thisDr is not None:
-                        grp_id, series_uuid = dpg.get_item_user_data(thisDr)
-                        dr_series = frame_deck.dict_dr[grp_id]['grp dr df'][series_uuid]
-                        for dr in dr_series:
-                            x1, y1, x2, y2 = dpg.get_value(dr)
-                            x1r, y1r, x2r, y2r = round(x1), round(y1), round(x2), round(y2)
-                            if len(set([x1r, y1r, x2r, y2r])) < 4:
-                                if abs(y1 - y2) < 0.5:
-                                    if int(y2) == y2:
-                                        y1r = y2+1 if y1>y2 else y2-1
-                                    else:
-                                        y2r = y1+1 if y1<y2 else y1-1
-                                if abs(x1 - x2) < 0.5:
-                                    if int(x2) == x2:
-                                        x1r = x2+1 if x1>x2 else x2-1
-                                    else:
-                                        x2r = x1+1 if x1<x2 else x1-1
-                            dpg.set_value(dr, (x1r, y1r, x2r, y2r))
-                        framePlot_dict['dr being dragged'] = None
-                        frame_deck._update_grp_fence(grp_id)
-                dpg.set_item_callback(dpg.last_item(), snap_dr_series_being_dragged)
-                #=========================
-                dpg.add_key_press_handler(
-                    dpg.mvKey_F11,
-                    callback = factory_cb_yn_modal_dialog(
-                        cb_on_confirm= frame_deck.clear_dr,
-                        dialog_text='确认要清除所有的直方图选区吗?'))
-                #========================================
-                dpg.add_key_press_handler(dpg.mvKey_F12, 
-                                          user_data=[] # list for holding annotation item tags
-                                          )
-                def _show_hide_grp_id(sender, __, user_data):
-                    if user_data:
-                        while user_data:
-                            dpg.delete_item(user_data.pop())
-                    else:
-                        _,_,lst_pltMstr = frame_deck.get_all_maptags()
-                        for grp_id, ddict in frame_deck.dict_dr.items():
-                            if ddict is not None:
-                                xminf, yminf, xmaxf, ymaxf = ddict['fence']
-                                xmeanf, ymeanf = (xminf+xmaxf)/2, (yminf+ymaxf)/2
-                                for thisPlot in lst_pltMstr:
-                                    annoTag = dpg.add_plot_annotation(
-                                        parent=thisPlot,
-                                        label= grp_id,
-                                        default_value=(xmeanf, ymeanf),
-                                        color = [255,255,0])
-                                    user_data.append(annoTag)
-                    dpg.set_item_user_data(sender, user_data)
-                dpg.set_item_callback(dpg.last_item(), _show_hide_grp_id)
-                #================================
-                _kph = dpg.add_key_press_handler(dpg.mvKey_F9)
-                def make_dr_arr(*args):
-                    if len(frame_deck.dq2)<2: # 如果(单张热图上)的直方图选区少于两个, 则不触发选区阵列选取
-                        return
-                    
-                    with dpg.window(
-                        label = '添加阵列选区 - 1d', modal = True, pos = get_viewport_centerpos(),
-                        on_close = lambda sender: dpg.delete_item(sender)) as queryWin1:
-                        dpg.add_text('在最近创建的两个选区之间(含), 你要创建多少选区\n(新创建的选区面积和当前最新的选区一致)')
-                        inputInt1D = dpg.add_input_int(default_value= 10, min_value=2, min_clamped=True)
-                        dpg.add_spacer(height=10)
-                        with dpg.group(horizontal=True):
-                            dpg.add_spacer(width = 30)
-                            yesBtn1 = dpg.add_button(label = '好')
-                            def make_1d_dr_arr_and_query_for_2d(*args):
-                                (grp1, uuid1), (grp2, uuid2) = frame_deck.dq2 # 2 is newer, 1 older
-                                if not (frame_deck.series_uuid_exists(uuid1) and frame_deck.series_uuid_exists(uuid2)):
-                                    """
-                                    如果用户最新创建的两个选区有删除后重新创建的, 那么会出错, 我懒得严格判定这种情况下的真正的最新的两个选区了, 直接提示让用户全选
-                                    """
-                                    push_log('请重新创建两个选区, 创建后不要删除, 再执行 1d 选区阵列创建', is_warning = True)
-                                    dpg.delete_item(queryWin1)
-                                    return
-                                def get_dr_pos(grp_id: int, series_uuid: str)->Tuple[float]:
-                                    df = frame_deck.dict_dr[grp_id]['grp dr df']
-                                    drTagRep = df[series_uuid].iloc[0]
-                                    return dpg.get_value(drTagRep) # x1, y1, x2, y2
-                                x1dr1, y1dr1, x2dr1, y2dr1 = get_dr_pos(grp1, uuid1)
-                                x1dr2, y1dr2, x2dr2, y2dr2 = get_dr_pos(grp2, uuid2)
-                                xmeandr1, ymeandr1 = (x1dr1+x2dr1)/2, (y1dr1+y2dr1)/2
-                                xmeandr2, ymeandr2 = (x1dr2+x2dr2)/2, (y1dr2+y2dr2)/2
-                                sidex_dr2, sidey_dr2 = abs(x1dr2-x2dr2), abs(y1dr2-y2dr2)
-                                n_dr1d = dpg.get_value(inputInt1D)
-                                lst_xymeans_todo_for_1darr = [
-                                    (x,y) for (x,y) in
-                                    zip(np.linspace(xmeandr1, xmeandr2, n_dr1d), 
-                                        np.linspace(ymeandr1, ymeandr2, n_dr1d))]
-                                lst_xymeans_todo_for_1darr = lst_xymeans_todo_for_1darr[1:]
-                                frame_deck.expunge_dr_series(grp2, uuid2)
-                                for xcen, ycen in lst_xymeans_todo_for_1darr:
-                                    _, uuid_1dlast = frame_deck.add_dr_to_loc(xcen, ycen, sidex=sidex_dr2, sidey=sidey_dr2)
-                                dpg.delete_item(queryWin1)
-                                with dpg.window(
-                                    no_focus_on_appearing=True,
-                                    label = '添加阵列选取 - 2d',
-                                    pos = (0,0), #np.array(get_viewport_centerpos())/3,
-                                    on_close = lambda sender: dpg.delete_item(sender)
-                                    ) as queryWin2:
-                                    dpg.add_text('1d 选区组创建成功, 如果只需要 1d 选区组, 请直接关闭本窗口.\n\n如果需要 2d 选区阵列, 请再添加一个选区, 过该选区中心与已创建的 1d 选区组相平行的线会界定待创建的 2d 选区阵列的另一条边. 在这两条边之间, 你希望存在几排 1d 选区组(含已经创建 1d 选区组)? 在下方设置',
-                                                 wrap=300)
-                                    inputInt2D = dpg.add_input_int(default_value= 10, min_value=2, min_clamped=True)
-                                    dpg.add_spacer(height=10)
-                                    with dpg.group(horizontal=True):
-                                        dpg.add_spacer(width=30)
-                                        yesBtn2= dpg.add_button(label='好')
-                                        def make_2d_dr_arr(*args):
-                                            grp3, uuid3 = frame_deck.dq2[-1]
-                                            if uuid3==uuid_1dlast:
-                                                push_log('请添加 2d 选区阵列所需的新选区', is_warning = True)
-                                                return
-                                            x1dr3, y1dr3, x2dr3, y2dr3 = get_dr_pos(grp3, uuid3)
-                                            frame_deck.expunge_dr_series(grp3, uuid3)
-                                            xmeandr3, ymeandr3 = (x1dr3+x2dr3)/2, (y1dr3+y2dr3)/2
-                                            def tsl(tx:float,ty:float) -> np.ndarray:
-                                                """
-                                                translation matrix
-
-                                                为了得到平行四边形阵列坐标, 需要进行
-                                                translation, rotation, shearing
-                                                三个变换后, 得到正矩形阵列坐标,
-                                                然后再用用相应的三个逆矩阵逆变换回去
-                                                ref. vince 2022
-
-                                                first, translate point3 to origin
-
-                                                before rotation:
-                                                        *2
-                                                *1   
-                                                    
-                                                
-                                                *3
-
-                                                after rotation
-                                                     *1------*2
-
-                                                *3--------------
-                                                
-                                                after shearing
-                                                *1------*2
-                                                |   
-                                                |    
-                                                *3  
-
-                                                do meshgrid (where we get xx and yy):
-                                                *1------*2
-                                                + + + + +
-                                                + + + + +
-                                                +3+ + + +
-  
-                                                `+` points are the new points we want, 
-                                                now rotate them back to get their desirable coordinates
-                                                """
-                                                return np.array(
-                                                    [[1, 0, tx],
-                                                     [0, 1, ty],
-                                                     [0, 0, 1 ],])
-                                            
-                                            def rz(theta : float)-> np.ndarray:
-                                                """
-                                                rotation matrix
-                                                """
-                                                return np.array(
-                                                    [[np.cos(theta), -np.sin(theta), 0],
-                                                     [np.sin(theta), np.cos(theta) , 0],
-                                                     [0            , 0             , 1],])
-                                            def shr(beta : float)-> np.ndarray:
-                                                return np.array(
-                                                    [[1, np.tan(beta), 0],
-                                                     [0, 1,            0],
-                                                     [0, 0,            1],])
-                                            theta = np.arctan2(ymeandr2-ymeandr1, xmeandr2-xmeandr1)
-                                            x1tr, y1tr, z1tr= rz(-theta)@tsl(-xmeandr3, -ymeandr3)@(xmeandr1, ymeandr1, 1) # point 1 rotated, then translated using point3 vector (point3 ends up at the origin)
-                                            x2tr, y2tr, z2tr= rz(-theta)@tsl(-xmeandr3, -ymeandr3)@(xmeandr2, ymeandr2, 1) # point 2 rotated, then translated using point3 vector (point3 ends up at the origin)
-                                            x3tr, y3tr, z3tr= rz(-theta)@tsl(-xmeandr3, -ymeandr3)@(xmeandr3, ymeandr3, 1) # point 3 rotated, then translated using point3 vector (point3 ends up at the origin)
-
-                                            beta = np.arctan2((x1tr-x3tr), y1tr)
-                                            x1trs, y1trs, z1trs= shr(-beta)@(x1tr, y1tr, 1) # point 1 rotated, translated, and sheared
-                                            x2trs, y2trs, z2trs= shr(-beta)@(x2tr, y2tr, 1) # point 2 rotated, translated, and sheared
-                                            x3trs, y3trs, z3trs= shr(-beta)@(x3tr, y3tr, 1) # point 3 rotated, translated, and sheared
-
-                                            n_dr2d = dpg.get_value(inputInt2D)
-                                            xx, yy = np.meshgrid(np.linspace(x1trs, x2trs, n_dr1d),
-                                                                 np.linspace(y1trs, y3trs, n_dr2d),)
-                                            xyarr = [(x,y) for x,y in zip(xx.flatten(), yy.flatten())] # .reshape((n_dr2d, -1))
-                                            xyarr = xyarr[n_dr1d:] # the 1d arr is already done, do not re-create it
-                                            xyarr_trans_back = [(tsl(xmeandr3, ymeandr3)
-                                                                 @rz(theta)
-                                                                 @shr(beta)
-                                                                 @[*p, 1])[:-1] for p in xyarr]
-                                            for xcen, ycen in xyarr_trans_back:
-                                                frame_deck.add_dr_to_loc(xcen, ycen, sidex=sidex_dr2, sidey=sidey_dr2)
-                                            dpg.delete_item(queryWin2)
-                                        dpg.set_item_callback(yesBtn2, make_2d_dr_arr)
-
-                            dpg.set_item_callback(yesBtn1, make_1d_dr_arr_and_query_for_2d)
-                dpg.set_item_callback(_kph, make_dr_arr)
+            
             def _dupe_heatmap():
                 dupe_map = DupeMap(
                     pltSlv = dpg.generate_uuid(),
@@ -1148,7 +947,7 @@ repo: https://github.com/ltmsyvag/camera
             dpg.bind_colormap(dpg.last_item(), myCmap)
             with dpg.child_window(**doubleplots_container_window_kwargs): # 这个 child window 的唯一作用是让 double layer 的 plots 能够用相同的 pos 参数
                 #==slave plot=============================
-                with dpg.plot(tag='frame plot', user_data = {'dr being dragged': None},
+                with dpg.plot(tag='frame plot',
                             # query=True, query_color=(255,0,0), max_query_rects=1, min_query_rects=0,
                             **heatmap_pltkwargs) as framePlot:
                     dpg.bind_colormap(dpg.last_item(), myCmap)
@@ -1242,6 +1041,11 @@ repo: https://github.com/ltmsyvag/camera
                 dpg.add_button(arrow=True, direction=dpg.mvDir_Down, callback = move_all_dr_1px, user_data = 'down')
                 dpg.add_text('单像素平移所有直方图选区')
                 dpg.add_button(label = 'print', callback = lambda: frame_deck.redraw_hist_sheet())
+                # def _cb(*args):
+                #     print('previous ihr tag', ihrQueryWin2AlwaysOnTop)
+                #     print('previous ihr tag int', dpg.get_alias_id(ihrQueryWin2AlwaysOnTop))
+                #     print('does it exist?', dpg.does_item_exist(ihrQueryWin2AlwaysOnTop))
+                # dpg.add_button(label = 'check ihr', callback = _cb)
     with dpg.item_handler_registry() as ihrWinFramePreview:
         def show_bottom_arrows(*args):
             width, height = dpg.get_item_rect_size(winFramePreview)
@@ -1272,7 +1076,7 @@ repo: https://github.com/ltmsyvag/camera
                        freeze_rows = 1, # scrollY 必须为 True, 该 freeze 才有效, freeze_rows 同理
                     #    policy=dpg.mvTable_SizingFixedFit
                     scrollY=True,
-                    row_background=True,
+                    # row_background=True,
                     # scrollX=True,
                        ) as histTable:
             with dpg.item_handler_registry() as spIhr:
@@ -1325,8 +1129,236 @@ repo: https://github.com/ltmsyvag/camera
         t_mp_remote_buffer_feeder.start()
     # dpg.show_style_editor()
     # dpg.show_item_registry()
+    with dpg.item_handler_registry() as ihrQueryWin2AlwaysOnTop:
+        def focus_queryWin2():
+            if dpg.get_active_window() != queryWin2: # this check is essential!! without it, the gui crashes
+                dpg.focus_item(queryWin2)
+        dpg.add_item_visible_handler(callback = focus_queryWin2)
+    with dpg.handler_registry():
+        dpg.add_mouse_release_handler(tag= 'mouse release handler', 
+                                        user_data={'dr being dragged': None})
+        def snap_dr_series_being_dragged(_,__, user_data):
+            thisDr = user_data['dr being dragged']
+            if thisDr is not None:
+                grp_id, series_uuid = dpg.get_item_user_data(thisDr)
+                dr_series = frame_deck.dict_dr[grp_id]['grp dr df'][series_uuid]
+                for dr in dr_series:
+                    x1, y1, x2, y2 = dpg.get_value(dr)
+                    x1r, y1r, x2r, y2r = round(x1), round(y1), round(x2), round(y2)
+                    if len(set([x1r, y1r, x2r, y2r])) < 4:
+                        if abs(y1 - y2) < 0.5:
+                            if int(y2) == y2:
+                                y1r = y2+1 if y1>y2 else y2-1
+                            else:
+                                y2r = y1+1 if y1<y2 else y1-1
+                        if abs(x1 - x2) < 0.5:
+                            if int(x2) == x2:
+                                x1r = x2+1 if x1>x2 else x2-1
+                            else:
+                                x2r = x1+1 if x1<x2 else x1-1
+                    dpg.set_value(dr, (x1r, y1r, x2r, y2r))
+                user_data['dr being dragged'] = None
+                frame_deck._update_grp_fence(grp_id)
+        dpg.set_item_callback(dpg.last_item(), snap_dr_series_being_dragged)
+        #=========================
+        dpg.add_key_press_handler(
+            dpg.mvKey_F11,
+            callback = factory_cb_yn_modal_dialog(
+                cb_on_confirm= frame_deck.clear_dr,
+                dialog_text='确认要清除所有的直方图选区吗?'))
+        #========================================
+        dpg.add_key_press_handler(dpg.mvKey_F12, 
+                                    user_data=[] # list for holding annotation item tags
+                                    )
+        def _show_hide_grp_id(sender, __, user_data):
+            if user_data:
+                while user_data:
+                    dpg.delete_item(user_data.pop())
+            else:
+                _,_,lst_pltMstr = frame_deck.get_all_maptags()
+                for grp_id, ddict in frame_deck.dict_dr.items():
+                    if ddict is not None:
+                        xminf, yminf, xmaxf, ymaxf = ddict['fence']
+                        xmeanf, ymeanf = (xminf+xmaxf)/2, (yminf+ymaxf)/2
+                        for thisPlot in lst_pltMstr:
+                            annoTag = dpg.add_plot_annotation(
+                                parent=thisPlot,
+                                label= grp_id,
+                                default_value=(xmeanf, ymeanf),
+                                color = [255,255,0])
+                            user_data.append(annoTag)
+            dpg.set_item_user_data(sender, user_data)
+        dpg.set_item_callback(dpg.last_item(), _show_hide_grp_id)
+        #================================
+        _kph = dpg.add_key_press_handler(dpg.mvKey_F9)
+        def make_dr_arr(*args):
+            if len(frame_deck.dq2)<2: # 如果(单张热图上)的直方图选区少于两个, 则不触发选区阵列选取
+                return
+            
+            with dpg.window(no_saved_settings=True,
+                label = '添加阵列选区 - 1d', modal = True, pos = get_viewport_centerpos(),
+                on_close = lambda sender: dpg.delete_item(sender)) as queryWin1:
+                dpg.add_text('*1 *  *  *  *  *  *  *  *2\n在选区 *1 和 *2 定义的一维轴上, 你希望存存在多少个选区? 新选区的形状和 *2 一致', wrap=300)
+                inputInt1D = dpg.add_input_int(width = 100, default_value= 10, min_value=2, min_clamped=True)
+                dpg.add_spacer(height=10)
+                with dpg.group(horizontal=True):
+                    dpg.add_spacer(width = 30)
+                    yesBtn1 = dpg.add_button(label = '好')
+                    def make_1d_dr_arr_and_query_for_2d(*args):
+                        (grp1, uuid1), (grp2, uuid2) = frame_deck.dq2 # 2 is newer, 1 older
+                        def get_dr_pos(grp_id: int, series_uuid: str)->Tuple[float]:
+                            df = frame_deck.dict_dr[grp_id]['grp dr df']
+                            drTagRep = df[series_uuid].iloc[0]
+                            return dpg.get_value(drTagRep) # x1, y1, x2, y2
+                        x1dr1, y1dr1, x2dr1, y2dr1 = get_dr_pos(grp1, uuid1)
+                        x1dr2, y1dr2, x2dr2, y2dr2 = get_dr_pos(grp2, uuid2)
+                        xmeandr1, ymeandr1 = (x1dr1+x2dr1)/2, (y1dr1+y2dr1)/2
+                        xmeandr2, ymeandr2 = (x1dr2+x2dr2)/2, (y1dr2+y2dr2)/2
+                        sidex_dr2, sidey_dr2 = abs(x1dr2-x2dr2), abs(y1dr2-y2dr2)
+                        n_dr1d = dpg.get_value(inputInt1D)
+                        lst_xymeans_todo_for_1darr = [
+                            (x,y) for (x,y) in
+                            zip(np.linspace(xmeandr1, xmeandr2, n_dr1d), 
+                                np.linspace(ymeandr1, ymeandr2, n_dr1d))]
+                        lst_xymeans_todo_for_1darr = lst_xymeans_todo_for_1darr[1:]
+                        frame_deck.expunge_dr_series(grp2, uuid2)
+                        for xcen, ycen in lst_xymeans_todo_for_1darr:
+                            _, uuid_1dlast = frame_deck.add_dr_to_loc(xcen, ycen, sidex=sidex_dr2, sidey=sidey_dr2)
+                        dpg.delete_item(queryWin1)
+                        # def _on_close(sender, _, user_data):
+                        #     dpg.delete_item(user_data)
+                        #     dpg.delete_item(sender)\
+                        global queryWin2
+                        with dpg.window(
+                            no_saved_settings=True,
+                            # no_focus_on_appearing=True,
+                            label = '添加阵列选取 - 2d',
+                            pos = (0,0), #np.array(get_viewport_centerpos())/3,
+                            on_close = lambda sender: dpg.delete_item(sender),
+                            # user_data= None # 会放置强制本窗口 always ontop 的 item handler registry, 此处先声明一下我会用到这个窗口的 user data
+                            ) as queryWin2:
+                            dpg.add_text("""
+        *1 *  *  *  *  *  *  *  *2
+      *  *  *  *  *  *  *  *  *
+    *  *  *  *  *  *  *  *  *
+  *  *  *  *  *  *  *  *  *
+*3 *  *  *  *  *  *  *  *
+
+在选区 *1 和 *3 定义的平行四边形第二维轴上, 你希望存存在多少个选区? 新选区的形状和 *2 一致
+(若不需要二位选区阵列, 请直接关闭本窗口)
+""",
+                                            wrap=300)
+                            inputInt2D = dpg.add_input_int(width = 100, default_value= 10, min_value=2, min_clamped=True)
+                            dpg.add_spacer(height=10)
+                            with dpg.group(horizontal=True):
+                                dpg.add_spacer(width=30)
+                                yesBtn2= dpg.add_button(label='好')
+                                def make_2d_dr_arr(*args):
+                                    grp3, uuid3 = frame_deck.dq2[-1]
+                                    if uuid3==uuid_1dlast:
+                                        push_log('请添加 2d 选区阵列所需的新选区', is_warning = True)
+                                        return
+                                    x1dr3, y1dr3, x2dr3, y2dr3 = get_dr_pos(grp3, uuid3)
+                                    frame_deck.expunge_dr_series(grp3, uuid3)
+                                    xmeandr3, ymeandr3 = (x1dr3+x2dr3)/2, (y1dr3+y2dr3)/2
+                                    def tsl(tx:float,ty:float) -> np.ndarray:
+                                        """
+                                        translation matrix
+
+                                        为了得到平行四边形阵列坐标, 需要进行
+                                        translation, rotation, shearing
+                                        三个变换后, 得到正矩形阵列坐标,
+                                        然后再用用相应的三个逆矩阵逆变换回去
+                                        ref. vince 2022
+
+                                        first, translate point3 to origin
+
+                                        before rotation:
+                                                *2
+                                        *1   
+                                            
+                                        
+                                        *3
+
+                                        after rotation
+                                                *1------*2
+
+                                        *3--------------
+                                        
+                                        after shearing
+                                        *1------*2
+                                        |   
+                                        |    
+                                        *3  
+
+                                        do meshgrid (where we get xx and yy):
+                                        *1------*2
+                                        + + + + +
+                                        + + + + +
+                                        +3+ + + +
+
+                                        `+` points are the new points we want, 
+                                        now rotate them back to get their desirable coordinates
+                                        """
+                                        return np.array(
+                                            [[1, 0, tx],
+                                                [0, 1, ty],
+                                                [0, 0, 1 ],])
+                                    
+                                    def rz(theta : float)-> np.ndarray:
+                                        """
+                                        rotation matrix
+                                        """
+                                        return np.array(
+                                            [[np.cos(theta), -np.sin(theta), 0],
+                                                [np.sin(theta), np.cos(theta) , 0],
+                                                [0            , 0             , 1],])
+                                    def shr(beta : float)-> np.ndarray:
+                                        return np.array(
+                                            [[1, np.tan(beta), 0],
+                                                [0, 1,            0],
+                                                [0, 0,            1],])
+                                    theta = np.arctan2(ymeandr2-ymeandr1, xmeandr2-xmeandr1)
+                                    x1tr, y1tr, z1tr= rz(-theta)@tsl(-xmeandr3, -ymeandr3)@(xmeandr1, ymeandr1, 1) # point 1 rotated, then translated using point3 vector (point3 ends up at the origin)
+                                    x2tr, y2tr, z2tr= rz(-theta)@tsl(-xmeandr3, -ymeandr3)@(xmeandr2, ymeandr2, 1) # point 2 rotated, then translated using point3 vector (point3 ends up at the origin)
+                                    x3tr, y3tr, z3tr= rz(-theta)@tsl(-xmeandr3, -ymeandr3)@(xmeandr3, ymeandr3, 1) # point 3 rotated, then translated using point3 vector (point3 ends up at the origin)
+
+                                    beta = np.arctan2((x1tr-x3tr), y1tr)
+                                    x1trs, y1trs, z1trs= shr(-beta)@(x1tr, y1tr, 1) # point 1 rotated, translated, and sheared
+                                    x2trs, y2trs, z2trs= shr(-beta)@(x2tr, y2tr, 1) # point 2 rotated, translated, and sheared
+                                    x3trs, y3trs, z3trs= shr(-beta)@(x3tr, y3tr, 1) # point 3 rotated, translated, and sheared
+
+                                    n_dr2d = dpg.get_value(inputInt2D)
+                                    xx, yy = np.meshgrid(np.linspace(x1trs, x2trs, n_dr1d),
+                                                            np.linspace(y1trs, y3trs, n_dr2d),)
+                                    xyarr = [(x,y) for x,y in zip(xx.flatten(), yy.flatten())] # .reshape((n_dr2d, -1))
+                                    xyarr = xyarr[n_dr1d:] # the 1d arr is already done, do not re-create it
+                                    xyarr_trans_back = [(tsl(xmeandr3, ymeandr3)
+                                                            @rz(theta)
+                                                            @shr(beta)
+                                                            @[*p, 1])[:-1] for p in xyarr]
+                                    for xcen, ycen in xyarr_trans_back:
+                                        frame_deck.add_dr_to_loc(xcen, ycen, sidex=sidex_dr2, sidey=sidey_dr2)
+
+                                    # print(dpg.get_item_user_data(queryWin2)) # delete the item handler registry
+                                    # dpg.delete_item(dpg.get_item_user_data(queryWin2)) # delete the item handler registry
+                                    dpg.delete_item(queryWin2)
+                                dpg.set_item_callback(yesBtn2, make_2d_dr_arr)
+                        # with dpg.item_handler_registry() as ihrQueryWin2AlwaysOnTop:
+                        #     dpg.add_item_visible_handler(callback = lambda *args: dpg.focus_item(queryWin2))
+                        # dpg.set_item_user_data(queryWin2, ihrQueryWin2AlwaysOnTop)
+                        dpg.bind_item_handler_registry(queryWin2, ihrQueryWin2AlwaysOnTop)
+                    dpg.set_item_callback(yesBtn1, make_1d_dr_arr_and_query_for_2d)
+        dpg.set_item_callback(_kph, make_dr_arr)
+            
     dpg.setup_dearpygui()
     dpg.show_viewport()
     dpg.start_dearpygui()
     dpg.destroy_context()
+        # init file 在 destroy context 时保存, 因此对 init file 的 truncation 需要在 destroy context 后执行
+    with open("dpginit.ini") as f:
+        lines = f.readlines()
+    lines = lines[:25+5] # delete line 26 and onward. 因为只记忆 4 个窗口的位置, 新创建的窗口(被 append 再 ini 文件末)都会被删掉
+    with open("dpginit.ini", "w") as f:
+        f.writelines(lines)
 # %%

@@ -289,7 +289,8 @@ def factory_cb_yn_modal_dialog(*, cb_on_confirm: Callable = None,
     def _cb_on_cancel():
         dpg.delete_item(tagModalWin)  # Close the modal after cancelling
     def pop_yn_modal_win():
-        with dpg.window(label = win_label, modal = True, tag = tagModalWin,
+        with dpg.window(no_saved_settings=True,
+                        label = win_label, modal = True, tag = tagModalWin,
                         pos = get_viewport_centerpos(), 
                         on_close=lambda sender: dpg.delete_item(sender)):
             dpg.add_text(dialog_text)
