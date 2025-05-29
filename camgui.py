@@ -1093,20 +1093,7 @@ repo: https://github.com/ltmsyvag/camera
                 grp_id, series_uuid = dpg.get_item_user_data(thisDr)
                 dr_series = frame_deck.dict_dr[grp_id]['grp dr df'][series_uuid]
                 for dr in dr_series:
-                    x1, y1, x2, y2 = dpg.get_value(dr)
-                    x1r, y1r, x2r, y2r = round(x1), round(y1), round(x2), round(y2)
-                    if len(set([x1r, y1r, x2r, y2r])) < 4:
-                        if abs(y1 - y2) < 0.5:
-                            if int(y2) == y2:
-                                y1r = y2+1 if y1>y2 else y2-1
-                            else:
-                                y2r = y1+1 if y1<y2 else y1-1
-                        if abs(x1 - x2) < 0.5:
-                            if int(x2) == x2:
-                                x1r = x2+1 if x1>x2 else x2-1
-                            else:
-                                x2r = x1+1 if x1<x2 else x1-1
-                    dpg.set_value(dr, (x1r, y1r, x2r, y2r))
+                    dpg.set_value(dr, frame_deck.ensure_1x1_area(*dpg.get_value(dr)))
                 user_data['dr being dragged'] = None
                 frame_deck._update_grp_fence(grp_id)
         dpg.set_item_callback(dpg.last_item(), do_mouse_release_cbs #snap_dr_series_being_dragged
@@ -1178,13 +1165,11 @@ repo: https://github.com/ltmsyvag/camera
                         frame_deck.redraw_hist_sheet()
                         dpg.delete_item(queryWin1)
                         with dpg.window(
-                            # tag='query window 2',
                             no_saved_settings=True,
-                            # no_focus_on_appearing=True,
+                            no_collapse=True,
                             label = '添加阵列选取 - 2d',
                             pos = (0,0), #np.array(get_viewport_centerpos())/3,
                             on_close = lambda sender: dpg.delete_item(sender),
-                            # user_data= None # 会放置强制本窗口 always ontop 的 item handler registry, 此处先声明一下我会用到这个窗口的 user data
                             ) as queryWin2:
                             dpg.add_text("""
         *1 *  *  *  *  *  *  *  *2

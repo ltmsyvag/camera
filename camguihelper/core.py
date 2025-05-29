@@ -356,9 +356,10 @@ class FrameDeck(list):
         else:
             self.seslabel_deck.append('未保存!')
         self.plot_frame_dwim()
-        hLhRvLvR = dpg.get_item_user_data('frame plot')
-        if hLhRvLvR:
-            _update_hist(hLhRvLvR, self)
+        self.update_hist_sheet()
+        # hLhRvLvR = dpg.get_item_user_data('frame plot')
+        # if hLhRvLvR:
+        #     _update_hist(hLhRvLvR, self)
         end = time.time()
         push_log(f"绘图和存储耗时{(end-beg)*1e3:.3f} ms")
     @staticmethod
@@ -378,7 +379,7 @@ class FrameDeck(list):
             this_color = next(color_cycle)
         return [225*e for e in this_color]
     @staticmethod
-    def ensure_minmax(
+    def ensure_minmax_order(
             xmin : float, 
             ymin : float, 
             xmax : float, 
@@ -393,6 +394,26 @@ class FrameDeck(list):
         if ymin>ymax:
             ymin, ymax = ymax, ymin
         return xmin, ymin, xmax, ymax
+    @staticmethod
+    def ensure_1x1_area(
+            x1 : float, 
+            y1 : float, 
+            x2 : float, 
+            y2 : float,
+            ) -> Tuple[float]:
+        x1r, y1r, x2r, y2r = round(x1), round(y1), round(x2), round(y2)
+        if len(set([x1r, y1r, x2r, y2r])) < 4:
+            if abs(y1 - y2) < 0.5:
+                if int(y2) == y2:
+                    y1r = y2+1 if y1>y2 else y2-1
+                else:
+                    y2r = y1+1 if y1<y2 else y1-1
+            if abs(x1 - x2) < 0.5:
+                if int(x2) == x2:
+                    x1r = x2+1 if x1>x2 else x2-1
+                else:
+                    x2r = x1+1 if x1<x2 else x1-1
+        return x1r, y1r, x2r, y2r
     def update_fences(self):
         for grp_id, ddict in self.dict_dr.items():
             if ddict is not None:
@@ -404,7 +425,7 @@ class FrameDeck(list):
         ddict = self.dict_dr[grp_id]
         dr_row = ddict['grp dr df'].iloc[0, :] # 取第一行 drag rects, 代表了单张热图上的本组的所有 dr, 其他行(热图)上的 dr 都是同步的, 因此不用考虑
         arr_minxminymaxxmaxy = np.array([
-            self.ensure_minmax(*dpg.get_value(tag)) for tag in dr_row
+            self.ensure_minmax_order(*dpg.get_value(tag)) for tag in dr_row
         ])
         xmin, ymin, _, _ = arr_minxminymaxxmaxy.min(axis=0)
         _, _, xmax, ymax = arr_minxminymaxxmaxy.max(axis=0)
@@ -458,7 +479,7 @@ class FrameDeck(list):
             df_old = ddict['grp dr df']
             ddict['grp dr df'] = pd.concat([df_old, dr_series], axis = 1)
             tagDr = dr_series.iloc[0] # 取第一个 dr tag, 每个 series 中的所有的 dr 的位置必然都一样
-            xmin, ymin, xmax, ymax = self.ensure_minmax(*dpg.get_value(tagDr))
+            xmin, ymin, xmax, ymax = self.ensure_minmax_order(*dpg.get_value(tagDr))
             
             if 'fence' in ddict: # ddict 不是刚初始化的字典, 则会有 fence 这个 key
                 xmin_old, ymin_old, xmax_old, ymax_old = ddict['fence'] # 新 drag rect 可能扩大 fence (但不可能缩小)
@@ -561,8 +582,7 @@ class FrameDeck(list):
             ddict['grp dr df'] = df
             self._update_grp_fence(grp_id)
             if update_hist_p:
-                ...
-                # TODO self._update_one_hist(grp_id)
+                self._update_one_hist(grp_id)
         else:
             self.dict_dr[grp_id] = None
             if update_hist_p:
@@ -576,18 +596,11 @@ class FrameDeck(list):
                     df = ddict['grp dr df']
                     dr_row = df.iloc[0,:] # 取第一行 drag rects, 代表了单张热图上的本组的所有 dr, 其他行(热图)上的 dr 都是同步的, 因此不用考虑
                     for drTag in dr_row: # 若鼠标点击在某个 dr 内, 则删除 dr 所在整列
-                        xmindr, ymindr, xmaxdr, ymaxdr = self.ensure_minmax(*dpg.get_value(drTag))
+                        xmindr, ymindr, xmaxdr, ymaxdr = self.ensure_minmax_order(*dpg.get_value(drTag))
                         if (xmindr<x_mouse<xmaxdr) and (ymindr<y_mouse<ymaxdr): # 细筛, 看鼠标是否点击在某个 dr 内
                             _, series_id = dpg.get_item_user_data(drTag)
                             self.expunge_dr_series(grp_id, series_id, update_hist_p=update_hist_p)
-                    #         for tag in df[series_id]:
-                    #             dpg.delete_item(tag)
-                    #         df.drop(series_id, axis=1, inplace=True)
-                    # if df.size: # 如果 df 没被删空
-                    #     ddict['grp dr df'] = df
-                    #     self._update_grp_fence(grp_id)
-                    # else: # 如果 df 被删空了, 那么将 dr 组在总字典中的值设为 None
-                    #     self.dict_dr[grp_id] = None
+
     def get_all_dr_tags(self):
         tag_list = []
         # fence_list = []
@@ -604,7 +617,7 @@ class FrameDeck(list):
                     dpg.delete_item(drTag)
                 self.dict_dr[grp_id] = None
         self.dq100.clear()
-        self.redraw_hist_sheet()
+        self.redraw_hist_sheet() # effectively clear all simple plots
     @deprecated
     def series_uuid_exists(self, series_uuid : str):
         uuid_lst_tot = []
@@ -640,7 +653,9 @@ class FrameDeck(list):
         drs_this_grp = df.iloc[0,:]
         frame_points_in_grp = set()
         for dr in drs_this_grp:
-            xmin, ymin, xmax, ymax = [int(e) for e in self.ensure_minmax(*dpg.get_value(dr))]
+            xmin, ymin, xmax, ymax = [int(e) # need int, else e could be float, and cause error in range(e,e')
+                                      for e in self.ensure_minmax_order(
+                *self.ensure_1x1_area(*dpg.get_value(dr)))]
             xx, yy = np.meshgrid(range(xmin,xmax), range(ymin, ymax))
             pnts_in_dr = set([(x,y) for x,y in zip(xx.flatten(), yy.flatten())])
             frame_points_in_grp |= pnts_in_dr
@@ -701,38 +716,19 @@ class FrameDeck(list):
         4. 鼠标添加 dr 创建(或占用)新组时, 鼠标删除单组中最后一个 dr 时, 这两种情况 redraw, 因为不想费脑子重构 table, 
            否则可以考虑非 redraw 的 incremental 的添加 simple plot 的方案
         """
-        # yseries = 
-        yseries = np.sin(np.linspace(0,2*np.pi,101))**2
-        # yseries = []
-        # print('1')
         dpg.delete_item('hist sheet table', children_only=True) # clear old hist table before redraw
-        # print('2')
         ncols = dpg.get_value('hist sheet 列数')
-        # print('3')
         for icol in range(ncols):
-            # print('4')
             dpg.add_table_column(parent='hist sheet table', label = f'{icol+1}列')
-            # print('5')
         for grp_id, ddict in self.dict_dr.items():
-            # print('6')
             if grp_id%ncols == 0:
-                # print('7')
                 thisRow = dpg.add_table_row(parent='hist sheet table')
-                # print('8')
             with dpg.table_cell(parent=thisRow, tag= f'table cell-{grp_id}'):
-                # print('9')
                 if (ddict is not None): # leaves an empty table cell as place holder if ddict is None
-                    # print('here')
                     freq_series, edge_min, edge_max = self._make_freq_series_from_grp(grp_id)
-                    # print('lower here')
-                    # print(yseries, type(yseries), yseries.dtype)
-                    # print(freq_series, type(freq_series), freq_series.dtype)
                     dpg.add_simple_plot(tag = f'sp-{grp_id}', width = -1, overlay = grp_id,
                                         default_value=  freq_series, #yseries, 
-                                        # default_value=  yseries, 
                                         histogram=True)
-                    # print(freq_series)
-                    # print('even lower here')
                     dpg.bind_item_theme(f'sp-{grp_id}', self.tab_10_spThemes[grp_id % 10])
                     dpg.add_text(f'{edge_min}-{edge_max}', tag = f'sp-xrange-{grp_id}')
         self.set_sheet_sp_height_by_width()
