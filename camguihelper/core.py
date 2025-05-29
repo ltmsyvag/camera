@@ -165,7 +165,7 @@ class FrameDeck(list):
         except Exception:
             push_exception("当前帧保存失败")
             raise UserInterrupt
-    def clear(self)->None:
+    def clear_deck(self)->None:
         """
         - clear int & float decks
         - cid update
@@ -423,11 +423,12 @@ class FrameDeck(list):
         if mrh_dict['dr being dragged'] is None: # dr 拖动时 callback 会被频繁触发, 需要避免反复写入 sender 这样可能好一些
             mrh_dict['dr being dragged'] = sender # 记录当前被拖动的 dr tag
     def add_dr_to_loc(self, 
-                      xmean_dr : float, 
-                      ymean_dr : float,
-                      sidex: float = 1,
-                      sidey: float = 1,
-                      always_new_grp: bool = False # if True, 新添加的 dr 总是融入进一个新的组(或占据一个旧的空组), 不尝试判断是否能融入现存 dr 组的 fence 中
+                        xmean_dr : float, 
+                        ymean_dr : float,
+                        sidex: float = 1,
+                        sidey: float = 1,
+                        always_new_grp: bool = False, # if True, 新添加的 dr 总是融入进一个新的组(或占据一个旧的空组), 不尝试判断是否能融入现存 dr 组的 fence 中
+                        update_hist_p =False,
                       ) -> Tuple[int, str]:
         """
         给定 drag rect 中心坐标 xmean_dr, ymean_dr,
@@ -498,6 +499,7 @@ class FrameDeck(list):
             name= uuid.uuid4().hex,
             dtype= 'object' # 必须有这行, 这样 dr tag 才能被存储为 python int, 而不是 numpy.int64, 后者 dpg 不认. 若没有这行, pandas series 中的整数类型貌似被强制为 numpy.int64
             )
+        merged_into_old = False
         if not self.dict_dr: # if dr dict is empty
             grp_id_final = 0
             merge_dr_series_into_grp(dr_series, grp_id = grp_id_final)
@@ -513,23 +515,34 @@ class FrameDeck(list):
                         if (xmin-1<xmean<xmax+1) and (ymin-1<ymean<ymax+1):
                             merge_dr_series_into_grp(dr_series, grp_id)
                             grp_id_final = grp_id
+                            merged_into_old = True
                             break # 两个 fence 有 overlap 是完全可能的, 这时候随缘 merge 到第一个 fence 中
             if grp_id_final is None: # 如果新 dr 无法融入已存在的任何一个 dr 组的 fence 中, 则需要创建一个新的 dr grp
                 for grp_id, val in self.dict_dr.items(): # 先看现存组中有没有空组可占用
                     if val is None: # 空 grp 组
                         merge_dr_series_into_grp(dr_series, grp_id)
                         grp_id_final = grp_id
+                        # merged_into_old = True
                         break
             if grp_id_final is None: # 若上一步并没有找到任何空 grp 组可以用新 series 占用
                 grp_id_final = max(list(self.dict_dr))+1
                 merge_dr_series_into_grp(dr_series, 
                                   grp_id_final)
-        # if self.dq100:
-        #     if self.dq100[-1][0] == grp_id_final: # 如果最新的 dr 和历史次新的 dr 属于同一组, 这表示用户在删除并重建 dr, 在犹疑不决, 此时去掉同组次新的 dr
-        #         self.dq100.pop()
+
         self.dq100.append((grp_id_final, dr_series.name))
+        if update_hist_p:
+            if len(self.dq100)==1:
+                self.redraw_hist_sheet()
+            elif merged_into_old:
+                ...
+            else:
+                grp_id_previous, _ = self.dq100[-2]
+                if grp_id_previous!= grp_id_final:
+                    self.redraw_hist_sheet()
+                else:
+                    ... # TODO update group hist
         return grp_id_final, dr_series.name
-    def expunge_dr_series(self, grp_id, series_id):
+    def expunge_dr_series(self, grp_id, series_id, update_hist_p = True):
         """
         在所有热图和 self.dict_dr 中都删掉一个特定的 dr series
         它和 remove_dr_from_loc 的区别在于, 后者可以一次去除多个重叠的 dr
@@ -543,12 +556,19 @@ class FrameDeck(list):
             self.dq100.remove((grp_id, series_id))
         except ValueError:
             pass # 如果 dq100 中不存在待删除的条目, 也不要报错
+
         if df.size: # 如果 df 没被删空
             ddict['grp dr df'] = df
             self._update_grp_fence(grp_id)
+            if update_hist_p:
+                ...
+                # TODO self._update_one_hist(grp_id)
         else:
             self.dict_dr[grp_id] = None
-    def remove_dr_from_loc(self, x_mouse: float, y_mouse: float):
+            if update_hist_p:
+                dpg.delete_item(f'table cell-{grp_id}', children_only=True)
+                # TODO delete also associated plot (if exists) of this simple plot
+    def remove_dr_from_loc(self, x_mouse: float, y_mouse: float, update_hist_p= True):
         for grp_id, ddict in self.dict_dr.items():
             if ddict is not None: # skip empty groups
                 xminf, yminf, xmaxf, ymaxf = ddict['fence']
@@ -559,7 +579,7 @@ class FrameDeck(list):
                         xmindr, ymindr, xmaxdr, ymaxdr = self.ensure_minmax(*dpg.get_value(drTag))
                         if (xmindr<x_mouse<xmaxdr) and (ymindr<y_mouse<ymaxdr): # 细筛, 看鼠标是否点击在某个 dr 内
                             _, series_id = dpg.get_item_user_data(drTag)
-                            self.expunge_dr_series(grp_id, series_id)
+                            self.expunge_dr_series(grp_id, series_id, update_hist_p=update_hist_p)
                     #         for tag in df[series_id]:
                     #             dpg.delete_item(tag)
                     #         df.drop(series_id, axis=1, inplace=True)
@@ -584,6 +604,7 @@ class FrameDeck(list):
                     dpg.delete_item(drTag)
                 self.dict_dr[grp_id] = None
         self.dq100.clear()
+        self.redraw_hist_sheet()
     @deprecated
     def series_uuid_exists(self, series_uuid : str):
         uuid_lst_tot = []
@@ -595,14 +616,26 @@ class FrameDeck(list):
             return True
         else:
             return False
-    def _get_hist_series_in_grp(self, grp_id: int):
+    def get_nonempty_grp_ids(self):
+        grp_id_list = []
+        for grp_id, ddict in self.dict_dr.items():
+            if ddict is not None:
+                grp_id_list.append(grp_id)
+        return grp_id_list
+    def _get_hist_series_from_grp(self, grp_id: int):
         """
         hist data is just ONE series (NOT two) of any data, nothing more, the yax of hist is just the data frequency
         this func returns empty list when the group is empty (group ddict is None)
+        只在选区组不为 None 的时候使用, 因为本函数的目的本质上是更新 hist, 
+        如果 hist 选区不存在, 等价于 hist simple plot 不存在, 
+        在 hist sheet 上连作为 simple plot overlay 的组编号都不会有
+
+        本函数供 _update_one_hist 使用, 后者依靠 get_nonempty_grp_ids 获取需要更新的, 
+        必定存在的 simple plot id, 不会有任何问题
         """
-        ddict = self.dict_dr[grp_id]
-        if ddict is None:
+        if not self: # 如果 frame deck 中无帧(无采集), 则返回空列表, 因为此时若 dr 存在, 则按照逻辑, 相应的 sp 也必须存在, 但是其内容为空, 也就是空列表
             return []
+        ddict = self.dict_dr[grp_id]
         df = ddict['grp dr df']
         drs_this_grp = df.iloc[0,:]
         frame_points_in_grp = set()
@@ -614,17 +647,101 @@ class FrameDeck(list):
         idarr_x, idarr_y = list(zip(*frame_points_in_grp))
         hist_series = []
         for frame in self.float_deck:
-            selected_pixel_val_series = ZYLconversion(frame[idarr_x, idarr_y])
+            selected_pixel_val_series = ZYLconversion(frame[
+                idarr_y, # aha! the GOTCHA part! y shoud come first !
+                idarr_x, 
+                ])
             hist_series.append(selected_pixel_val_series.sum())
         return hist_series
+    def _make_freq_series_from_grp(self, grp_id: int, binning: int = 1):
+        hist_series = self._get_hist_series_from_grp(grp_id)
+        if not hist_series: # hist_series 为空只有一种可能: frame deck 为空. 此时 dr 组存在(否则根本不会调用本函数), 因此相应的 sp 也存在, 那么在 sp 中显示空数据 (主要目的还是为了在 sp 上显示选区编号的 overlay)
+            freq_series, edge_min, edge_max = [], '', ''
+        else:
+            min_int, max_int = math.floor(min(hist_series)), math.floor(max(hist_series))
+            nbins = (max_int-min_int)//binning + 1
+            edge_min, edge_max = min_int, int(min_int + binning*nbins)
+            """
+            data *  *   *  *   *
+            grid +---+---+---+---+
+                |           |
+            min_int     max_int
+
+            `+`s are integer sites,
+            in binning = 1 case, `+`s are bin edges to feed to np.histogram
+            """
+            freq_series, _ =np.histogram(hist_series, bins= np.linspace(edge_min, edge_max, nbins+1))
+            freq_series = freq_series.astype(float)
+        return freq_series, edge_min, edge_max
+
+    def _update_one_hist(self, grp_id: int):
+        freq_series, edge_min, edge_max = self._make_freq_series_from_grp(grp_id)
+        dpg.set_value(f'sp-{grp_id}', freq_series)
+        dpg.set_value(f'sp-xrange-{grp_id}', f'{edge_min}-{edge_max}')
+    def update_hist_sheet(self):
+        for grp_id in self.get_nonempty_grp_ids():
+            self._update_one_hist(grp_id)
+    def set_sheet_sp_height_by_width(self):
+        width, height = dpg.get_item_rect_size('hist sheet window')
+        single_sp_width = width / dpg.get_value('hist sheet 列数')*0.5
+        for grp_id in self.get_nonempty_grp_ids():
+            dpg.configure_item(f'sp-{grp_id}', height=single_sp_width)
     def redraw_hist_sheet(self):
         """
         when to redraw:
+        总而言之, 一切改变 self.dict_dr 的组的数量, 或者将组的值设为 None (清空组 dr) 的行为, 都要 redraw,
+        这样 simple plots 的 tag 和 self.dict_dr 的非空组达成统一, 后续任何不改变 dr 组结构, 纯粹 update 直方图的行为,
+        都可以直接用 get_nonempty_grp_ids 获取所有需要 update 的 simple plot. 这种方案是最省脑子的.
+        简而言之, 只考虑 redraw all/update all 两种行为, 不要考虑 incremental draw/incremental update, 
+        虽然后者若完成了, 显然会更高效, 但是具体细节逻辑是一地鸡毛
+        改变 dr 组结构的行为包括:
         1. 清除所有 drag rects 时, 本命令等效于清空 hist sheet (因此应该放在 self.clear_dr() 最末)
         2. 批量添加 drag rects 阵列时, 不宜每增加一个 dr 就 update hist sheet 一次. 可以留待 dr 批量添加完毕后, 最后 redraw sheet
         3. 每次修改 hist sheet 的列数时, table 结构改变, 因此需要 redraw
+        4. 鼠标添加 dr 创建(或占用)新组时, 鼠标删除单组中最后一个 dr 时, 这两种情况 redraw, 因为不想费脑子重构 table, 
+           否则可以考虑非 redraw 的 incremental 的添加 simple plot 的方案
+        """
+        # yseries = 
+        yseries = np.sin(np.linspace(0,2*np.pi,101))**2
+        # yseries = []
+        # print('1')
+        dpg.delete_item('hist sheet table', children_only=True) # clear old hist table before redraw
+        # print('2')
+        ncols = dpg.get_value('hist sheet 列数')
+        # print('3')
+        for icol in range(ncols):
+            # print('4')
+            dpg.add_table_column(parent='hist sheet table', label = f'{icol+1}列')
+            # print('5')
+        for grp_id, ddict in self.dict_dr.items():
+            # print('6')
+            if grp_id%ncols == 0:
+                # print('7')
+                thisRow = dpg.add_table_row(parent='hist sheet table')
+                # print('8')
+            with dpg.table_cell(parent=thisRow, tag= f'table cell-{grp_id}'):
+                # print('9')
+                if (ddict is not None): # leaves an empty table cell as place holder if ddict is None
+                    # print('here')
+                    freq_series, edge_min, edge_max = self._make_freq_series_from_grp(grp_id)
+                    # print('lower here')
+                    # print(yseries, type(yseries), yseries.dtype)
+                    # print(freq_series, type(freq_series), freq_series.dtype)
+                    dpg.add_simple_plot(tag = f'sp-{grp_id}', width = -1, overlay = grp_id,
+                                        default_value=  freq_series, #yseries, 
+                                        # default_value=  yseries, 
+                                        histogram=True)
+                    # print(freq_series)
+                    # print('even lower here')
+                    dpg.bind_item_theme(f'sp-{grp_id}', self.tab_10_spThemes[grp_id % 10])
+                    dpg.add_text(f'{edge_min}-{edge_max}', tag = f'sp-xrange-{grp_id}')
+        self.set_sheet_sp_height_by_width()
+    def redraw_hist_sheet_(self):
+        """
+        debug 专用
         """
         yseries = np.sin(np.linspace(0,2*np.pi,101))**2
+        # yseries = []
         dpg.delete_item('hist sheet table', children_only=True) # clear old hist table before redraw
         ncols = dpg.get_value('hist sheet 列数')
         for icol in range(ncols):
@@ -632,13 +749,14 @@ class FrameDeck(list):
         for grp_id, ddict in self.dict_dr.items():
             if grp_id%ncols == 0:
                 thisRow = dpg.add_table_row(parent='hist sheet table')
-            with dpg.table_cell(parent=thisRow):
+            with dpg.table_cell(parent=thisRow, tag= f'table cell-{grp_id}'):
                 if ddict is not None: # leaves an empty table cell as place holder if ddict is None
                     dpg.add_simple_plot(tag = f'sp-{grp_id}', width = -1, overlay = grp_id,
                                         default_value= yseries, histogram=True)
 
                     dpg.bind_item_theme(f'sp-{grp_id}', self.tab_10_spThemes[grp_id % 10])
                     dpg.add_text('0-100')
+        self.set_sheet_sp_height_by_width()
 
 def find_latest_camguiparams_json() ->MyPath:
     dpath_day = find_newest_daypath_in_save_tree(camgui_params_root)
@@ -748,7 +866,6 @@ def _workerf_dummy_remote_buffer_feeder(
     """
     假相机 buffer 的 filler, 由假触发 checkbox 控制是否向假相机 buffer 中放 frame
     """
-    # print("feeder launched")
     from fake_frames_imports import frame_list
     frame_list_ = copy.deepcopy(frame_list)
     del frame_list
@@ -948,6 +1065,7 @@ def rgb_opposite(r, g, b):
     """
     h, l, s = colorsys.rgb_to_hls(r/255, g/255, b/255) # convert to HSL
     h = (h + 0.5) % 1.0 # Rotate hue by 180° (opposite color)
+    l = 1.0 - l # invert lightness
     r2, g2, b2 = colorsys.hls_to_rgb(h, l, s) # Convert back to RGB
     return int(r2*255), int(g2*255), int(b2*255)
 

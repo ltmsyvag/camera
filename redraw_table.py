@@ -36,9 +36,12 @@ def redraw(*args):
         with dpg.table_cell(parent = thisRow):
             dpg.add_button(label = 'button', tag = f'btn-{i}')
             dpg.set_item_callback(dpg.last_item(), lambda sender: print(sender))
+    with dpg.table_cell(parent = thisRow):
+        dpg.add_button(label = 'one more')
+        dpg.add_text('one more')
 dpg.set_item_callback(btnRd, redraw)
 
-dpg.show_debug()
+# dpg.show_debug()
 dpg.setup_dearpygui()
 dpg.show_viewport()
 dpg.start_dearpygui()

@@ -94,7 +94,7 @@ with dpg.window(label = 'win2', width = 400, height= 500) as win2:
                                 scale_min=0, scale_max=137, 
                                 bounds_min= (xbeg, ybeg), 
                                 bounds_max= (xend, yend),
-                                format=""
+                                format='%.0f'
                                 )
         # dpg.add_drag_rect(default_value = (-1,-1,1,1), source='drfloat4', callback = lambda: print(dpg.get_value('drfloat4')))
         # dpg.fit_axis_data('slave xax')

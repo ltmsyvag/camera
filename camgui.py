@@ -48,6 +48,7 @@ if __name__ == '__main__':
     winHist = dpg.generate_uuid()
     winHistArr = dpg.generate_uuid()
     winTgtArr = dpg.generate_uuid()
+    # queryWin2 = dpg.generate_uuid()
     dpg.configure_app(#docking = True, docking_space=True, docking_shift_only=True,
                     init_file = "dpginit.ini", )
 
@@ -650,7 +651,7 @@ repo: https://github.com/ltmsyvag/camera
                 dpg.add_menu_item(label = "清空内存中的帧")
                 dpg.set_item_callback(dpg.last_item(),
                                         factory_cb_yn_modal_dialog(
-                                            cb_on_confirm=frame_deck.clear, 
+                                            cb_on_confirm=frame_deck.clear_deck,
                                             dialog_text='确认要清空内存中的所有帧吗?'))
             #=========================
             dpg.add_menu_item(label = "载入帧", callback=lambda: dpg.show_item(fileDialog))
@@ -804,7 +805,7 @@ repo: https://github.com/ltmsyvag/camera
                         """
                         if dpg.is_key_down(dpg.mvKey_LControl):
                             x, y = dpg.get_plot_mouse_pos()
-                            frame_deck.add_dr_to_loc(x, y)
+                            frame_deck.add_dr_to_loc(x, y, update_hist_p=True)
                     dpg.set_item_callback(dpg.last_item(), ctrl_add_dr)
                     #=====================================
                     dpg.add_item_clicked_handler()
@@ -1006,53 +1007,6 @@ repo: https://github.com/ltmsyvag/camera
                 dpg.set_item_callback(dpg.last_item(), _toggle_cid_and_avg_map_)
                 with dpg.tooltip(dpg.last_item(), **ttpkwargs):
                     dpg.add_text("切换单帧/平均帧")
-        with dpg.group(label = '四个箭头按钮, 单像素整体移动所有直方图选区', horizontal=True):
-                def move_all_dr_1px(_,__, user_data):
-                    if user_data == 'left':
-                        for tag in frame_deck.get_all_dr_tags():
-                            x1,y1,x2,y2 = dpg.get_value(tag)
-                            x1-=1
-                            x2-=1
-                            dpg.set_value(tag, (x1,y1,x2,y2))
-                    elif user_data == 'right':
-                        for tag in frame_deck.get_all_dr_tags():
-                            x1,y1,x2,y2 = dpg.get_value(tag)
-                            x1+=1
-                            x2+=1
-                            dpg.set_value(tag, (x1,y1,x2,y2))
-                    elif user_data == 'up':
-                        for tag in frame_deck.get_all_dr_tags():
-                            x1,y1,x2,y2 = dpg.get_value(tag)
-                            y1-=1
-                            y2-=1
-                            dpg.set_value(tag, (x1,y1,x2,y2))
-                    elif user_data == 'down':
-                        for tag in frame_deck.get_all_dr_tags():
-                            x1,y1,x2,y2 = dpg.get_value(tag)
-                            y1+=1
-                            y2+=1
-                            dpg.set_value(tag, (x1,y1,x2,y2))
-                    else:
-                        return
-                    frame_deck.update_fences()
-                dpg.add_button(arrow=True, direction=dpg.mvDir_Left, callback = move_all_dr_1px, user_data = 'left')
-                dpg.add_button(arrow=True, direction=dpg.mvDir_Right, callback = move_all_dr_1px, user_data = 'right')
-                dpg.add_button(arrow=True, direction=dpg.mvDir_Up, callback = move_all_dr_1px, user_data = 'up')
-                dpg.add_button(arrow=True, direction=dpg.mvDir_Down, callback = move_all_dr_1px, user_data = 'down')
-                dpg.add_text('单像素平移所有直方图选区')
-                dpg.add_button(label = 'print', callback = lambda: frame_deck.redraw_hist_sheet())
-                # def _cb(*args):
-                #     print('previous ihr tag', ihrQueryWin2AlwaysOnTop)
-                #     print('previous ihr tag int', dpg.get_alias_id(ihrQueryWin2AlwaysOnTop))
-                #     print('does it exist?', dpg.does_item_exist(ihrQueryWin2AlwaysOnTop))
-                # dpg.add_button(label = 'check ihr', callback = _cb)
-    with dpg.item_handler_registry() as ihrWinFramePreview:
-        def show_bottom_arrows(*args):
-            width, height = dpg.get_item_rect_size(winFramePreview)
-            reserved_height = 165
-            dpg.configure_item(GrpMainFramePlot, height=height - reserved_height)
-        dpg.add_item_resize_handler(callback = show_bottom_arrows)
-    dpg.bind_item_handler_registry(winFramePreview, ihrWinFramePreview)
     with dpg.window(label="直方图", tag=winHist, 
                     width = 500, height =300):
         dpg.add_input_int(
@@ -1065,13 +1019,13 @@ repo: https://github.com/ltmsyvag/camera
             dpg.add_plot_axis(dpg.mvXAxis, label = "converted counts ((<frame pixel counts>-200)*0.1/0.9)")
             dpg.add_plot_axis(dpg.mvYAxis, label = "frequency", tag = "hist plot yax")
     with dpg.window(tag = winHistArr, label = '阵列直方图', width = 500, height=500):
-        nrows, ncols = 20,20
         with dpg.group(horizontal=True):
-            nColHistSheet = dpg.add_input_int(tag = 'hist sheet 列数', label = '列数', width = 100, 
-                                              default_value=ncols, max_value=64, max_clamped=True, min_value=1, min_clamped=True)
+            dpg.add_input_int(tag = 'hist sheet 列数', label = '列数', width = 100, 
+                            default_value=10, max_value=64, max_clamped=True, min_value=1, min_clamped=True,
+                            callback = lambda: frame_deck.redraw_hist_sheet())
             dpg.add_button(label='总直方图')
         
-        with dpg.table(tag = 'hist sheet table', header_row=True, clipper=True, 
+        with dpg.table(tag = 'hist sheet table', header_row=True, clipper=False, 
                     #    freeze_columns= 1, 
                        freeze_rows = 1, # scrollY 必须为 True, 该 freeze 才有效, freeze_rows 同理
                     #    policy=dpg.mvTable_SizingFixedFit
@@ -1079,38 +1033,32 @@ repo: https://github.com/ltmsyvag/camera
                     # row_background=True,
                     # scrollX=True,
                        ) as histTable:
-            with dpg.item_handler_registry() as spIhr:
-                dpg.add_item_double_clicked_handler(callback = lambda: print('hello'))
-            for j in range(ncols):
-                dpg.add_table_column(label = f'{j+1}列')
-            yseries = np.sin(np.linspace(0,2*np.pi,101))**2
-            for i in range(nrows):
-                with dpg.table_row():
-                    for j in range(ncols):
-                        lin_id = i*ncols + j
-                            # dpg.add_text(lin_id)
-                        with dpg.table_cell():
-                            dpg.add_simple_plot(
-                                tag = f'sp-{lin_id}',
-                                # label = lin_id,
-                                width=-1,
-                                # height=-1,
-                                overlay= lin_id,
-                                default_value = yseries,
-                                histogram=True)
-                            dpg.add_text('0-100')
-                            dpg.bind_item_handler_registry(dpg.last_item(), spIhr)
-        
-        # with dpg.item_handler_registry() as ihrWinHistArr:
-        #     def set_simple_plot_height_by_width():
-        #         width, height = dpg.get_item_rect_size(winHistArr)
-        #         single_sp_width = width / dpg.get_value(nColHistSheet)*0.5
-        #         lst_rowTags: list = dpg.get_item_children(histTable)[1]
-        #         for rowContainer in lst_rowTags:
-        #         for i in range(nrows*ncols):
-        #             dpg.configure_item(f'sp-{i}', height=single_sp_width)
-        #     dpg.add_item_resize_handler(callback=set_simple_plot_height_by_width)
-        # dpg.bind_item_handler_registry(winHistArr, ihrWinHistArr)
+            ...
+            # with dpg.item_handler_registry() as spIhr:
+            #     dpg.add_item_double_clicked_handler(callback = lambda: print('hello'))
+            # for j in range(ncols):
+            #     dpg.add_table_column(label = f'{j+1}列')
+            # yseries = np.sin(np.linspace(0,2*np.pi,101))**2
+            # for i in range(nrows):
+            #     with dpg.table_row():
+            #         for j in range(ncols):
+            #             lin_id = i*ncols + j
+            #                 # dpg.add_text(lin_id)
+            #             with dpg.table_cell():
+            #                 dpg.add_simple_plot(
+            #                     tag = f'sp-{lin_id}',
+            #                     # label = lin_id,
+            #                     width=-1,
+            #                     # height=-1,
+            #                     overlay= lin_id,
+            #                     default_value = yseries,
+            #                     histogram=True)
+            #                 dpg.add_text('0-100')
+            #                 dpg.bind_item_handler_registry(dpg.last_item(), spIhr)
+    dpg.add_alias('hist sheet window', winHistArr) 
+    with dpg.item_handler_registry() as ihrWinHistArr:
+        dpg.add_item_resize_handler(callback=frame_deck.set_sheet_sp_height_by_width)
+    dpg.bind_item_handler_registry(winHistArr, ihrWinHistArr)
 
         # lst_rowTags : list = dpg.get_item_children(histTable)[1]
         # for rowContainer in lst_rowTags:
@@ -1119,14 +1067,17 @@ repo: https://github.com/ltmsyvag/camera
         #         config_dict_simple_plot = dpg.get_item_configuration(e)
         #         dpg.configure_item(e, height=200) # 可以设置 simple plots 的高度
                 # print(dpg.get_value(e)) # 给出 simple plot 的 data series
-    
-    with dpg.item_handler_registry() as ihrQueryWin2AlwaysOnTop:
-        def focus_queryWin2():
-            if not mouse_down_flag.is_set():
-                if dpg.get_active_window() != queryWin2: # this check is essential!! without it, the gui crashes
-                    dpg.focus_item(queryWin2)
-        dpg.add_item_visible_handler(callback = focus_queryWin2)
+    # with dpg.item_handler_registry() as ihrQueryWin2AlwaysOnTop:
+    #     def focus_queryWin2():
+    #         if not mouse_down_flag.is_set():
+    #             tagActiveWin  = dpg.get_active_window()
+    #             if tagActiveWin != queryWin2: # this check is essential!! without it, the gui crashes
+    #                 dpg.focus_item(queryWin2)
+        # dpg.add_item_visible_handler(callback = focus_queryWin2)
     with dpg.handler_registry():
+        dpg.add_key_press_handler(dpg.mvKey_F1, callback = lambda: frame_deck.redraw_hist_sheet())
+        dpg.add_key_press_handler(dpg.mvKey_F2, callback = lambda: frame_deck.update_hist_sheet())
+        #=====================================
         mouse_down_flag = threading.Event()
         dpg.add_mouse_click_handler(
             callback=lambda: mouse_down_flag.set() )
@@ -1221,15 +1172,13 @@ repo: https://github.com/ltmsyvag/camera
                             zip(np.linspace(xmeandr1, xmeandr2, n_dr1d), 
                                 np.linspace(ymeandr1, ymeandr2, n_dr1d))]
                         lst_xymeans_todo_for_1darr = lst_xymeans_todo_for_1darr[1:]
-                        frame_deck.expunge_dr_series(grp2, uuid2)
+                        frame_deck.expunge_dr_series(grp2, uuid2, update_hist_p=False)
                         for xcen, ycen in lst_xymeans_todo_for_1darr:
                             _, uuid_1dlast = frame_deck.add_dr_to_loc(xcen, ycen, sidex=sidex_dr2, sidey=sidey_dr2)
+                        frame_deck.redraw_hist_sheet()
                         dpg.delete_item(queryWin1)
-                        # def _on_close(sender, _, user_data):
-                        #     dpg.delete_item(user_data)
-                        #     dpg.delete_item(sender)\
-                        global queryWin2
                         with dpg.window(
+                            # tag='query window 2',
                             no_saved_settings=True,
                             # no_focus_on_appearing=True,
                             label = '添加阵列选取 - 2d',
@@ -1260,7 +1209,7 @@ repo: https://github.com/ltmsyvag/camera
                                         push_log('请添加 2d 选区阵列所需的新选区', is_warning = True)
                                         return
                                     x1dr3, y1dr3, x2dr3, y2dr3 = get_dr_pos(grp3, uuid3)
-                                    frame_deck.expunge_dr_series(grp3, uuid3)
+                                    frame_deck.expunge_dr_series(grp3, uuid3, update_hist_p=False)
                                     xmeandr3, ymeandr3 = (x1dr3+x2dr3)/2, (y1dr3+y2dr3)/2
                                     def tsl(tx:float,ty:float) -> np.ndarray:
                                         """
@@ -1340,12 +1289,22 @@ repo: https://github.com/ltmsyvag/camera
                                                             @[*p, 1])[:-1] for p in xyarr]
                                     for xcen, ycen in xyarr_trans_back:
                                         frame_deck.add_dr_to_loc(xcen, ycen, sidex=sidex_dr2, sidey=sidey_dr2)
-
-                                    # print(dpg.get_item_user_data(queryWin2)) # delete the item handler registry
-                                    # dpg.delete_item(dpg.get_item_user_data(queryWin2)) # delete the item handler registry
+                                    frame_deck.redraw_hist_sheet()
                                     dpg.delete_item(queryWin2)
+                                    # dpg.bind_item_handler_registry('query window 2', None)
                                 dpg.set_item_callback(yesBtn2, make_2d_dr_arr)
-                        dpg.bind_item_handler_registry(queryWin2, ihrQueryWin2AlwaysOnTop)
+                        def focus_queryWin2():
+                            while True:
+                                time.sleep(0.5) # lazy polling, save cpu cycles
+                                if not mouse_down_flag.is_set():
+                                    if dpg.does_item_exist(queryWin2):
+                                        if dpg.get_active_window()!=queryWin2:
+                                            dpg.focus_item(queryWin2)
+                                    else:
+                                        break
+                        t_focus_queryWin2 = threading.Thread(target = focus_queryWin2)
+                        t_focus_queryWin2.start()
+
                     dpg.set_item_callback(yesBtn1, make_1d_dr_arr_and_query_for_2d)
         dpg.set_item_callback(_kph, make_dr_arr)
     if dummy_acq: #True is dummy acquisition
