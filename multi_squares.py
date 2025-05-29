@@ -100,7 +100,8 @@ with dpg.window(label = 'win2', width = 400, height= 500) as win2:
         # dpg.fit_axis_data('slave xax')
         # dpg.fit_axis_data('slave yax')
 # print(dpg.get_value(scatterSeries))
-print(dpg.get_value(hs))
+
+print(dpg.get_item_children('slave yax2'))
 with dpg.theme() as masterplot_theme:
     with dpg.theme_component(dpg.mvPlot):
         dpg.add_theme_color(dpg.mvPlotCol_PlotBg, (0,0,0,0), category=dpg.mvThemeCat_Plots)

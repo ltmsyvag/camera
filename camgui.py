@@ -1040,8 +1040,19 @@ repo: https://github.com/ltmsyvag/camera
     dpg.bind_item_handler_registry(winHistArr, ihrWinHistArr)
 
     with dpg.handler_registry():
-        dpg.add_key_press_handler(dpg.mvKey_F1, callback = lambda: frame_deck.redraw_hist_sheet())
-        dpg.add_key_press_handler(dpg.mvKey_F2, callback = lambda: frame_deck.update_hist_sheet())
+        dpg.add_key_press_handler(dpg.mvKey_F1)
+        def toggle_pixel_vals(*args):
+            if frame_deck.hsformat == '': # update for the following frames
+                frame_deck.hsformat = '%.0f'
+            else:
+                frame_deck.hsformat = ''
+            if frame_deck: # instantaneous update for this frame
+                lst_allyaxes_slv, _, _ = frame_deck.get_all_maptags()
+                lst_heatseries = [dpg.get_item_children(e)[1][0] for e in lst_allyaxes_slv]
+                for heatSeries in lst_heatseries:
+                    dpg.configure_item(heatSeries, format = frame_deck.hsformat)
+        dpg.set_item_callback(dpg.last_item(), toggle_pixel_vals)
+        # dpg.add_key_press_handler(dpg.mvKey_F2, callback = lambda: frame_deck.update_hist_sheet())
         #=====================================
         mouse_down_flag = threading.Event()
         dpg.add_mouse_click_handler(

@@ -77,6 +77,7 @@ class FrameDeck(list):
         self.tab_10_spThemes = [tab_10_spTheme_factory(i) for i in range(10)]
 
         self.lock = threading.RLock()
+        self.hsformat = '' # heat series format
     def memory_report(self) -> str:
         len_deck = len(self)
         if len_deck>0:
@@ -227,7 +228,7 @@ class FrameDeck(list):
             if had_series_child_p:
                 dpg.delete_item(yaxSlave, children_only=True) # this is necessary!
             dpg.add_heat_series(frame, nvrows, nhcols, parent=yaxSlave,
-                                scale_min=fmin, scale_max=fmax,format="",
+                                scale_min=fmin, scale_max=fmax,format=self.hsformat,
                                 bounds_min= (0,nvrows), bounds_max= (nhcols, 0)
                                 )
             """
