@@ -520,10 +520,15 @@ class FrameDeck(list):
             name= uuid.uuid4().hex,
             dtype= 'object' # 必须有这行, 这样 dr tag 才能被存储为 python int, 而不是 numpy.int64, 后者 dpg 不认. 若没有这行, pandas series 中的整数类型貌似被强制为 numpy.int64
             )
-        merged_into_old = False
+        
+        create_first_table_cell = False
+        add_to_existing_hist = False
+        retake_empty_table_cell = False
+        append_new_table_cell = False
         if not self.dict_dr: # if dr dict is empty
             grp_id_final = 0
             merge_dr_series_into_grp(dr_series, grp_id = grp_id_final)
+            create_first_table_cell = True
         else:
             tagDr = dr_series.iloc[0] # 取第一个 dr tag, 每个 series 中的所有的 dr 的位置必然都一样
             x1, y1, x2, y2 = dpg.get_value(tagDr)
@@ -536,32 +541,37 @@ class FrameDeck(list):
                         if (xmin-1<xmean<xmax+1) and (ymin-1<ymean<ymax+1):
                             merge_dr_series_into_grp(dr_series, grp_id)
                             grp_id_final = grp_id
-                            merged_into_old = True
+                            add_to_existing_hist = True
                             break # 两个 fence 有 overlap 是完全可能的, 这时候随缘 merge 到第一个 fence 中
             if grp_id_final is None: # 如果新 dr 无法融入已存在的任何一个 dr 组的 fence 中, 则需要创建一个新的 dr grp
                 for grp_id, val in self.dict_dr.items(): # 先看现存组中有没有空组可占用
                     if val is None: # 空 grp 组
                         merge_dr_series_into_grp(dr_series, grp_id)
                         grp_id_final = grp_id
-                        # merged_into_old = True
+                        retake_empty_table_cell = True
                         break
             if grp_id_final is None: # 若上一步并没有找到任何空 grp 组可以用新 series 占用
                 grp_id_final = max(list(self.dict_dr))+1
                 merge_dr_series_into_grp(dr_series, 
                                   grp_id_final)
+                append_new_table_cell=True
 
         self.dq100.append((grp_id_final, dr_series.name))
         if update_hist_p:
-            if len(self.dq100)==1:
+            if create_first_table_cell:
                 self.redraw_hist_sheet()
-            elif merged_into_old:
-                ...
-            else:
-                grp_id_previous, _ = self.dq100[-2]
-                if grp_id_previous!= grp_id_final:
-                    self.redraw_hist_sheet()
+            elif add_to_existing_hist:
+                self._update_one_hist(grp_id_final)
+            elif retake_empty_table_cell:
+                self.create_sp_for_existing_table_cell(grp_id_final)
+            elif append_new_table_cell:
+                ncols = dpg.get_value('hist sheet 列数')
+                if grp_id_final%ncols ==0:
+                    thisRow = dpg.add_table_row(parent = 'hist sheet table')
                 else:
-                    ... # TODO update group hist
+                    thisRow = dpg.get_item_parent(f'table cell-{grp_id_final-1}')
+                with dpg.table_cell(parent=thisRow, tag = f'table cell-{grp_id_final}'):
+                    self.create_sp_for_existing_table_cell(grp_id_final)
         return grp_id_final, dr_series.name
     def expunge_dr_series(self, grp_id, series_id, update_hist_p = True):
         """
@@ -696,11 +706,26 @@ class FrameDeck(list):
     def update_hist_sheet(self):
         for grp_id in self.get_nonempty_grp_ids():
             self._update_one_hist(grp_id)
-    def set_sheet_sp_height_by_width(self):
+    @staticmethod
+    def _get_single_sp_width():
         width, height = dpg.get_item_rect_size('hist sheet window')
         single_sp_width = width / dpg.get_value('hist sheet 列数')*0.5
+        return single_sp_width
+    def set_sheet_sp_height_by_width(self):
         for grp_id in self.get_nonempty_grp_ids():
-            dpg.configure_item(f'sp-{grp_id}', height=single_sp_width)
+            dpg.configure_item(f'sp-{grp_id}', height= self._get_single_sp_width())
+    def create_sp_for_existing_table_cell(self, grp_id : int):
+        cellAlias = f'table cell-{grp_id}'
+        spAlias = f'sp-{grp_id}'
+        freq_series, edge_min, edge_max = self._make_freq_series_from_grp(grp_id)
+        dpg.add_simple_plot(parent = cellAlias, tag = spAlias,
+                            width=-1, overlay=grp_id, 
+                            default_value= freq_series, histogram=True)
+        dpg.bind_item_theme(spAlias, self.tab_10_spThemes[grp_id % 10])
+        dpg.configure_item(spAlias, height= self._get_single_sp_width()) # set sp height, hist sheet window resize handler will take care of the sp resize from then on
+        dpg.add_text(f'{edge_min}-{edge_max}', parent = cellAlias,
+                     tag = f'sp-xrange-{grp_id}')
+        
     def redraw_hist_sheet(self):
         """
         when to redraw:
@@ -725,12 +750,13 @@ class FrameDeck(list):
                 thisRow = dpg.add_table_row(parent='hist sheet table')
             with dpg.table_cell(parent=thisRow, tag= f'table cell-{grp_id}'):
                 if (ddict is not None): # leaves an empty table cell as place holder if ddict is None
-                    freq_series, edge_min, edge_max = self._make_freq_series_from_grp(grp_id)
-                    dpg.add_simple_plot(tag = f'sp-{grp_id}', width = -1, overlay = grp_id,
-                                        default_value=  freq_series, #yseries, 
-                                        histogram=True)
-                    dpg.bind_item_theme(f'sp-{grp_id}', self.tab_10_spThemes[grp_id % 10])
-                    dpg.add_text(f'{edge_min}-{edge_max}', tag = f'sp-xrange-{grp_id}')
+                    self.create_sp_for_existing_table_cell(grp_id)
+                    # freq_series, edge_min, edge_max = self._make_freq_series_from_grp(grp_id)
+                    # dpg.add_simple_plot(tag = f'sp-{grp_id}', width = -1, overlay = grp_id,
+                    #                     default_value=  freq_series, #yseries, 
+                    #                     histogram=True)
+                    # dpg.bind_item_theme(f'sp-{grp_id}', self.tab_10_spThemes[grp_id % 10])
+                    # dpg.add_text(f'{edge_min}-{edge_max}', tag = f'sp-xrange-{grp_id}')
         self.set_sheet_sp_height_by_width()
     def redraw_hist_sheet_(self):
         """

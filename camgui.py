@@ -1033,47 +1033,12 @@ repo: https://github.com/ltmsyvag/camera
                     # row_background=True,
                     # scrollX=True,
                        ) as histTable:
-            ...
-            # with dpg.item_handler_registry() as spIhr:
-            #     dpg.add_item_double_clicked_handler(callback = lambda: print('hello'))
-            # for j in range(ncols):
-            #     dpg.add_table_column(label = f'{j+1}列')
-            # yseries = np.sin(np.linspace(0,2*np.pi,101))**2
-            # for i in range(nrows):
-            #     with dpg.table_row():
-            #         for j in range(ncols):
-            #             lin_id = i*ncols + j
-            #                 # dpg.add_text(lin_id)
-            #             with dpg.table_cell():
-            #                 dpg.add_simple_plot(
-            #                     tag = f'sp-{lin_id}',
-            #                     # label = lin_id,
-            #                     width=-1,
-            #                     # height=-1,
-            #                     overlay= lin_id,
-            #                     default_value = yseries,
-            #                     histogram=True)
-            #                 dpg.add_text('0-100')
-            #                 dpg.bind_item_handler_registry(dpg.last_item(), spIhr)
+            pass
     dpg.add_alias('hist sheet window', winHistArr) 
     with dpg.item_handler_registry() as ihrWinHistArr:
         dpg.add_item_resize_handler(callback=frame_deck.set_sheet_sp_height_by_width)
     dpg.bind_item_handler_registry(winHistArr, ihrWinHistArr)
 
-        # lst_rowTags : list = dpg.get_item_children(histTable)[1]
-        # for rowContainer in lst_rowTags:
-        #     lst_simplePlots : list = dpg.get_item_children(rowContainer)[1]
-        #     for e in lst_simplePlots:
-        #         config_dict_simple_plot = dpg.get_item_configuration(e)
-        #         dpg.configure_item(e, height=200) # 可以设置 simple plots 的高度
-                # print(dpg.get_value(e)) # 给出 simple plot 的 data series
-    # with dpg.item_handler_registry() as ihrQueryWin2AlwaysOnTop:
-    #     def focus_queryWin2():
-    #         if not mouse_down_flag.is_set():
-    #             tagActiveWin  = dpg.get_active_window()
-    #             if tagActiveWin != queryWin2: # this check is essential!! without it, the gui crashes
-    #                 dpg.focus_item(queryWin2)
-        # dpg.add_item_visible_handler(callback = focus_queryWin2)
     with dpg.handler_registry():
         dpg.add_key_press_handler(dpg.mvKey_F1, callback = lambda: frame_deck.redraw_hist_sheet())
         dpg.add_key_press_handler(dpg.mvKey_F2, callback = lambda: frame_deck.update_hist_sheet())
@@ -1086,8 +1051,9 @@ repo: https://github.com/ltmsyvag/camera
                                         user_data={'dr being dragged': None})
         def do_mouse_release_cbs(_,__,user_data):
             mouse_down_flag.clear()
-            snap_dr_series_being_dragged(_, __, user_data)
-        def snap_dr_series_being_dragged(_,__, user_data):
+            snap_dr_series_being_dragged_and_update_hist(_, __, user_data)
+
+        def snap_dr_series_being_dragged_and_update_hist(_,__, user_data):
             thisDr = user_data['dr being dragged']
             if thisDr is not None:
                 grp_id, series_uuid = dpg.get_item_user_data(thisDr)
@@ -1096,6 +1062,7 @@ repo: https://github.com/ltmsyvag/camera
                     dpg.set_value(dr, frame_deck.ensure_1x1_area(*dpg.get_value(dr)))
                 user_data['dr being dragged'] = None
                 frame_deck._update_grp_fence(grp_id)
+                frame_deck._update_one_hist(grp_id)
         dpg.set_item_callback(dpg.last_item(), do_mouse_release_cbs #snap_dr_series_being_dragged
                               )
         #=========================
