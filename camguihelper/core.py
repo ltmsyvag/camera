@@ -76,6 +76,7 @@ class FrameDeck(list):
             return spTheme
         self.tab_10_spThemes = [tab_10_spTheme_factory(i) for i in range(10)]
 
+        self.lock = threading.RLock()
     def memory_report(self) -> str:
         len_deck = len(self)
         if len_deck>0:
@@ -113,58 +114,63 @@ class FrameDeck(list):
         append 现在貌似是为 frame_deck 添加 frame 的唯一入口, let's keep it that way
         """
         # print(frame.dtype)
-        assert frame.dtype == np.uint16, "frame should be uint16, something's off?!"
+        with self.lock:
+            assert frame.dtype == np.uint16, "frame should be uint16, something's off?!"
 
-        super().append(frame)
-        self.float_deck.append(frame.astype(float))
-        self.cid = len(self) - 1
-        # self.frame_avg = sum(self.float_deck) / len(self.float_deck)
-        self.frame_avg = np.mean(self.float_deck, axis=0)
-        dpg.set_value("frame deck display", self.memory_report())
-        dpg.set_item_label("cid indicator", f"{self.cid}")
+            super().append(frame)
+            self.float_deck.append(frame.astype(float))
+            self.cid = len(self) - 1
+            # self.frame_avg = sum(self.float_deck) / len(self.float_deck)
+            self.frame_avg = np.mean(self.float_deck, axis=0)
+            dpg.set_value("frame deck display", self.memory_report())
+            dpg.set_item_label("cid indicator", f"{self.cid}")
     def save_deck(self)->None:
         """
         保存全部 frames, 并 push 成功/失败 message
         """
-        fpath_stub = self._make_savename_stub()
-        if self:
-            for i, frame in enumerate(self):
-                fpath = fpath_stub + f"_{i}.tif"
-                try:
-                    tifffile.imwrite(fpath, frame)
-                except Exception:
-                    push_exception(f"帧 #{i} 保存失败.")
-                
-            push_log("全部帧保存成功", is_good=True)
-        else:
-            push_log("内存中没有任何帧", is_error=True)
+        with self.lock:
+            fpath_stub = self._make_savename_stub()
+            if self:
+                push_log('开始保存帧')
+                for i, frame in enumerate(self):
+                    fpath = fpath_stub + f"_{i}.tif"
+                    try:
+                        tifffile.imwrite(fpath, frame)
+                    except Exception:
+                        push_exception(f"帧 #{i} 保存失败.")
+                    
+                push_log('全部帧保存成功', is_good=True)
+            else:
+                push_log('内存中没有任何帧', is_error=True)
     def save_cid_frame(self)->None:
         """
         保存 cid 指向的 frame, 并 push 成功/失败 message
         """
-        fpath_stub = self._make_savename_stub()
-        if self.cid: # 当前 cid 不是 None, 则说明 deck 非空
-            fpath = fpath_stub + f"_{self.cid}.tif"
-            try:
+        with self.lock:
+            fpath_stub = self._make_savename_stub()
+            if self.cid: # 当前 cid 不是 None, 则说明 deck 非空
+                fpath = fpath_stub + f"_{self.cid}.tif"
+                try:
+                    tifffile.imwrite(fpath, self[self.cid])
+                except Exception:
+                    push_exception('当前帧保存失败')
+                    return
+                push_log('当前帧保存成功', is_good=True)
+            else:
+                push_log('内存中没有任何帧', is_error=True)
+    def _find_lastest_sesframes_folder_and_save_frame(self)-> str:
+        with self.lock:
+            dpath_ses = find_latest_sesframes_folder() # produces UserInterrupt if folder seeking fails
+            str_ses = str(dpath_ses.name)
+            now = datetime.now()
+            timestamp: str = now.strftime("%Y-%m-%d-%H-%M-%S-") + f"{now.microsecond//1000:03d}"
+            fpath = dpath_ses /( timestamp + ".tif")
+            try: # again, this is a redundant check, I don't think the save will fail, unless there's a Z disk connection problem
                 tifffile.imwrite(fpath, self[self.cid])
+                return str_ses
             except Exception:
                 push_exception("当前帧保存失败")
-                return
-            push_log("当前帧保存成功", is_good=True)
-        else:
-            push_log("内存中没有任何帧", is_error=True)
-    def _find_lastest_sesframes_folder_and_save_frame(self)-> str:
-        dpath_ses = find_latest_sesframes_folder() # produces UserInterrupt if folder seeking fails
-        str_ses = str(dpath_ses.name)
-        now = datetime.now()
-        timestamp: str = now.strftime("%Y-%m-%d-%H-%M-%S-") + f"{now.microsecond//1000:03d}"
-        fpath = dpath_ses /( timestamp + ".tif")
-        try: # again, this is a redundant check, I don't think the save will fail, unless there's a Z disk connection problem
-            tifffile.imwrite(fpath, self[self.cid])
-            return str_ses
-        except Exception:
-            push_exception("当前帧保存失败")
-            raise UserInterrupt
+                raise UserInterrupt
     def clear_deck(self)->None:
         """
         - clear int & float decks
@@ -175,19 +181,20 @@ class FrameDeck(list):
         - clear all plots
         - clear all plot labels
         """
-        super().clear()
-        self.float_deck.clear()
-        self.cid = None
-        self.frame_avg = None
-        self.seslabel_deck = []
-        dpg.set_value("frame deck display", self.memory_report())
-        dpg.set_item_label("cid indicator", "N/A")
-        lst1, lst2, _ = self.get_all_maptags()
-        for yax in (lst1+lst2):  # clear heatmaps in all slaves, corner scatter points in all masters
-            dpg.delete_item(yax, children_only=True)
-            # print('yax', yax)
-            thisPlot = dpg.get_item_parent(yax)
-            dpg.configure_item(thisPlot, label = ' ')
+        with self.lock:
+            super().clear()
+            self.float_deck.clear()
+            self.cid = None
+            self.frame_avg = None
+            self.seslabel_deck = []
+            dpg.set_value("frame deck display", self.memory_report())
+            dpg.set_item_label("cid indicator", "N/A")
+            lst1, lst2, _ = self.get_all_maptags()
+            for yax in (lst1+lst2):  # clear heatmaps in all slaves, corner scatter points in all masters
+                dpg.delete_item(yax, children_only=True)
+                # print('yax', yax)
+                thisPlot = dpg.get_item_parent(yax)
+                dpg.configure_item(thisPlot, label = ' ')
     def get_all_maptags(self):
         lst_allyaxes_slv = [map.yAxSlv for map in self.lst_dupe_maps]
         lst_allyaxes_slv.append('frame yax')
@@ -196,89 +203,90 @@ class FrameDeck(list):
         lst_allplots_mstr = [dpg.get_item_parent(yax) for yax in lst_allyaxes_mstr]
         # lst_allplots_mstr = [map.pltMstr for map in self.lst_dupe_maps]
         return lst_allyaxes_slv, lst_allyaxes_mstr, lst_allplots_mstr
-    @staticmethod
-    def _plot_frame(frame: npt.NDArray[np.floating], 
+    # @staticmethod
+    def _plot_frame(self, frame: npt.NDArray[np.floating], 
                     # xax: str="frame xax", 
                     yaxSlave: str | int, 
                     yaxMaster: str | int)->None:
-        assert np.issubdtype(frame.dtype, float), 'heatmap frame can only be float!'
-        colorbar='frame colorbar'
-        fmin, fmax, (nvrows, nhcols) = frame.min(), frame.max(), frame.shape
-        plot_mainframe_p = yaxSlave == 'frame yax' # need this check because we can plot in dupe frame windows
-        if dpg.get_value('manual scale checkbox'):
-            fmin, fmax, *_ = dpg.get_value('color scale lims')
-        elif plot_mainframe_p: # update disabled manual color lim fields. do not do this when plotting elsewhere
-            dpg.set_value('color scale lims', [int(fmin), int(fmax), 0, 0])
-        else: # 在 dupe heatmap 中 plot 时, 啥都不干
-            pass
-        
-        if plot_mainframe_p: # always update color bar lims when doing main plot, whether the manual scale checkbox is checked or not
-            dpg.configure_item(colorbar, min_scale = fmin, max_scale = fmax)
-        
-        had_series_child_p = dpg.get_item_children(yaxSlave)[1] # plot new series 之前 check 是否有老 series
-        if had_series_child_p:
-            dpg.delete_item(yaxSlave, children_only=True) # this is necessary!
-        dpg.add_heat_series(frame, nvrows, nhcols, parent=yaxSlave,
-                            scale_min=fmin, scale_max=fmax,format="",
-                            bounds_min= (0,nvrows), bounds_max= (nhcols, 0)
-                            )
-        """
-        如果 frame 是:
-        [[0,0,0],
-         [0,0,0],
-         [1,0,0],]
-        用默认 axes (对于 xax, yax, 均有 opposite = False, invert = False)
-        记 xbeg, ybeg = bounds_min; xend, yend = bounds_max, 
-        根据 x(y)beg(end) 的不同选取, 可以有:
-                               y
-                               ^
-                               |0 0 0 <- (xend = 2, yend = 2)
-                               |0 0 0
-        (xbeg = 0, ybeg = 0) ->|1 0 0
-                               o-----> x
+        with self.lock:
+            assert np.issubdtype(frame.dtype, float), 'heatmap frame can only be float!'
+            colorbar='frame colorbar'
+            fmin, fmax, (nvrows, nhcols) = frame.min(), frame.max(), frame.shape
+            plot_mainframe_p = yaxSlave == 'frame yax' # need this check because we can plot in dupe frame windows
+            if dpg.get_value('manual scale checkbox'):
+                fmin, fmax, *_ = dpg.get_value('color scale lims')
+            elif plot_mainframe_p: # update disabled manual color lim fields. do not do this when plotting elsewhere
+                dpg.set_value('color scale lims', [int(fmin), int(fmax), 0, 0])
+            else: # 在 dupe heatmap 中 plot 时, 啥都不干
+                pass
+            
+            if plot_mainframe_p: # always update color bar lims when doing main plot, whether the manual scale checkbox is checked or not
+                dpg.configure_item(colorbar, min_scale = fmin, max_scale = fmax)
+            
+            had_series_child_p = dpg.get_item_children(yaxSlave)[1] # plot new series 之前 check 是否有老 series
+            if had_series_child_p:
+                dpg.delete_item(yaxSlave, children_only=True) # this is necessary!
+            dpg.add_heat_series(frame, nvrows, nhcols, parent=yaxSlave,
+                                scale_min=fmin, scale_max=fmax,format="",
+                                bounds_min= (0,nvrows), bounds_max= (nhcols, 0)
+                                )
+            """
+            如果 frame 是:
+            [[0,0,0],
+            [0,0,0],
+            [1,0,0],]
+            用默认 axes (对于 xax, yax, 均有 opposite = False, invert = False)
+            记 xbeg, ybeg = bounds_min; xend, yend = bounds_max, 
+            根据 x(y)beg(end) 的不同选取, 可以有:
+                                y
+                                ^
+                                |0 0 0 <- (xend = 2, yend = 2)
+                                |0 0 0
+            (xbeg = 0, ybeg = 0) ->|1 0 0
+                                o-----> x
 
-                                   y
-                                   ^
-                                  0|   0    0 <- (xend = 10, yend = 10)
-                                   |
-                                   |
-                                  0|   0    0
-                                   |
-                                   o---------> x
-        (xbeg = -1, ybeg = -1) -> 1    0    0
+                                    y
+                                    ^
+                                    0|   0    0 <- (xend = 10, yend = 10)
+                                    |
+                                    |
+                                    0|   0    0
+                                    |
+                                    o---------> x
+            (xbeg = -1, ybeg = -1) -> 1    0    0
 
-                                   y
-                                   ^
-        (xbeg = -1, ybeg = 10) -> 1|   0    0
-                                   |
-                                   |
-                                  0|   0    0
-                                   |
-                                   o---------> x
-                                  0    0    0 <- (xend = 10, yend=-1)
+                                    y
+                                    ^
+            (xbeg = -1, ybeg = 10) -> 1|   0    0
+                                    |
+                                    |
+                                    0|   0    0
+                                    |
+                                    o---------> x
+                                    0    0    0 <- (xend = 10, yend=-1)
 
-        当有 y 轴翻反转的情况 (x轴 `opposite=True`, 即将 visual 的 x 轴放到 frame 顶部;
-        y 轴 `invert = True`, 即 y 轴刻度从上往下增长), 那么坐标变为
-        o---> x
-        |
-        |
-        v
-        y
-        但是 frame 呈现的原则依然同上, 和坐标系无关, 
-        仅仅是初始点坐标(xbeg, ybeg)和末尾点的坐标(xend, yend)需要用新坐标系的相应值来表示
-        """
-        ### below is the corner scatter (master) plot associated with the slave plot above
-        if had_series_child_p: # if had series child, then also had scatter child
-            # scatterChild = dpg.get_item_children(yaxMaster)[1]
-            dpg.delete_item(yaxMaster, children_only=True)
-        # print(yaxMaster)
-        scatterSeries = dpg.add_scatter_series(
-            [0,0,nhcols, nhcols], [0, nvrows, 0, nvrows], parent=yaxMaster)
-        with dpg.theme() as scatterThm:
-            with dpg.theme_component(dpg.mvScatterSeries):
-                dpg.add_theme_color(dpg.mvPlotCol_MarkerFill, (0,255,0,255), category=dpg.mvThemeCat_Plots)
-                dpg.add_theme_color(dpg.mvPlotCol_MarkerOutline, (0,0,0,0), category=dpg.mvThemeCat_Plots)
-        dpg.bind_item_theme(scatterSeries, scatterThm)
+            当有 y 轴翻反转的情况 (x轴 `opposite=True`, 即将 visual 的 x 轴放到 frame 顶部;
+            y 轴 `invert = True`, 即 y 轴刻度从上往下增长), 那么坐标变为
+            o---> x
+            |
+            |
+            v
+            y
+            但是 frame 呈现的原则依然同上, 和坐标系无关, 
+            仅仅是初始点坐标(xbeg, ybeg)和末尾点的坐标(xend, yend)需要用新坐标系的相应值来表示
+            """
+            ### below is the corner scatter (master) plot associated with the slave plot above
+            if had_series_child_p: # if had series child, then also had scatter child
+                # scatterChild = dpg.get_item_children(yaxMaster)[1]
+                dpg.delete_item(yaxMaster, children_only=True)
+            # print(yaxMaster)
+            scatterSeries = dpg.add_scatter_series(
+                [0,0,nhcols, nhcols], [0, nvrows, 0, nvrows], parent=yaxMaster)
+            with dpg.theme() as scatterThm:
+                with dpg.theme_component(dpg.mvScatterSeries):
+                    dpg.add_theme_color(dpg.mvPlotCol_MarkerFill, (0,255,0,255), category=dpg.mvThemeCat_Plots)
+                    dpg.add_theme_color(dpg.mvPlotCol_MarkerOutline, (0,0,0,0), category=dpg.mvThemeCat_Plots)
+            dpg.bind_item_theme(scatterSeries, scatterThm)
     def plot_avg_frame(self, yaxSlave= "frame yax", yaxMaster = 'rects yax'):
         """
         与 plot_cid_frame 一起都是 绘制 main heatmap 的方法
@@ -286,7 +294,9 @@ class FrameDeck(list):
         x/yax kwargs make it possible to plot else where when needed
         """
         if self.frame_avg is not None:
-            self._plot_frame(self.frame_avg, yaxSlave, yaxMaster)
+            with self.lock:
+                frame = self.frame_avg
+            self._plot_frame(frame, yaxSlave, yaxMaster)
             for yax in [yaxSlave, yaxMaster]:
                 thePlot = dpg.get_item_parent(yax)
                 dpg.configure_item(thePlot, label = '内存所有帧平均')
@@ -297,7 +307,8 @@ class FrameDeck(list):
         x/yax kwargs make it possible to plot else where when needed
         """
         if self.cid is not None:
-            frame = self.float_deck[self.cid]
+            with self.lock:
+                frame = self.float_deck[self.cid]
             self._plot_frame(frame, yaxSlave, yaxMaster)
             for yax in [yaxSlave, yaxMaster]:
                 thePlot = dpg.get_item_parent(yax)
@@ -330,7 +341,8 @@ class FrameDeck(list):
             else:
                 plot_id = input_id+len(self) - 1
             if 0 <= plot_id < len(self):
-                frame = self.float_deck[plot_id]
+                with self.lock:
+                    frame = self.float_deck[plot_id]
                 self._plot_frame(frame, dupe_map.yAxSlv, dupe_map.yAxMstr) # 不能用 plot_cid_frame 抽象, 因为这里不是 plot cid, 而是任意指定的 id
                 label= self.seslabel_deck[plot_id]
             else:
@@ -664,7 +676,7 @@ class FrameDeck(list):
         frame_points_in_grp = set()
         for dr in drs_this_grp:
             xmin, ymin, xmax, ymax = [int(e) # need int, else e could be float, and cause error in range(e,e')
-                                      for e in self.ensure_minmax_order(
+                                    for e in self.ensure_minmax_order(
                 *self.ensure_1x1_area(*dpg.get_value(dr)))]
             xx, yy = np.meshgrid(range(xmin,xmax), range(ymin, ymax))
             pnts_in_dr = set([(x,y) for x,y in zip(xx.flatten(), yy.flatten())])
@@ -700,9 +712,10 @@ class FrameDeck(list):
         return freq_series, edge_min, edge_max
 
     def _update_one_hist(self, grp_id: int):
-        freq_series, edge_min, edge_max = self._make_freq_series_from_grp(grp_id)
-        dpg.set_value(f'sp-{grp_id}', freq_series)
-        dpg.set_value(f'sp-xrange-{grp_id}', f'{edge_min}-{edge_max}')
+        with self.lock:
+            freq_series, edge_min, edge_max = self._make_freq_series_from_grp(grp_id)
+            dpg.set_value(f'sp-{grp_id}', freq_series)
+            dpg.set_value(f'sp-xrange-{grp_id}', f'{edge_min}-{edge_max}')
     def update_hist_sheet(self):
         for grp_id in self.get_nonempty_grp_ids():
             self._update_one_hist(grp_id)
@@ -715,49 +728,43 @@ class FrameDeck(list):
         for grp_id in self.get_nonempty_grp_ids():
             dpg.configure_item(f'sp-{grp_id}', height= self._get_single_sp_width())
     def create_sp_for_existing_table_cell(self, grp_id : int):
-        cellAlias = f'table cell-{grp_id}'
-        spAlias = f'sp-{grp_id}'
-        freq_series, edge_min, edge_max = self._make_freq_series_from_grp(grp_id)
-        dpg.add_simple_plot(parent = cellAlias, tag = spAlias,
-                            width=-1, overlay=grp_id, 
-                            default_value= freq_series, histogram=True)
-        dpg.bind_item_theme(spAlias, self.tab_10_spThemes[grp_id % 10])
-        dpg.configure_item(spAlias, height= self._get_single_sp_width()) # set sp height, hist sheet window resize handler will take care of the sp resize from then on
-        dpg.add_text(f'{edge_min}-{edge_max}', parent = cellAlias,
-                     tag = f'sp-xrange-{grp_id}')
+        with self.lock:
+            cellAlias = f'table cell-{grp_id}'
+            spAlias = f'sp-{grp_id}'
+            freq_series, edge_min, edge_max = self._make_freq_series_from_grp(grp_id)
+            dpg.add_simple_plot(parent = cellAlias, tag = spAlias,
+                                width=-1, overlay=grp_id, 
+                                default_value= freq_series, histogram=True)
+            dpg.bind_item_theme(spAlias, self.tab_10_spThemes[grp_id % 10])
+            dpg.configure_item(spAlias, height= self._get_single_sp_width()) # set sp height, hist sheet window resize handler will take care of the sp resize from then on
+            dpg.add_text(f'{edge_min}-{edge_max}', parent = cellAlias,
+                        tag = f'sp-xrange-{grp_id}')
         
     def redraw_hist_sheet(self):
         """
         when to redraw:
-        总而言之, 一切改变 self.dict_dr 的组的数量, 或者将组的值设为 None (清空组 dr) 的行为, 都要 redraw,
-        这样 simple plots 的 tag 和 self.dict_dr 的非空组达成统一, 后续任何不改变 dr 组结构, 纯粹 update 直方图的行为,
-        都可以直接用 get_nonempty_grp_ids 获取所有需要 update 的 simple plot. 这种方案是最省脑子的.
-        简而言之, 只考虑 redraw all/update all 两种行为, 不要考虑 incremental draw/incremental update, 
-        虽然后者若完成了, 显然会更高效, 但是具体细节逻辑是一地鸡毛
-        改变 dr 组结构的行为包括:
         1. 清除所有 drag rects 时, 本命令等效于清空 hist sheet (因此应该放在 self.clear_dr() 最末)
         2. 批量添加 drag rects 阵列时, 不宜每增加一个 dr 就 update hist sheet 一次. 可以留待 dr 批量添加完毕后, 最后 redraw sheet
-        3. 每次修改 hist sheet 的列数时, table 结构改变, 因此需要 redraw
-        4. 鼠标添加 dr 创建(或占用)新组时, 鼠标删除单组中最后一个 dr 时, 这两种情况 redraw, 因为不想费脑子重构 table, 
-           否则可以考虑非 redraw 的 incremental 的添加 simple plot 的方案
+        3. 鼠标建立第一个 dr 时, redraw 可以帮助建立好所有的列
         """
-        dpg.delete_item('hist sheet table', children_only=True) # clear old hist table before redraw
-        ncols = dpg.get_value('hist sheet 列数')
-        for icol in range(ncols):
-            dpg.add_table_column(parent='hist sheet table', label = f'{icol+1}列')
-        for grp_id, ddict in self.dict_dr.items():
-            if grp_id%ncols == 0:
-                thisRow = dpg.add_table_row(parent='hist sheet table')
-            with dpg.table_cell(parent=thisRow, tag= f'table cell-{grp_id}'):
-                if (ddict is not None): # leaves an empty table cell as place holder if ddict is None
-                    self.create_sp_for_existing_table_cell(grp_id)
-                    # freq_series, edge_min, edge_max = self._make_freq_series_from_grp(grp_id)
-                    # dpg.add_simple_plot(tag = f'sp-{grp_id}', width = -1, overlay = grp_id,
-                    #                     default_value=  freq_series, #yseries, 
-                    #                     histogram=True)
-                    # dpg.bind_item_theme(f'sp-{grp_id}', self.tab_10_spThemes[grp_id % 10])
-                    # dpg.add_text(f'{edge_min}-{edge_max}', tag = f'sp-xrange-{grp_id}')
-        self.set_sheet_sp_height_by_width()
+        with self.lock:
+            dpg.delete_item('hist sheet table', children_only=True) # clear old hist table before redraw
+            ncols = dpg.get_value('hist sheet 列数')
+            for icol in range(ncols):
+                dpg.add_table_column(parent='hist sheet table', label = f'{icol+1}列')
+            for grp_id, ddict in self.dict_dr.items():
+                if grp_id%ncols == 0:
+                    thisRow = dpg.add_table_row(parent='hist sheet table')
+                with dpg.table_cell(parent=thisRow, tag= f'table cell-{grp_id}'):
+                    if (ddict is not None): # leaves an empty table cell as place holder if ddict is None
+                        self.create_sp_for_existing_table_cell(grp_id)
+                        # freq_series, edge_min, edge_max = self._make_freq_series_from_grp(grp_id)
+                        # dpg.add_simple_plot(tag = f'sp-{grp_id}', width = -1, overlay = grp_id,
+                        #                     default_value=  freq_series, #yseries, 
+                        #                     histogram=True)
+                        # dpg.bind_item_theme(f'sp-{grp_id}', self.tab_10_spThemes[grp_id % 10])
+                        # dpg.add_text(f'{edge_min}-{edge_max}', tag = f'sp-xrange-{grp_id}')
+            self.set_sheet_sp_height_by_width()
     def redraw_hist_sheet_(self):
         """
         debug 专用
