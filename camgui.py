@@ -28,7 +28,7 @@ if __name__ == '__main__':
     import math
     import tifffile
     # from camguihelper import FrameDeck, st_workerf_flagged_do_all, collect_awg_params
-    from camguihelper.core import _log, _update_hist
+    from camguihelper.core import _log
     from camguihelper.utils import mkdir_session_frames, session_frames_root, camgui_params_root, find_newest_daypath_in_save_tree
     from camguihelper.dpghelper import (
         do_bind_my_default_global_theme,
@@ -973,27 +973,27 @@ repo: https://github.com/ltmsyvag/camera
                     return math.floor(num-0.5) + 0.5
                 def ceilHalfInt(num: float) -> float: # -0.6,-0.5 -> -0.5; 0.4,0.5 ->0.5, 0.6 - > 1.5
                     return math.ceil(num+0.5) - 0.5
-                def _update_hist_on_query_(sender, app_data, user_data):
-                    """
-                    log geometric centers of box selected pixels
-                        h->
-                      #1------+
-                    v  |      |
-                    ↓  +-----#2
-                    app_data: (h1, v1, h2, v2)
-                    """
-                    if app_data:
-                        h1, v1, h2, v2 = app_data[0]
-                        hLhRvLvR = hLlim, hRlim, vLlim, vRlim = ceilHalfInt(h1), floorHalfInt(h2), ceilHalfInt(v1), floorHalfInt(v2)
-                        if user_data and hLhRvLvR == user_data:
-                            pass
-                        else:
-                            dpg.set_item_user_data(framePlot, hLhRvLvR)
-                            if hLlim <= hRlim and vLlim <=vRlim: # make sure at least one pixel's geo center falls within the query rect
-                                _update_hist(hLhRvLvR, frame_deck)
-                    else: # this is only needed for the current query rect solution for hist udpates. actions from other items cannot check app_data of this item directly (usually dpg.get_value(item) can check the app_data of an item, but not for this very special query rect coordinates app_data belonging to the heatmap plot!), so they check the user_data of this item. since I mean to stop any histogram updating when no query rect is present, then this no-rect info is given by user_data = None of the heatmap plot.
-                        dpg.set_item_user_data(sender, None)
-                dpg.set_item_callback(framePlot, callback=_update_hist_on_query_)
+                # def _update_hist_on_query_(sender, app_data, user_data):
+                #     """
+                #     log geometric centers of box selected pixels
+                #         h->
+                #       #1------+
+                #     v  |      |
+                #     ↓  +-----#2
+                #     app_data: (h1, v1, h2, v2)
+                #     """
+                #     if app_data:
+                #         h1, v1, h2, v2 = app_data[0]
+                #         hLhRvLvR = hLlim, hRlim, vLlim, vRlim = ceilHalfInt(h1), floorHalfInt(h2), ceilHalfInt(v1), floorHalfInt(v2)
+                #         if user_data and hLhRvLvR == user_data:
+                #             pass
+                #         else:
+                #             dpg.set_item_user_data(framePlot, hLhRvLvR)
+                #             if hLlim <= hRlim and vLlim <=vRlim: # make sure at least one pixel's geo center falls within the query rect
+                #                 _update_hist(hLhRvLvR, frame_deck)
+                #     else: # this is only needed for the current query rect solution for hist udpates. actions from other items cannot check app_data of this item directly (usually dpg.get_value(item) can check the app_data of an item, but not for this very special query rect coordinates app_data belonging to the heatmap plot!), so they check the user_data of this item. since I mean to stop any histogram updating when no query rect is present, then this no-rect info is given by user_data = None of the heatmap plot.
+                #         dpg.set_item_user_data(sender, None)
+                # dpg.set_item_callback(framePlot, callback=_update_hist_on_query_)
                 #===本 checkbox 需要画在 plot 上面, 因此在 plot 后添加
                 dpg.add_checkbox(tag="toggle 积分/单张 map", pos = (0, 0))
                 @toggle_checkbox_and_disable(leftArr, rightArr, 
@@ -1007,23 +1007,25 @@ repo: https://github.com/ltmsyvag/camera
                 dpg.set_item_callback(dpg.last_item(), _toggle_cid_and_avg_map_)
                 with dpg.tooltip(dpg.last_item(), **ttpkwargs):
                     dpg.add_text("切换单帧/平均帧")
-    with dpg.window(label="直方图", tag=winHist, 
-                    width = 500, height =300):
-        dpg.add_input_int(
-            # pos=(80,35), 
-            tag = "hist binning input",label="hist binning", width=80,
-                        min_value=1, default_value=1, min_clamped=True)
-        with dpg.plot(tag="hist plot", 
-                    #   label = "hist", 
-                    height=-1, width=-1, no_mouse_pos=True):
-            dpg.add_plot_axis(dpg.mvXAxis, label = "converted counts ((<frame pixel counts>-200)*0.1/0.9)")
-            dpg.add_plot_axis(dpg.mvYAxis, label = "frequency", tag = "hist plot yax")
+    # with dpg.window(label="直方图", tag=winHist, 
+    #                 width = 500, height =300):
+    #     dpg.add_input_int(
+    #         # pos=(80,35), 
+    #         tag = "hist binning input",label="hist binning", width=80,
+    #                     min_value=1, default_value=1, min_clamped=True)
+        # with dpg.plot(tag="hist plot", 
+        #             #   label = "hist", 
+        #             height=-1, width=-1, no_mouse_pos=True):
+        #     dpg.add_plot_axis(dpg.mvXAxis, label = "converted counts ((<frame pixel counts>-200)*0.1/0.9)")
+        #     dpg.add_plot_axis(dpg.mvYAxis, label = "frequency", tag = "hist plot yax")
     with dpg.window(tag = winHistArr, label = '阵列直方图', width = 500, height=500):
         with dpg.group(horizontal=True):
             dpg.add_input_int(tag = 'hist sheet 列数', label = '列数', width = 100, 
                             default_value=10, max_value=64, max_clamped=True, min_value=1, min_clamped=True,
                             callback = lambda: frame_deck.redraw_hist_sheet())
-            dpg.add_button(label='总直方图')
+            dpg.add_input_int(tag = 'hist binning input',
+                label='hist binning', width = 80, default_value=1,
+                min_value=1, min_clamped=True, callback = lambda: frame_deck.update_hist_sheet())
         
         with dpg.table(tag = 'hist sheet table', header_row=True, clipper=False, 
                     #    freeze_columns= 1, 

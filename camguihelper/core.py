@@ -78,6 +78,24 @@ class FrameDeck(list):
 
         self.lock = threading.RLock()
         self.hsformat = '' # heat series format
+
+        # self.lst_hist_plots = [] # stores standalone hist plots
+        self.ihrTableCellText = dpg.add_item_handler_registry()
+        def bring_out_hist_plot(_, app_data, __):
+            _, textTag = app_data
+            textTag = dpg.get_item_alias(textTag)
+            grp_id: str = textTag.split('-')[-1]
+            winTag = 'window hist-' + grp_id
+            if dpg.does_item_exist(winTag):
+                dpg.configure_item(winTag, collapsed=False)
+                dpg.focus_item(winTag)
+            else:
+                with dpg.window(tag = winTag, label = grp_id, width = 500, height=300, on_close=lambda sender: dpg.delete_item(sender)):
+                    with dpg.plot(tag = 'plot hist-'+grp_id, no_mouse_pos=True, width=-1, height=-1):
+                        dpg.add_plot_axis(dpg.mvXAxis, label = 'converted counts ((<frame pixel counts>-200)*0.1/0.9)')
+                        dpg.add_plot_axis(dpg.mvYAxis, label = 'frequency', tag = 'yax hist-'+grp_id)
+                self._update_one_hist(int(grp_id))
+        dpg.add_item_double_clicked_handler(parent = self.ihrTableCellText, callback = bring_out_hist_plot)
     def memory_report(self) -> str:
         len_deck = len(self)
         if len_deck>0:
@@ -662,12 +680,6 @@ class FrameDeck(list):
         """
         hist data is just ONE series (NOT two) of any data, nothing more, the yax of hist is just the data frequency
         this func returns empty list when the group is empty (group ddict is None)
-        只在选区组不为 None 的时候使用, 因为本函数的目的本质上是更新 hist, 
-        如果 hist 选区不存在, 等价于 hist simple plot 不存在, 
-        在 hist sheet 上连作为 simple plot overlay 的组编号都不会有
-
-        本函数供 _update_one_hist 使用, 后者依靠 get_nonempty_grp_ids 获取需要更新的, 
-        必定存在的 simple plot id, 不会有任何问题
         """
         if not self: # 如果 frame deck 中无帧(无采集), 则返回空列表, 因为此时若 dr 存在, 则按照逻辑, 相应的 sp 也必须存在, 但是其内容为空, 也就是空列表
             return []
@@ -692,6 +704,10 @@ class FrameDeck(list):
             hist_series.append(selected_pixel_val_series.sum())
         return hist_series
     def _make_freq_series_from_grp(self, grp_id: int, binning: int = 1):
+        """
+        binning is one by default, maybe we add a field to change it in the future
+        """
+        binning = dpg.get_value('hist binning input')
         hist_series = self._get_hist_series_from_grp(grp_id)
         if not hist_series: # hist_series 为空只有一种可能: frame deck 为空. 此时 dr 组存在(否则根本不会调用本函数), 因此相应的 sp 也存在, 那么在 sp 中显示空数据 (主要目的还是为了在 sp 上显示选区编号的 overlay)
             freq_series, edge_min, edge_max = [], '', ''
@@ -710,16 +726,24 @@ class FrameDeck(list):
             """
             freq_series, _ =np.histogram(hist_series, bins= np.linspace(edge_min, edge_max, nbins+1))
             freq_series = freq_series.astype(float)
-        return freq_series, edge_min, edge_max
+        return freq_series, edge_min, edge_max, hist_series # hist_series aquisition can be expensive given thousands of frames, we return it so that it can be used in _update_one_hist together with frequency_series
 
     def _update_one_hist(self, grp_id: int):
         with self.lock:
-            freq_series, edge_min, edge_max = self._make_freq_series_from_grp(grp_id)
+            freq_series, edge_min, edge_max, hist_series = self._make_freq_series_from_grp(grp_id)
             dpg.set_value(f'sp-{grp_id}', freq_series)
             dpg.set_value(f'sp-xrange-{grp_id}', f'{edge_min}-{edge_max}')
+            plotYax = f'yax hist-{grp_id}'
+            if dpg.does_item_exist(plotYax):
+                dpg.delete_item(plotYax, children_only=True)
+                dpg.add_histogram_series(
+                    hist_series, parent=plotYax,bins = len(freq_series), 
+                    min_range = edge_min, max_range = edge_max,
+                    )
     def update_hist_sheet(self):
-        for grp_id in self.get_nonempty_grp_ids():
-            self._update_one_hist(grp_id)
+        with self.lock:
+            for grp_id in self.get_nonempty_grp_ids():
+                self._update_one_hist(grp_id)
     @staticmethod
     def _get_single_sp_width():
         width, height = dpg.get_item_rect_size('hist sheet window')
@@ -732,7 +756,7 @@ class FrameDeck(list):
         with self.lock:
             cellAlias = f'table cell-{grp_id}'
             spAlias = f'sp-{grp_id}'
-            freq_series, edge_min, edge_max = self._make_freq_series_from_grp(grp_id)
+            freq_series, edge_min, edge_max, _ = self._make_freq_series_from_grp(grp_id)
             dpg.add_simple_plot(parent = cellAlias, tag = spAlias,
                                 width=-1, overlay=grp_id, 
                                 default_value= freq_series, histogram=True)
@@ -740,6 +764,7 @@ class FrameDeck(list):
             dpg.configure_item(spAlias, height= self._get_single_sp_width()) # set sp height, hist sheet window resize handler will take care of the sp resize from then on
             dpg.add_text(f'{edge_min}-{edge_max}', parent = cellAlias,
                         tag = f'sp-xrange-{grp_id}')
+            dpg.bind_item_handler_registry(dpg.last_item(), self.ihrTableCellText)
         
     def redraw_hist_sheet(self):
         """
@@ -759,34 +784,28 @@ class FrameDeck(list):
                 with dpg.table_cell(parent=thisRow, tag= f'table cell-{grp_id}'):
                     if (ddict is not None): # leaves an empty table cell as place holder if ddict is None
                         self.create_sp_for_existing_table_cell(grp_id)
-                        # freq_series, edge_min, edge_max = self._make_freq_series_from_grp(grp_id)
-                        # dpg.add_simple_plot(tag = f'sp-{grp_id}', width = -1, overlay = grp_id,
-                        #                     default_value=  freq_series, #yseries, 
-                        #                     histogram=True)
-                        # dpg.bind_item_theme(f'sp-{grp_id}', self.tab_10_spThemes[grp_id % 10])
-                        # dpg.add_text(f'{edge_min}-{edge_max}', tag = f'sp-xrange-{grp_id}')
             self.set_sheet_sp_height_by_width()
-    def redraw_hist_sheet_(self):
-        """
-        debug 专用
-        """
-        yseries = np.sin(np.linspace(0,2*np.pi,101))**2
-        # yseries = []
-        dpg.delete_item('hist sheet table', children_only=True) # clear old hist table before redraw
-        ncols = dpg.get_value('hist sheet 列数')
-        for icol in range(ncols):
-            dpg.add_table_column(parent='hist sheet table', label = f'{icol+1}列')
-        for grp_id, ddict in self.dict_dr.items():
-            if grp_id%ncols == 0:
-                thisRow = dpg.add_table_row(parent='hist sheet table')
-            with dpg.table_cell(parent=thisRow, tag= f'table cell-{grp_id}'):
-                if ddict is not None: # leaves an empty table cell as place holder if ddict is None
-                    dpg.add_simple_plot(tag = f'sp-{grp_id}', width = -1, overlay = grp_id,
-                                        default_value= yseries, histogram=True)
+    # def redraw_hist_sheet_(self):
+    #     """
+    #     debug 专用
+    #     """
+    #     yseries = np.sin(np.linspace(0,2*np.pi,101))**2
+    #     # yseries = []
+    #     dpg.delete_item('hist sheet table', children_only=True) # clear old hist table before redraw
+    #     ncols = dpg.get_value('hist sheet 列数')
+    #     for icol in range(ncols):
+    #         dpg.add_table_column(parent='hist sheet table', label = f'{icol+1}列')
+    #     for grp_id, ddict in self.dict_dr.items():
+    #         if grp_id%ncols == 0:
+    #             thisRow = dpg.add_table_row(parent='hist sheet table')
+    #         with dpg.table_cell(parent=thisRow, tag= f'table cell-{grp_id}'):
+    #             if ddict is not None: # leaves an empty table cell as place holder if ddict is None
+    #                 dpg.add_simple_plot(tag = f'sp-{grp_id}', width = -1, overlay = grp_id,
+    #                                     default_value= yseries, histogram=True)
 
-                    dpg.bind_item_theme(f'sp-{grp_id}', self.tab_10_spThemes[grp_id % 10])
-                    dpg.add_text('0-100')
-        self.set_sheet_sp_height_by_width()
+    #                 dpg.bind_item_theme(f'sp-{grp_id}', self.tab_10_spThemes[grp_id % 10])
+    #                 dpg.add_text('0-100')
+    #     self.set_sheet_sp_height_by_width()
 
 def find_latest_camguiparams_json() ->MyPath:
     dpath_day = find_newest_daypath_in_save_tree(camgui_params_root)
@@ -821,28 +840,28 @@ def ZYLconversion(frame: np.ndarray)->np.ndarray:
     frame = (frame -200) * 0.1/0.9
     return frame
 
-def _update_hist(hLhRvLvR: tuple, frame_deck: FrameDeck, yax = "hist plot yax")->None:
-    """
-    hLhRvLvR 保存了一个矩形选区所包裹的像素中心点坐标（只能是半整数）h 向最小最大值和 v 向最小最大值。
-    这些值确定了所选取的像素集合。然后，在此选择基础上将 frame deck 中的每一张 frame 在该选区中的部分的 counts 求得，
-    加入 histdata 数据列表
-    """
-    hLlim, hRlim, vLlim, vRlim = hLhRvLvR
-    vidLo, vidHi = math.floor(vLlim), math.floor(vRlim)
-    hidLo, hidHi = math.floor(hLlim), math.floor(hRlim)
-    histData = []
-    for frame in frame_deck.float_deck: # make hist data
-        frame = ZYLconversion(frame)
-        subFrame = frame[vidLo:vidHi+1, hidLo:hidHi+1]
-        histData.append(subFrame.sum())
-    dpg.delete_item(yax,children_only=True) # delete old hist, then get some hist params for new plot
-    binning = dpg.get_value('hist binning input')
-    theMinInt, theMaxInt = math.floor(min(histData)), math.floor(max(histData))
-    nBins = (theMaxInt-theMinInt)//binning + 1
-    max_range = theMinInt + nBins*binning
-    dpg.add_histogram_series(
-        histData, parent = yax, bins =nBins, 
-        min_range=theMinInt,max_range=max_range)
+# def _update_hist(hLhRvLvR: tuple, frame_deck: FrameDeck, yax = "hist plot yax")->None:
+#     """
+#     hLhRvLvR 保存了一个矩形选区所包裹的像素中心点坐标（只能是半整数）h 向最小最大值和 v 向最小最大值。
+#     这些值确定了所选取的像素集合。然后，在此选择基础上将 frame deck 中的每一张 frame 在该选区中的部分的 counts 求得，
+#     加入 histdata 数据列表
+#     """
+#     hLlim, hRlim, vLlim, vRlim = hLhRvLvR
+#     vidLo, vidHi = math.floor(vLlim), math.floor(vRlim)
+#     hidLo, hidHi = math.floor(hLlim), math.floor(hRlim)
+#     histData = []
+#     for frame in frame_deck.float_deck: # make hist data
+#         frame = ZYLconversion(frame)
+#         subFrame = frame[vidLo:vidHi+1, hidLo:hidHi+1]
+#         histData.append(subFrame.sum())
+#     dpg.delete_item(yax,children_only=True) # delete old hist, then get some hist params for new plot
+#     binning = dpg.get_value('hist binning input')
+#     theMinInt, theMaxInt = math.floor(min(histData)), math.floor(max(histData))
+#     nBins = (theMaxInt-theMinInt)//binning + 1
+#     max_range = theMinInt + nBins*binning
+#     dpg.add_histogram_series(
+#         histData, parent = yax, bins =nBins, 
+#         min_range=theMinInt,max_range=max_range)
 
 def st_workerf_flagged_do_all(
     cam: DCAM.DCAM.DCAMCamera,
