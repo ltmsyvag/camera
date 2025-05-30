@@ -642,17 +642,17 @@ repo: https://github.com/ltmsyvag/camera
                 fldSavePath = dpg.add_input_text(tag="save path input field",
                             hint="path to save tiff, e.g. C:\\Users\\username\\Desktop\\",
                             )
-                dpg.add_menu_item(label = "保存内存中的当前帧到指定路径")
+                dpg.add_menu_item(label = "保存已绘制的当前帧到指定路径")
                 dpg.set_item_callback(dpg.last_item(), lambda: frame_deck.save_cid_frame())
                 #=============================
-                dpg.add_menu_item(label = "保存内存中的所有帧到指定路径")
+                dpg.add_menu_item(label = "保存已绘制的所有帧到指定路径")
                 dpg.set_item_callback(dpg.last_item(), lambda: frame_deck.save_deck())
                 #================================
-                dpg.add_menu_item(label = "清空内存中的帧")
+                dpg.add_menu_item(label = "清空内存中已绘制的帧")
                 dpg.set_item_callback(dpg.last_item(),
                                         factory_cb_yn_modal_dialog(
                                             cb_on_confirm=frame_deck.clear_deck,
-                                            dialog_text='确认要清空内存中的所有帧吗?'))
+                                            dialog_text='确认要从内存中清空已绘制的所有帧吗?'))
             #=========================
             dpg.add_menu_item(label = "载入帧", callback=lambda: dpg.show_item(fileDialog))
             with dpg.menu(label = "热图主题"):
@@ -1282,7 +1282,7 @@ repo: https://github.com/ltmsyvag/camera
         t_mt_remote_buffer_feeder.start()
         t_mp_remote_buffer_feeder = threading.Thread(target = _mp_workerf_dummy_remote_buffer_feeder, args=(_mp_dummy_remote_buffer,))
         t_mp_remote_buffer_feeder.start()
-    # dpg.show_style_editor()
+    dpg.show_style_editor()
     # dpg.show_debug()
     # dpg.show_item_registry()
     dpg.setup_dearpygui()

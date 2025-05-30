@@ -79,7 +79,6 @@ class FrameDeck(list):
         self.lock = threading.RLock()
         self.hsformat = '' # heat series format
 
-        # self.lst_hist_plots = [] # stores standalone hist plots
         self.ihrTableCellText = dpg.add_item_handler_registry()
         def bring_out_hist_plot(_, app_data, __):
             _, textTag = app_data
@@ -92,9 +91,43 @@ class FrameDeck(list):
             else:
                 with dpg.window(tag = winTag, label = grp_id, width = 500, height=300, on_close=lambda sender: dpg.delete_item(sender)):
                     with dpg.plot(tag = 'plot hist-'+grp_id, no_mouse_pos=True, width=-1, height=-1):
+                        dpg.bind_colormap(dpg.last_item(), dict_cmap_tab20_segmented[int(grp_id)%10])
                         dpg.add_plot_axis(dpg.mvXAxis, label = 'converted counts ((<frame pixel counts>-200)*0.1/0.9)')
                         dpg.add_plot_axis(dpg.mvYAxis, label = 'frequency', tag = 'yax hist-'+grp_id)
                 self._update_one_hist(int(grp_id))
+        tab20_colors = ((0.12156862745098039, 0.4666666666666667, 0.7058823529411765),
+                        (0.6823529411764706, 0.7803921568627451, 0.9098039215686274),
+                        (1.0, 0.4980392156862745, 0.054901960784313725),
+                        (1.0, 0.7333333333333333, 0.47058823529411764),
+                        (0.17254901960784313, 0.6274509803921569, 0.17254901960784313),
+                        (0.596078431372549, 0.8745098039215686, 0.5411764705882353),
+                        (0.8392156862745098, 0.15294117647058825, 0.1568627450980392),
+                        (1.0, 0.596078431372549, 0.5882352941176471),
+                        (0.5803921568627451, 0.403921568627451, 0.7411764705882353),
+                        (0.7725490196078432, 0.6901960784313725, 0.8352941176470589),
+                        (0.5490196078431373, 0.33725490196078434, 0.29411764705882354),
+                        (0.7686274509803922, 0.611764705882353, 0.5803921568627451),
+                        (0.8901960784313725, 0.4666666666666667, 0.7607843137254902),
+                        (0.9686274509803922, 0.7137254901960784, 0.8235294117647058),
+                        (0.4980392156862745, 0.4980392156862745, 0.4980392156862745),
+                        (0.7803921568627451, 0.7803921568627451, 0.7803921568627451),
+                        (0.7372549019607844, 0.7411764705882353, 0.13333333333333333),
+                        (0.8588235294117647, 0.8588235294117647, 0.5529411764705883),
+                        (0.09019607843137255, 0.7450980392156863, 0.8117647058823529),
+                        (0.6196078431372549, 0.8549019607843137, 0.8980392156862745))
+        dict_cmap_tab20_segmented = dict()
+        with dpg.colormap_registry(): # 两个一组, 将 tab20 分成十份. 每个 cmap 的两种深, 浅颜色将在 hist plot 刷新时来回切换, 以明确 update 进程
+            dict_cmap_tab20_segmented[0] = dpg.mvPoltColormap_tab20seg0 = dpg.add_colormap([[int(r*255), int(g*255), int(b*255), 255] for (r,g,b) in tab20_colors[:2]], qualitative=True)
+            dict_cmap_tab20_segmented[1] = dpg.mvPoltColormap_tab20seg1 = dpg.add_colormap([[int(r*255), int(g*255), int(b*255), 255] for (r,g,b) in tab20_colors[2:4]], qualitative=True)
+            dict_cmap_tab20_segmented[2] = dpg.mvPoltColormap_tab20seg2 = dpg.add_colormap([[int(r*255), int(g*255), int(b*255), 255] for (r,g,b) in tab20_colors[4:6]], qualitative=True)
+            dict_cmap_tab20_segmented[3] = dpg.mvPoltColormap_tab20seg3 = dpg.add_colormap([[int(r*255), int(g*255), int(b*255), 255] for (r,g,b) in tab20_colors[6:8]], qualitative=True)
+            dict_cmap_tab20_segmented[4] = dpg.mvPoltColormap_tab20seg4 = dpg.add_colormap([[int(r*255), int(g*255), int(b*255), 255] for (r,g,b) in tab20_colors[8:10]], qualitative=True)
+            dict_cmap_tab20_segmented[5] = dpg.mvPoltColormap_tab20seg5 = dpg.add_colormap([[int(r*255), int(g*255), int(b*255), 255] for (r,g,b) in tab20_colors[10:12]], qualitative=True)
+            dict_cmap_tab20_segmented[6] = dpg.mvPoltColormap_tab20seg6 = dpg.add_colormap([[int(r*255), int(g*255), int(b*255), 255] for (r,g,b) in tab20_colors[12:14]], qualitative=True)
+            dict_cmap_tab20_segmented[7] = dpg.mvPoltColormap_tab20seg7 = dpg.add_colormap([[int(r*255), int(g*255), int(b*255), 255] for (r,g,b) in tab20_colors[14:16]], qualitative=True)
+            dict_cmap_tab20_segmented[8] = dpg.mvPoltColormap_tab20seg8 = dpg.add_colormap([[int(r*255), int(g*255), int(b*255), 255] for (r,g,b) in tab20_colors[16:18]], qualitative=True)
+            dict_cmap_tab20_segmented[9] = dpg.mvPoltColormap_tab20seg9 = dpg.add_colormap([[int(r*255), int(g*255), int(b*255), 255] for (r,g,b) in tab20_colors[18:]], qualitative=True)
+
         dpg.add_item_double_clicked_handler(parent = self.ihrTableCellText, callback = bring_out_hist_plot)
     def memory_report(self) -> str:
         len_deck = len(self)
@@ -104,7 +137,7 @@ class FrameDeck(list):
             size = mbsize_int_frames + mbsize_float_frames
         else:
             size = 0
-        return  f"内存: {len_deck} 帧 ({size:.2f} MB)"
+        return  f"已绘制: {len_deck} 帧 ({size:.2f} MB); 缓存中: {_local_buffer.qsize()} 帧"
     @staticmethod
     def _make_savename_stub():
         """
@@ -158,9 +191,9 @@ class FrameDeck(list):
                     except Exception:
                         push_exception(f"帧 #{i} 保存失败.")
                     
-                push_log('全部帧保存成功', is_good=True)
+                push_log('已绘制的全部帧保存成功', is_good=True)
             else:
-                push_log('内存中没有任何帧', is_error=True)
+                push_log('没有任何已绘制的帧可供保存', is_error=True)
     def save_cid_frame(self)->None:
         """
         保存 cid 指向的 frame, 并 push 成功/失败 message
@@ -172,11 +205,11 @@ class FrameDeck(list):
                 try:
                     tifffile.imwrite(fpath, self[self.cid])
                 except Exception:
-                    push_exception('当前帧保存失败')
+                    push_exception('当前已绘制帧保存失败')
                     return
-                push_log('当前帧保存成功', is_good=True)
+                push_log('当前已绘制帧保存成功', is_good=True)
             else:
-                push_log('内存中没有任何帧', is_error=True)
+                push_log('没有任何已绘制的帧可供保存', is_error=True)
     def _find_lastest_sesframes_folder_and_save_frame(self)-> str:
         with self.lock:
             dpath_ses = find_latest_sesframes_folder() # produces UserInterrupt if folder seeking fails
@@ -318,7 +351,7 @@ class FrameDeck(list):
             self._plot_frame(frame, yaxSlave, yaxMaster)
             for yax in [yaxSlave, yaxMaster]:
                 thePlot = dpg.get_item_parent(yax)
-                dpg.configure_item(thePlot, label = '内存所有帧平均')
+                dpg.configure_item(thePlot, label = '已绘制所有帧的平均')
     def plot_cid_frame(self, yaxSlave= 'frame yax', yaxMaster = 'rects yax'):
         """
         与 plot_avg_frame 一起都是 绘制 main heatmap 的方法
@@ -628,7 +661,9 @@ class FrameDeck(list):
             self.dict_dr[grp_id] = None
             if update_hist_p:
                 dpg.delete_item(f'table cell-{grp_id}', children_only=True)
-                # TODO delete also associated plot (if exists) of this simple plot
+                winTag = f'window hist-{grp_id}'
+                if dpg.does_item_exist(winTag):
+                    dpg.delete_item(winTag)
     def remove_dr_from_loc(self, x_mouse: float, y_mouse: float, update_hist_p= True):
         for grp_id, ddict in self.dict_dr.items():
             if ddict is not None: # skip empty groups
@@ -653,10 +688,14 @@ class FrameDeck(list):
 
     def clear_dr(self): # 不要用 get_all_dr_tags 来做, 因为 clear dr 的过程需要将相应的选取组设为 None
         for grp_id, ddict in self.dict_dr.items():
-            if ddict is not None:
+            if ddict is not None: # nonempty group
                 for drTag in ddict['grp dr df'].values.flatten():
                     dpg.delete_item(drTag)
                 self.dict_dr[grp_id] = None
+                # clear standalone hist windows if any
+                winTag = f'window hist-{grp_id}'
+                if dpg.does_item_exist(winTag):
+                    dpg.delete_item(winTag)
         self.dq100.clear()
         self.redraw_hist_sheet() # effectively clear all simple plots
     @deprecated
@@ -737,9 +776,11 @@ class FrameDeck(list):
             if dpg.does_item_exist(plotYax):
                 dpg.delete_item(plotYax, children_only=True)
                 dpg.add_histogram_series(
-                    hist_series, parent=plotYax,bins = len(freq_series), 
-                    min_range = edge_min, max_range = edge_max,
+                    hist_series, parent=plotYax,
+                    # bins = len(freq_series), min_range = edge_min, max_range = edge_max,
                     )
+                if hist_series: # 为预防用户在空 deck 情况下打开 hist plot, 这些需要实际 hist 数据的 plot 设置全部在 check 后再添加
+                    dpg.configure_item(dpg.last_item(), bins = len(freq_series), min_range=edge_min, max_range = edge_max)
     def update_hist_sheet(self):
         with self.lock:
             for grp_id in self.get_nonempty_grp_ids():
