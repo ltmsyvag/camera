@@ -101,14 +101,11 @@ if __name__ == '__main__':
                                     factory_cb_yn_modal_dialog(
                                         dialog_text=
                                         """\
-添加直方图选区:
-- 添加一个: ctrl + 左键
-
-删除直方图选区:
-- 删除一个: alt + 左键
-- 全部删除: F11
-
-显示/隐藏选取组编号: F12
+F1 :: 显示/隐藏像素值
+ctrl + 鼠标左键 :: 添加一个 1x1 直方图选区
+alt + 鼠标左键 :: 删除一个直方图选区
+F11 :: 删除全部直方图选区
+F12 :: 显示/隐藏直方图选区编号
 """, 
                                         win_label='帮助', just_close=True))
             dpg.add_menu_item(label = '关于')
@@ -1282,7 +1279,7 @@ repo: https://github.com/ltmsyvag/camera
         t_mt_remote_buffer_feeder.start()
         t_mp_remote_buffer_feeder = threading.Thread(target = _mp_workerf_dummy_remote_buffer_feeder, args=(_mp_dummy_remote_buffer,))
         t_mp_remote_buffer_feeder.start()
-    dpg.show_style_editor()
+    # dpg.show_style_editor()
     # dpg.show_debug()
     # dpg.show_item_registry()
     dpg.setup_dearpygui()
