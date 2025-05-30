@@ -38,13 +38,13 @@ import colorsys
 import tifffile
 from .utils import MyPath, UserInterrupt, camgui_params_root, _mk_save_tree_from_root_to_day, find_latest_sesframes_folder, find_newest_daypath_in_save_tree
 import dearpygui.dearpygui as dpg
-import platform
+# import platform
 import uuid
-system = platform.system()
-if (system == "Windows") and (hex(uuid.getnode()) != '0xf4ce2305b4c7'): # code is A402 computer
-    import spcm
-    from AWG_module.no_with_func import DDSRampController
-    from AWG_module.unified import feed_AWG
+# system = platform.system()
+# if (system == "Windows") and (hex(uuid.getnode()) != '0xf4ce2305b4c7'): # code is A402 computer
+import spcm
+from AWG_module.no_with_func import DDSRampController
+from AWG_module.unified import feed_AWG
 
 class FrameDeck(list):
     """
@@ -908,7 +908,7 @@ def st_workerf_flagged_do_all(
     cam: DCAM.DCAM.DCAMCamera,
     flag: threading.Event,
     frame_deck: FrameDeck,
-    controller # : DDSRampController, # type is DDSRampController, not hinted because it acts funny on macOS
+    controller : DDSRampController, # type is DDSRampController, not hinted because it acts funny on macOS
     )-> None:
     """
     single-thread approach worker function which is flagged and does everythig:
@@ -1017,7 +1017,7 @@ def consumerf_local_buffer(
 def mt_producerf_polling_do_snag_rearrange_deposit(
         cam: DCAM.DCAM.DCAMCamera,
         flag: threading.Event,
-        controller, # type is DDSRampController, not hinted because it acts funny on macOS
+        controller : DDSRampController, # type is DDSRampController, not hinted because it acts funny on macOS
         local_buffer: queue.SimpleQueue = _local_buffer,
         )->None:
     """

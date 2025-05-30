@@ -45,7 +45,7 @@ if __name__ == '__main__':
     # in dpginit.init you should see exatly 5 windows after the initial debug window
     winCtrlPanels = dpg.generate_uuid() # need to generate win tags first thing to work with init file
     winFramePreview = dpg.generate_uuid()
-    winHist = dpg.generate_uuid()
+    # winHist = dpg.generate_uuid()
     winHistArr = dpg.generate_uuid()
     winTgtArr = dpg.generate_uuid()
     # queryWin2 = dpg.generate_uuid()
@@ -75,10 +75,10 @@ if __name__ == '__main__':
                 dpg.focus_item(winFramePreview)
             dpg.set_item_callback(dpg.last_item(), _show_and_highlight_win)
             #=============================
-            dpg.add_menu_item(label='显示直方图窗口')
+            dpg.add_menu_item(label='显示直方图阵列窗口')
             def _show_and_highlight_win(*cbargs):
-                dpg.configure_item(winHist, show=True, collapsed = False)
-                dpg.focus_item(winHist)
+                dpg.configure_item(winHistArr, show=True, collapsed = False)
+                dpg.focus_item(winHistArr)
             dpg.set_item_callback(dpg.last_item(), _show_and_highlight_win)
         with dpg.menu(label='并发方式') as menuConcurrency:
             def _set_exclusive_True(sender, *args):
@@ -118,7 +118,7 @@ camgui {camgui_ver} for A105
 repo: https://github.com/ltmsyvag/camera
                                         """, 
                                         win_label='info', just_close=True))
-    dummy_acq = True # 假采集代码的总开关
+    dummy_acq = False # 假采集代码的总开关
     if dummy_acq:
         _mp_dummy_remote_buffer = multiprocessing.Queue() # mp dummy remote buffer 必须在主脚本中创建, 才能确保 mp dummy buffer feeder 和 mp producer 所用的 Queue 对象是同一个
     with dpg.window(label= '控制面板', tag = winCtrlPanels):
