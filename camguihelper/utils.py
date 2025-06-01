@@ -48,7 +48,7 @@ class MyPath(Path):
     def is_executable(self):
         return os.access(self, os.X_OK)
 
-session_data_root = MyPath("Z:/实验数据/session_data_root")
+session_data_root = MyPath("session_data_root")
 session_frames_root = session_data_root / "session_frames"
 # 未来还会有一个 session_params_root, 用于存放 session manager 面板数据, 只有 session_frames_root 和 session_params_root 可以用 session 这个前缀, 其他任何仪器软件保存的面板数据都不应该以 session 做前缀
 camgui_params_root = session_data_root / "camgui_params"

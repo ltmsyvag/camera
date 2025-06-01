@@ -86,7 +86,7 @@ class FrameDeck(list):
                 dpg.configure_item(winTag, collapsed=False)
                 dpg.focus_item(winTag)
             else:
-                with dpg.window(tag = winTag, label = grp_id, width = 500, height=300, on_close=lambda sender: dpg.delete_item(sender)):
+                with dpg.window(tag = winTag, label = grp_id, width = 500, height=300, on_close=lambda sender: dpg.delete_item(sender), no_saved_settings=True):
                     with dpg.plot(tag = 'plot hist-'+grp_id, no_mouse_pos=True, width=-1, height=-1):
                         dpg.bind_colormap(dpg.last_item(), dict_cmap_tab20_segmented[int(grp_id)%10])
                         dpg.add_plot_axis(dpg.mvXAxis, label = 'converted counts ((<frame pixel counts>-200)*0.1/0.9)')

@@ -824,13 +824,14 @@ repo: https://github.com/ltmsyvag/camera
                     inputInt = dpg.generate_uuid(),
                     radioBtn = dpg.generate_uuid(),
                     cBox = dpg.generate_uuid())
-                def _on_close(sender, *args):
+                def _on_close(sender, _, user_data):
                     """
                     window 的 on close callback 貌似不同于普通 callback, 只能在创建 window 时设置, 
                     因此这里将这个 callback 定义在先
                     """
                     frame_deck.lst_dupe_maps.remove(dupe_map)
                     dpg.delete_item(sender)
+                    dpg.delete_item(user_data['ihr'])
                     for ddict in frame_deck.dict_dr.values():
                         if ddict is not None:
                             ddict['grp dr df'].drop(
@@ -838,7 +839,9 @@ repo: https://github.com/ltmsyvag/camera
                                 inplace=True)
                 with dpg.window(width=300, height=300, on_close=_on_close,
                                 label = f"#{next(gen_dupemap_label)}",
-                                no_saved_settings=True):
+                                no_saved_settings=True,
+                                user_data = {'ihr' : None} # early reminder for the user data (window item handler registry to be deleted after window close) to be added as user_data later
+                                ) as thisWin:
                     frame_deck.lst_dupe_maps.append(dupe_map)
                     with dpg.group(horizontal=True) as _grp:
                         #==============================
@@ -895,8 +898,10 @@ repo: https://github.com/ltmsyvag/camera
                             lst_axes.append(xAxMstr)
                             lst_axes.append(dupe_map.yAxMstr)
                         dpg.bind_item_theme(dupe_map.pltMstr, thmTranspBGforMaster)
-                        dpg.bind_item_handler_registry(
-                            dupe_map.pltMstr, factory_ihr_master_plot(*lst_axes))
+                        thisIhr = factory_ihr_master_plot(*lst_axes)
+                        dpg.bind_item_handler_registry(dupe_map.pltMstr, thisIhr)
+                        thisWinDict = dpg.get_item_user_data(thisWin)
+                        thisWinDict['ihr'] = thisIhr
                         #======================
                         dpg.add_checkbox(pos = (0,0), tag = dupe_map.cBox) # 要画在 plot 上, 所以在 plot 后添加
                         @toggle_checkbox_and_disable(_grp)
@@ -989,13 +994,8 @@ repo: https://github.com/ltmsyvag/camera
                 min_value=1, min_clamped=True, callback = lambda: frame_deck.update_hist_sheet())
         
         with dpg.table(tag = 'hist sheet table', header_row=True, clipper=False, 
-                    #    freeze_columns= 1, 
                        freeze_rows = 1, # scrollY 必须为 True, 该 freeze 才有效, freeze_rows 同理
-                    #    policy=dpg.mvTable_SizingFixedFit
-                    scrollY=True,
-                    # row_background=True,
-                    # scrollX=True,
-                       ) as histTable:
+                    scrollY=True,) as histTable:
             pass
     dpg.add_alias('hist sheet window', winHistArr) 
     with dpg.item_handler_registry() as ihrWinHistArr:
