@@ -119,7 +119,7 @@ camgui {camgui_ver} for A105
 repo: https://github.com/ltmsyvag/camera
                                         """, 
                                         win_label='info', just_close=True))
-    dummy_acq = False # 假采集代码的总开关
+    dummy_acq = True # 假采集代码的总开关
     if dummy_acq:
         _mp_dummy_remote_buffer = multiprocessing.Queue() # mp dummy remote buffer 必须在主脚本中创建, 才能确保 mp dummy buffer feeder 和 mp producer 所用的 Queue 对象是同一个
     with dpg.window(label= '控制面板', tag = winCtrlPanels):
@@ -921,7 +921,7 @@ repo: https://github.com/ltmsyvag/camera
                                 parent = dupe_map.pltMstr,
                                 default_value=dpg.get_value(drTag),
                                 delayed = True,
-                                callback = frame_deck.snap_grid_sync_series_dr_update_grp_fence
+                                callback = frame_deck.sync_dr_series_update_mrh
                                 )
                             for drTag in dr_row]
                         for this_drTag, this_uuid in zip(lst_dr_in_this_dupemap, df.columns):
@@ -1055,8 +1055,14 @@ repo: https://github.com/ltmsyvag/camera
         # dpg.add_key_press_handler(dpg.mvKey_F2, callback = lambda: frame_deck.update_hist_sheet())
         #=====================================
         mouse_down_flag = threading.Event()
-        dpg.add_mouse_click_handler(
-            callback=lambda: mouse_down_flag.set() )
+        """
+        mouse 被按下时 set 的 flag, 用于让 focus_queryWin2 check 后判断是否 focus queryWin2.
+        因为 focus 这个行为会阻断用户正在进行的热图拖拽, 乃至于其他鼠标行为. 因此只有判定用户没有按下鼠标时,
+        才进行 queryWin2 focus. 这里我们不用 threading.Event() 的任何阻塞功能,
+        focus_queryWin2 的半秒一次的 lazy polling 不会造成系统负担, 但是原则上我们加上阻塞应该也无所谓,
+        甚至是 best practice
+        """
+        dpg.add_mouse_click_handler(callback=lambda: mouse_down_flag.set())
         #=======================================
         dpg.add_mouse_release_handler(tag= 'mouse release handler', 
                                         user_data={'dr being dragged': None})
@@ -1064,7 +1070,7 @@ repo: https://github.com/ltmsyvag/camera
             mouse_down_flag.clear()
             snap_dr_series_being_dragged_and_update_hist(_, __, user_data)
 
-        def snap_dr_series_being_dragged_and_update_hist(_,__, user_data):
+        def snap_dr_series_being_dragged_and_update_hist(_, __, user_data):
             thisDr = user_data['dr being dragged']
             if thisDr is not None:
                 grp_id, series_uuid = dpg.get_item_user_data(thisDr)
@@ -1261,7 +1267,7 @@ repo: https://github.com/ltmsyvag/camera
                                 time.sleep(0.5) # lazy polling, save cpu cycles
                                 if not mouse_down_flag.is_set():
                                     if dpg.does_item_exist(queryWin2):
-                                        if dpg.get_active_window()!=queryWin2:
+                                        if dpg.get_active_window() != queryWin2: # 在 busy polling 的情况下, 每一帧的 focus_item 会让用户无法与 GUI 进行任何互动, 此时本 check 让用户可以与 focus 的窗口互动. 如果再加上 busy polling, 那事实上就做成了一个“逼迫”用户与之互动的窗口(不关闭, 则无法与其他 gui 元素互动)
                                             dpg.focus_item(queryWin2)
                                     else:
                                         break
