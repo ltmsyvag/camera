@@ -515,26 +515,26 @@ repo: https://github.com/ltmsyvag/camera
         dpg.add_input_text(tag = "target array binary text input",
             multiline= True, width=-1,height=-1,
             default_value="""\
-    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
-    0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0""")
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0""")
 
     try: 
         _default_path = find_newest_daypath_in_save_tree(session_frames_root)
@@ -967,32 +967,6 @@ repo: https://github.com/ltmsyvag/camera
                     for ax in ["frame xax", "frame yax", rectsXax, rectsYax]:
                         dpg.set_axis_limits_auto(ax)
                 dpg.set_frame_callback(2, _do_loosen_initial_lims) # seems this is the only way to set the initial limits
-                def floorHalfInt(num: float) -> float: # 0.6, 0.5 -> 0.5; 0.4 -> -0.5
-                    return math.floor(num-0.5) + 0.5
-                def ceilHalfInt(num: float) -> float: # -0.6,-0.5 -> -0.5; 0.4,0.5 ->0.5, 0.6 - > 1.5
-                    return math.ceil(num+0.5) - 0.5
-                # def _update_hist_on_query_(sender, app_data, user_data):
-                #     """
-                #     log geometric centers of box selected pixels
-                #         h->
-                #       #1------+
-                #     v  |      |
-                #     ↓  +-----#2
-                #     app_data: (h1, v1, h2, v2)
-                #     """
-                #     if app_data:
-                #         h1, v1, h2, v2 = app_data[0]
-                #         hLhRvLvR = hLlim, hRlim, vLlim, vRlim = ceilHalfInt(h1), floorHalfInt(h2), ceilHalfInt(v1), floorHalfInt(v2)
-                #         if user_data and hLhRvLvR == user_data:
-                #             pass
-                #         else:
-                #             dpg.set_item_user_data(framePlot, hLhRvLvR)
-                #             if hLlim <= hRlim and vLlim <=vRlim: # make sure at least one pixel's geo center falls within the query rect
-                #                 _update_hist(hLhRvLvR, frame_deck)
-                #     else: # this is only needed for the current query rect solution for hist udpates. actions from other items cannot check app_data of this item directly (usually dpg.get_value(item) can check the app_data of an item, but not for this very special query rect coordinates app_data belonging to the heatmap plot!), so they check the user_data of this item. since I mean to stop any histogram updating when no query rect is present, then this no-rect info is given by user_data = None of the heatmap plot.
-                #         dpg.set_item_user_data(sender, None)
-                # dpg.set_item_callback(framePlot, callback=_update_hist_on_query_)
-                #===本 checkbox 需要画在 plot 上面, 因此在 plot 后添加
                 dpg.add_checkbox(tag="toggle 积分/单张 map", pos = (0, 0))
                 @toggle_checkbox_and_disable(leftArr, rightArr, 
                                             #  cidIndcator # commented because we want to duplicate map when the main map is showing avg frame
@@ -1005,17 +979,6 @@ repo: https://github.com/ltmsyvag/camera
                 dpg.set_item_callback(dpg.last_item(), _toggle_cid_and_avg_map_)
                 with dpg.tooltip(dpg.last_item(), **ttpkwargs):
                     dpg.add_text("切换单帧/平均帧")
-    # with dpg.window(label="直方图", tag=winHist, 
-    #                 width = 500, height =300):
-    #     dpg.add_input_int(
-    #         # pos=(80,35), 
-    #         tag = "hist binning input",label="hist binning", width=80,
-    #                     min_value=1, default_value=1, min_clamped=True)
-        # with dpg.plot(tag="hist plot", 
-        #             #   label = "hist", 
-        #             height=-1, width=-1, no_mouse_pos=True):
-        #     dpg.add_plot_axis(dpg.mvXAxis, label = "converted counts ((<frame pixel counts>-200)*0.1/0.9)")
-        #     dpg.add_plot_axis(dpg.mvYAxis, label = "frequency", tag = "hist plot yax")
     with dpg.window(tag = winHistArr, label = '阵列直方图', width = 500, height=500):
         with dpg.group(horizontal=True):
             dpg.add_input_int(tag = 'hist sheet 列数', label = '列数', width = 100, 
@@ -1052,22 +1015,20 @@ repo: https://github.com/ltmsyvag/camera
                 for heatSeries in lst_heatseries:
                     dpg.configure_item(heatSeries, format = frame_deck.hsformat)
         dpg.set_item_callback(dpg.last_item(), toggle_pixel_vals)
-        # dpg.add_key_press_handler(dpg.mvKey_F2, callback = lambda: frame_deck.update_hist_sheet())
         #=====================================
-        mouse_down_flag = threading.Event()
+        mouse_up_flag = threading.Event()
+        mouse_up_flag.set()
         """
-        mouse 被按下时 set 的 flag, 用于让 focus_queryWin2 check 后判断是否 focus queryWin2.
-        因为 focus 这个行为会阻断用户正在进行的热图拖拽, 乃至于其他鼠标行为. 因此只有判定用户没有按下鼠标时,
-        才进行 queryWin2 focus. 这里我们不用 threading.Event() 的任何阻塞功能,
-        focus_queryWin2 的半秒一次的 lazy polling 不会造成系统负担, 但是原则上我们加上阻塞应该也无所谓,
-        甚至是 best practice
+        mouse 被按下时 clear 的 flag, 此时可以 block focus_queryWin2 的 focus queryWin2 行为.
+        否则 focus 这个行为会阻断用户正在进行的热图拖拽, 乃至于其他鼠标行为. focus_queryWin2 有半秒一次的
+        lazy polling 不会造成系统负担. 并且这个函数有单独的线程, 其 block 不会造成 gui session 中的其他 block. 
         """
-        dpg.add_mouse_click_handler(callback=lambda: mouse_down_flag.set())
+        dpg.add_mouse_click_handler(callback=lambda: mouse_up_flag.clear())
         #=======================================
         dpg.add_mouse_release_handler(tag= 'mouse release handler', 
                                         user_data={'dr being dragged': None})
         def do_mouse_release_cbs(_,__,user_data):
-            mouse_down_flag.clear()
+            mouse_up_flag.set()
             snap_dr_series_being_dragged_and_update_hist(_, __, user_data)
 
         def snap_dr_series_being_dragged_and_update_hist(_, __, user_data):
@@ -1265,12 +1226,12 @@ repo: https://github.com/ltmsyvag/camera
                         def focus_queryWin2():
                             while True:
                                 time.sleep(0.5) # lazy polling, save cpu cycles
-                                if not mouse_down_flag.is_set():
-                                    if dpg.does_item_exist(queryWin2):
-                                        if dpg.get_active_window() != queryWin2: # 在 busy polling 的情况下, 每一帧的 focus_item 会让用户无法与 GUI 进行任何互动, 此时本 check 让用户可以与 focus 的窗口互动. 如果再加上 busy polling, 那事实上就做成了一个“逼迫”用户与之互动的窗口(不关闭, 则无法与其他 gui 元素互动)
-                                            dpg.focus_item(queryWin2)
-                                    else:
-                                        break
+                                mouse_up_flag.wait()
+                                if dpg.does_item_exist(queryWin2):
+                                    if dpg.get_active_window() != queryWin2: # 在 busy polling 的情况下, 每一帧的 focus_item 会让用户无法与 GUI 进行任何互动, 此时本 check 让用户可以与 focus 的窗口互动. 如果再加上 busy polling, 那事实上就做成了一个“逼迫”用户与之互动的窗口(不关闭, 则无法与其他 gui 元素互动)
+                                        dpg.focus_item(queryWin2)
+                                else:
+                                    break
                         t_focus_queryWin2 = threading.Thread(target = focus_queryWin2)
                         t_focus_queryWin2.start()
 

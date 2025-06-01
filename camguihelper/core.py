@@ -4,8 +4,6 @@ camgui 相关的帮助函数
 #%%
 camgui_ver = '1.3-pre'
 import pandas as pd
-# import matplotlib.pyplot as plt
-from functools import cache
 from itertools import cycle
 from collections import namedtuple, deque
 import multiprocessing.connection
@@ -18,7 +16,6 @@ DupeMap = namedtuple(typename='DupeMap', # class for useful dpg items in a dupe 
                             'inputInt',
                             'radioBtn',
                             'cBox'])
-# from icecream import ic
 import json
 import traceback
 import multiprocessing
@@ -826,27 +823,6 @@ class FrameDeck(list):
                     if (ddict is not None): # leaves an empty table cell as place holder if ddict is None
                         self.create_sp_for_existing_table_cell(grp_id)
             self.set_sheet_sp_height_by_width()
-    # def redraw_hist_sheet_(self):
-    #     """
-    #     debug 专用
-    #     """
-    #     yseries = np.sin(np.linspace(0,2*np.pi,101))**2
-    #     # yseries = []
-    #     dpg.delete_item('hist sheet table', children_only=True) # clear old hist table before redraw
-    #     ncols = dpg.get_value('hist sheet 列数')
-    #     for icol in range(ncols):
-    #         dpg.add_table_column(parent='hist sheet table', label = f'{icol+1}列')
-    #     for grp_id, ddict in self.dict_dr.items():
-    #         if grp_id%ncols == 0:
-    #             thisRow = dpg.add_table_row(parent='hist sheet table')
-    #         with dpg.table_cell(parent=thisRow, tag= f'table cell-{grp_id}'):
-    #             if ddict is not None: # leaves an empty table cell as place holder if ddict is None
-    #                 dpg.add_simple_plot(tag = f'sp-{grp_id}', width = -1, overlay = grp_id,
-    #                                     default_value= yseries, histogram=True)
-
-    #                 dpg.bind_item_theme(f'sp-{grp_id}', self.tab_10_spThemes[grp_id % 10])
-    #                 dpg.add_text('0-100')
-    #     self.set_sheet_sp_height_by_width()
 
 def find_latest_camguiparams_json() ->MyPath:
     dpath_day = find_newest_daypath_in_save_tree(camgui_params_root)
@@ -880,29 +856,6 @@ def ZYLconversion(frame: np.ndarray)->np.ndarray:
     """
     frame = (frame -200) * 0.1/0.9
     return frame
-
-# def _update_hist(hLhRvLvR: tuple, frame_deck: FrameDeck, yax = "hist plot yax")->None:
-#     """
-#     hLhRvLvR 保存了一个矩形选区所包裹的像素中心点坐标（只能是半整数）h 向最小最大值和 v 向最小最大值。
-#     这些值确定了所选取的像素集合。然后，在此选择基础上将 frame deck 中的每一张 frame 在该选区中的部分的 counts 求得，
-#     加入 histdata 数据列表
-#     """
-#     hLlim, hRlim, vLlim, vRlim = hLhRvLvR
-#     vidLo, vidHi = math.floor(vLlim), math.floor(vRlim)
-#     hidLo, hidHi = math.floor(hLlim), math.floor(hRlim)
-#     histData = []
-#     for frame in frame_deck.float_deck: # make hist data
-#         frame = ZYLconversion(frame)
-#         subFrame = frame[vidLo:vidHi+1, hidLo:hidHi+1]
-#         histData.append(subFrame.sum())
-#     dpg.delete_item(yax,children_only=True) # delete old hist, then get some hist params for new plot
-#     binning = dpg.get_value('hist binning input')
-#     theMinInt, theMaxInt = math.floor(min(histData)), math.floor(max(histData))
-#     nBins = (theMaxInt-theMinInt)//binning + 1
-#     max_range = theMinInt + nBins*binning
-#     dpg.add_histogram_series(
-#         histData, parent = yax, bins =nBins, 
-#         min_range=theMinInt,max_range=max_range)
 
 def st_workerf_flagged_do_all(
     cam: DCAM.DCAM.DCAMCamera,
@@ -1003,15 +956,6 @@ def consumerf_local_buffer(
         this_frame = qlocal.get()
         if this_frame is None: # poison pill
             break # looping worker killed
-        # frame_deck.append(this_frame)
-        # frame_deck.plot_frame_dwim()
-        # hLhRvLvR = dpg.get_item_user_data("frame plot")
-        # if hLhRvLvR:
-        #     _update_hist(hLhRvLvR, frame_deck)
-        # try:
-        #     frame_deck._find_lastest_sesframes_folder_and_save_frame()
-        # except UserInterrupt: # UserInterrupts are exceptions with well known cause, we keep acquisition without interruption. Strange exceptions would still interrupt acquisition
-        #     pass
         frame_deck._append_save_plot(this_frame)
 
 def mt_producerf_polling_do_snag_rearrange_deposit(
@@ -1086,7 +1030,6 @@ def _dummy_mp_producerf_polling_do_snag_rearrange_send(
     conn_data.send(None) # poison pill
     conn_data.close()
     conn_debug.close()
-
 
 def mp_producerf_polling_do_snag_rearrange_send(
         conn_sig: multiprocessing.connection.Connection,
