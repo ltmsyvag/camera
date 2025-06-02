@@ -15,9 +15,7 @@ from camguihelper import (
 from pylablib.devices import DCAM
 if __name__ == '__main__':
     import numpy as np
-    # from collections import deque
     from itertools import cycle
-    # import pandas as pd
     import json
     import multiprocessing
     from pathlib import Path
@@ -25,9 +23,7 @@ if __name__ == '__main__':
     import dearpygui.dearpygui as dpg
     import threading
     import time
-    import math
     import tifffile
-    # from camguihelper import FrameDeck, st_workerf_flagged_do_all, collect_awg_params
     from camguihelper.core import _log
     from camguihelper.utils import mkdir_session_frames, session_frames_root, camgui_params_root, find_newest_daypath_in_save_tree
     from camguihelper.dpghelper import (
@@ -63,23 +59,16 @@ if __name__ == '__main__':
 
     with dpg.viewport_menu_bar():
         with dpg.menu(label='Windows'):
-            dpg.add_menu_item(label='显示控制面板')
-            def _show_and_highlight_win(*cbargs):
-                dpg.configure_item(winCtrlPanels, show=True, collapsed = False)
-                dpg.focus_item(winCtrlPanels)
-            dpg.set_item_callback(dpg.last_item(), _show_and_highlight_win)
+            def factory_show_and_focus_win(winTag: int|str):
+                def cb_show_and_focus_win(*args):
+                    dpg.configure_item(winTag, show=True, collapsed = False)
+                    dpg.focus_item(winTag)
+                return cb_show_and_focus_win
+            dpg.add_menu_item(label='显示控制面板', callback=factory_show_and_focus_win(winCtrlPanels))
             #=============================
-            dpg.add_menu_item(label='显示预览帧窗口')
-            def _show_and_highlight_win(*cbargs):
-                dpg.configure_item(winFramePreview, show=True, collapsed = False)
-                dpg.focus_item(winFramePreview)
-            dpg.set_item_callback(dpg.last_item(), _show_and_highlight_win)
+            dpg.add_menu_item(label='显示预览帧窗口', callback=factory_show_and_focus_win(winFramePreview))
             #=============================
-            dpg.add_menu_item(label='显示直方图阵列窗口')
-            def _show_and_highlight_win(*cbargs):
-                dpg.configure_item(winHistArr, show=True, collapsed = False)
-                dpg.focus_item(winHistArr)
-            dpg.set_item_callback(dpg.last_item(), _show_and_highlight_win)
+            dpg.add_menu_item(label='显示直方图阵列窗口', callback=factory_show_and_focus_win(winHistArr))
         with dpg.menu(label='并发方式') as menuConcurrency:
             def _set_exclusive_True(sender, *args):
                 if type(sender) is str:
@@ -503,11 +492,7 @@ repo: https://github.com/ltmsyvag/camera
                     dpg.add_input_text(label = "ramp_type", tag = "ramp_type", width=_width, default_value="5th-order")
                     with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("决定了扫频的曲线形式") #type:ignore
                     dpg.add_spacer(height=_spcheight)
-                    _btn = dpg.add_button(label="设置目标阵列")
-                    dpg.set_item_callback(_btn, # strange, dpg.last_item() does not work here
-                                        lambda : dpg.show_item(winTgtArr)
-                                        #   lambda : dpg.configure_item(winTgtArr, show=True)
-                                        )
+                    dpg.add_button(label="设置目标阵列", callback = factory_show_and_focus_win(winTgtArr))
 
     with dpg.window(label = "设置目标阵列", tag = winTgtArr,
                     pos = (200,200), width = 430, height=430):
