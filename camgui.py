@@ -656,11 +656,11 @@ repo: https://github.com/ltmsyvag/camera
                 dpg.add_menu_item(label = "保存已绘制的所有帧到指定路径")
                 dpg.set_item_callback(dpg.last_item(), lambda: frame_deck.save_deck())
                 #================================
-                dpg.add_menu_item(label = "清空内存中已绘制的帧")
+                dpg.add_menu_item(label = "清空内存中所有的帧")
                 dpg.set_item_callback(dpg.last_item(),
                                         factory_cb_yn_modal_dialog(
                                             cb_on_confirm=frame_deck.clear_deck,
-                                            dialog_text='确认要从内存中清空已绘制的所有帧吗?'))
+                                            dialog_text='确认要从内存中清空所有帧吗?'))
             #=========================
             dpg.add_menu_item(label = "载入帧", callback=lambda: dpg.show_item(fileDialog))
             with dpg.menu(label = "热图主题"):
