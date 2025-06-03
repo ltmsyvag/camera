@@ -28,7 +28,7 @@ if __name__ == '__main__':
     import math
     import tifffile
     # from camguihelper import FrameDeck, st_workerf_flagged_do_all, collect_awg_params
-    from camguihelper.core import _log
+    from camguihelper.core import _log, _local_buffer
     from camguihelper.utils import mkdir_session_frames, session_frames_root, camgui_params_root, find_newest_daypath_in_save_tree
     from camguihelper.dpghelper import (
         do_bind_my_default_global_theme,
@@ -90,9 +90,9 @@ if __name__ == '__main__':
                 for item in lst_other_menu_items:
                     dpg.set_value(item, False)
             _str = '无并发: 单线程采集重排绘图保存'
-            mItemSingleThread = dpg.add_menu_item(tag = _str, label= _str, check=True, callback=_set_exclusive_True, default_value=True)
+            mItemSingleThread = dpg.add_menu_item(tag = _str, label= _str, check=True, callback=_set_exclusive_True)
             _str = '双线程: 采集重排 & 绘图保存'
-            mItemDualThreads = dpg.add_menu_item(tag = _str, label=_str,  check=True, callback=_set_exclusive_True)
+            mItemDualThreads = dpg.add_menu_item(tag = _str, label=_str,  check=True, callback=_set_exclusive_True, default_value=True)
             _str = '双进程: 采集重排 & 绘图保存'
             mItemDualProcesses = dpg.add_menu_item(tag = _str, label=_str,  check=True, callback=_set_exclusive_True)
         with dpg.menu(label = '软件信息'):
@@ -185,25 +185,26 @@ repo: https://github.com/ltmsyvag/camera
                     next_state = not state
                     flag = user_data["acq thread flag"] # flag for st and mt, but not for mp
                     global raw_card, controller
+                    if next_state: # update json num
+                        str_json_saved = save_camgui_json_to_savetree()
+                        str_json_displayed =  str_json_saved[:-5] + '已保存'
+                        dpg.set_value(labelJson, str_json_displayed)
+                    else:
+                        str_json_displayed = dpg.get_value(labelJson)
+                        json_num = int(str_json_displayed[2:][:-3])
+                        str_json_displayed = 'CA' + str(json_num+1)
+                        dpg.set_value(labelJson, str_json_displayed)
                     if dpg.get_value(mItemSingleThread):
                         if next_state:
                             t_worker_do_all = threading.Thread(target=st_workerf_flagged_do_all, args=(cam, flag, frame_deck, controller))
                             user_data["thread1"] = t_worker_do_all
                             flag.set()
                             t_worker_do_all.start()
-                            #update json num
-                            str_json_saved = save_camgui_json_to_savetree()
-                            str_json_displayed =  str_json_saved[:-5] + '已保存'
-                            dpg.set_value(labelJson, str_json_displayed)
                         else:
                             t_worker_do_all = user_data["thread1"]
                             flag.clear()
                             t_worker_do_all.join()
                             # user_data["thread1"] = None # this is probably a sanity code, can do without
-                            # update json num
-                            str_json_displayed = dpg.get_value(labelJson)
-                            json_num = int(str_json_displayed[2:][:-3])
-                            str_json_displayed = 'CA' + str(json_num+1)
                         dpg.set_value(labelJson, str_json_displayed)
                     elif dpg.get_value(mItemDualThreads):
                         if next_state:

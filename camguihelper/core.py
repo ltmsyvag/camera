@@ -229,6 +229,7 @@ class FrameDeck(list):
         - cid indicator updates
         - clear all plots
         - clear all plot labels
+        - clear local buffer (consumer 线程异常停止时，可以清空未使用的毒药丸)
         """
         with self.lock:
             super().clear()
@@ -236,6 +237,8 @@ class FrameDeck(list):
             self.cid = None
             self.frame_avg = None
             self.seslabel_deck = []
+            while not _local_buffer.empty():
+                _local_buffer.get()
             dpg.set_value("frame deck display", self.memory_report())
             dpg.set_item_label("cid indicator", "N/A")
             lst1, lst2, _ = self.get_all_maptags()
@@ -952,11 +955,14 @@ def consumerf_local_buffer(
     3. 保存帧
     """
     while True:
-        time.sleep(0.01)
+        # time.sleep(0.01)
         this_frame = qlocal.get()
         if this_frame is None: # poison pill
             break # looping worker killed
+        # try:
         frame_deck._append_save_plot(this_frame)
+        # except ValueError:
+        #     qlocal.get()
 
 def mt_producerf_polling_do_snag_rearrange_deposit(
         cam: DCAM.DCAM.DCAMCamera,
