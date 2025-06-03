@@ -191,11 +191,20 @@ repo: https://github.com/ltmsyvag/camera
                             user_data["thread1"] = t_worker_do_all
                             flag.set()
                             t_worker_do_all.start()
+                            #update json num
+                            str_json_saved = save_camgui_json_to_savetree()
+                            str_json_displayed =  str_json_saved[:-5] + '已保存'
+                            dpg.set_value(labelJson, str_json_displayed)
                         else:
                             t_worker_do_all = user_data["thread1"]
                             flag.clear()
                             t_worker_do_all.join()
                             # user_data["thread1"] = None # this is probably a sanity code, can do without
+                            # update json num
+                            str_json_displayed = dpg.get_value(labelJson)
+                            json_num = int(str_json_displayed[2:][:-3])
+                            str_json_displayed = 'CA' + str(json_num+1)
+                        dpg.set_value(labelJson, str_json_displayed)
                     elif dpg.get_value(mItemDualThreads):
                         if next_state:
                             t_producer = threading.Thread(
