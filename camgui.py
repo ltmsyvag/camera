@@ -25,10 +25,9 @@ if __name__ == '__main__':
     import dearpygui.dearpygui as dpg
     import threading
     import time
-    import math
     import tifffile
     # from camguihelper import FrameDeck, st_workerf_flagged_do_all, collect_awg_params
-    from camguihelper.core import _log, _local_buffer
+    from camguihelper.core import _log
     from camguihelper.utils import mkdir_session_frames, session_frames_root, camgui_params_root, find_newest_daypath_in_save_tree
     from camguihelper.dpghelper import (
         do_bind_my_default_global_theme,
