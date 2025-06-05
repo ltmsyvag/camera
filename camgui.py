@@ -130,8 +130,8 @@ repo: https://github.com/ltmsyvag/camera
                 togCam = dpg.add_button(
                     width=_wid, height=_hi, user_data={
                         'is on' : False, 
-                        'off label' : "相机已关闭",
-                        'on label' : "相机已开启",
+                        'off label' : '相机未连接',
+                        'on label' : '相机已连接',
                         })
                 def do_set_cam_params_by_gui():
                     expFieldValInMs = dpg.get_value(fldExposure) 
