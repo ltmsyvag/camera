@@ -241,7 +241,7 @@ repo: https://github.com/ltmsyvag/camera
                                       awg_is_on, collect_awg_params()))
                             t_passer = threading.Thread(
                                 target=mp_passerf, 
-                                args = (conn_data_main, ))
+                                args = (conn_data_main, conn_sig_main, awg_is_on))
                             t_consumer = threading.Thread(
                                 target=consumerf_local_buffer,
                                 args = (frame_deck, ))
