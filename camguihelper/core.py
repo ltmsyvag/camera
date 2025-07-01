@@ -165,18 +165,21 @@ class FrameDeck(list):
         # print(frame.dtype)
         with self.lock:
             assert frame.dtype == np.uint16, "frame should be uint16, something's off?!"
-
+            beg = time.time()
             super().append(frame)
             fframe = frame.astype(float)
             self.float_deck.append(fframe)
             self.cid = len(self) - 1
-            # self.frame_avg = sum(self.float_deck) / len(self.float_deck)
             if self.cid == 0:
                 self.frame_avg = fframe
             else:
                 self.frame_avg = (self.frame_avg*(len(self)-1) + fframe)/len(self)
-            # self.frame_avg = np.mean(self.float_deck, axis=0)
+            end = time.time()
+            push_log(f"append 和平均帧计算耗时{(end-beg)*1e3:.3f} ms")
+            beg = time.time()
             dpg.set_value("frame deck display", self.memory_report())
+            end = time.time()
+            push_log(f"内存计算耗时{(end-beg)*1e3:.3f} ms")
             dpg.set_item_label("cid indicator", f"{self.cid}")
     def save_deck(self)->None:
         """
@@ -426,9 +429,6 @@ class FrameDeck(list):
             self.seslabel_deck.append('未保存!')
         self.plot_frame_dwim()
         self.update_hist_sheet()
-        # hLhRvLvR = dpg.get_item_user_data('frame plot')
-        # if hLhRvLvR:
-        #     _update_hist(hLhRvLvR, self)
         end = time.time()
         push_log(f"绘图和存储耗时{(end-beg)*1e3:.3f} ms")
     @staticmethod
