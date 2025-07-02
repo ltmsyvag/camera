@@ -165,7 +165,6 @@ class FrameDeck(list):
         # print(frame.dtype)
         with self.lock:
             assert frame.dtype == np.uint16, "frame should be uint16, something's off?!"
-            beg = time.time()
             super().append(frame)
             fframe = frame.astype(float)
             self.float_deck.append(fframe)
@@ -174,12 +173,7 @@ class FrameDeck(list):
                 self.frame_avg = fframe
             else:
                 self.frame_avg = (self.frame_avg*(len(self)-1) + fframe)/len(self)
-            end = time.time()
-            push_log(f"append 和平均帧计算耗时{(end-beg)*1e3:.3f} ms")
-            beg = time.time()
             dpg.set_value("frame deck display", self.memory_report())
-            end = time.time()
-            push_log(f"内存计算耗时{(end-beg)*1e3:.3f} ms")
             dpg.set_item_label("cid indicator", f"{self.cid}")
     def save_deck(self)->None:
         """
