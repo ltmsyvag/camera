@@ -2,7 +2,7 @@
 camgui 相关的帮助函数
 """
 #%%
-camgui_ver = '1.3-pre'
+camgui_ver = '1.3'
 import pandas as pd
 from itertools import cycle
 from collections import namedtuple, deque
