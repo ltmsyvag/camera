@@ -165,12 +165,14 @@ class FrameDeck(list):
         # print(frame.dtype)
         with self.lock:
             assert frame.dtype == np.uint16, "frame should be uint16, something's off?!"
-
             super().append(frame)
-            self.float_deck.append(frame.astype(float))
+            fframe = frame.astype(float)
+            self.float_deck.append(fframe)
             self.cid = len(self) - 1
-            # self.frame_avg = sum(self.float_deck) / len(self.float_deck)
-            self.frame_avg = np.mean(self.float_deck, axis=0)
+            if self.cid == 0:
+                self.frame_avg = fframe
+            else:
+                self.frame_avg = (self.frame_avg*(len(self)-1) + fframe)/len(self)
             dpg.set_value("frame deck display", self.memory_report())
             dpg.set_item_label("cid indicator", f"{self.cid}")
     def save_deck(self)->None:
@@ -421,9 +423,6 @@ class FrameDeck(list):
             self.seslabel_deck.append('未保存!')
         self.plot_frame_dwim()
         self.update_hist_sheet()
-        # hLhRvLvR = dpg.get_item_user_data('frame plot')
-        # if hLhRvLvR:
-        #     _update_hist(hLhRvLvR, self)
         end = time.time()
         push_log(f"绘图和存储耗时{(end-beg)*1e3:.3f} ms")
     @staticmethod
@@ -860,6 +859,19 @@ def ZYLconversion(frame: np.ndarray)->np.ndarray:
     frame = (frame -200) * 0.1/0.9
     return frame
 
+def return_time_consumption(func: callable):
+    """
+    decorator, 使无返回值的纯 command-like func 返回其执行时间 in ms
+    """
+    def wrapper(*args, **kwargs):
+        beg = time.perf_counter()
+        func(*args, **kwargs)
+        end = time.perf_counter()
+        return (end - beg) *1e3
+    return wrapper
+
+feed_AWG = return_time_consumption(feed_AWG)
+
 def st_workerf_flagged_do_all(
     cam: DCAM.DCAM.DCAMCamera,
     flag: threading.Event,
@@ -884,10 +896,10 @@ def st_workerf_flagged_do_all(
             continue
         this_frame :npt.NDArray[np.uint16] = cam.read_oldest_image()
         if awg_is_on:
-            beg = time.time()
-            feed_AWG(this_frame, controller, awg_params) # feed original uint16 format to AWG
-            end = time.time()
-            push_log(f"重排前序计算耗时 {(end-beg)*1e3:.3f} ms")
+            # beg = time.time()
+            time_consumption = feed_AWG(this_frame, controller, awg_params) # feed original uint16 format to AWG
+            # end = time.time()
+            push_log(f"重排前序计算耗时 {time_consumption:.3f} ms")
         frame_deck._append_save_plot(this_frame)
     cam.stop_acquisition()
     cam.set_trigger_mode("int")
@@ -955,14 +967,10 @@ def consumerf_local_buffer(
     3. 保存帧
     """
     while True:
-        # time.sleep(0.01)
         this_frame = qlocal.get()
         if this_frame is None: # poison pill
             break # looping worker killed
-        # try:
         frame_deck._append_save_plot(this_frame)
-        # except ValueError:
-        #     qlocal.get()
 
 def mt_producerf_polling_do_snag_rearrange_deposit(
         cam: DCAM.DCAM.DCAMCamera,
@@ -986,10 +994,8 @@ def mt_producerf_polling_do_snag_rearrange_deposit(
             continue
         this_frame: npt.NDArray[np.uint16] = cam.read_oldest_image()
         if awg_is_on:
-            beg = time.time()
-            feed_AWG(this_frame, controller, awg_params)
-            end = time.time()
-            push_log(f"重排前序计算耗时 {(end-beg)*1e3:.3f} ms")
+            time_consumption = feed_AWG(this_frame, controller, awg_params)
+            push_log(f"重排前序计算耗时 {time_consumption:.3f} ms")
         local_buffer.put(this_frame)
     cam.stop_acquisition()
     cam.set_trigger_mode("int")
@@ -1067,7 +1073,8 @@ def mp_producerf_polling_do_snag_rearrange_send(
             continue
         this_frame: npt.NDArray[np.uint16] = cam.read_oldest_image()
         if awg_is_on:
-            feed_AWG(this_frame, controller, awg_params)
+            time_consumption = feed_AWG(this_frame, controller, awg_params)
+            conn_sig.send(time_consumption) # send time consumption to mp_passerf
         conn_data.send(this_frame)
     if awg_is_on:
         raw_card.close()
@@ -1078,13 +1085,18 @@ def mp_producerf_polling_do_snag_rearrange_send(
     conn_data.close()
 
 def mp_passerf(
-        conn: multiprocessing.connection.Connection,
+        conn_data: multiprocessing.connection.Connection,
+        conn_sig: multiprocessing.connection.Connection,
+        awg_is_on: bool,
         q: queue.SimpleQueue = _local_buffer):
     while True:
-        this_frame = conn.recv()
+        this_frame = conn_data.recv()
+        if awg_is_on:
+            time_consumption = conn_sig.recv() # receive time consumption from mp_producerf_polling_do_snag_rearrange_send
+            push_log(f"重排前序计算耗时 {time_consumption:.3f} ms")
         q.put(this_frame)
         if this_frame is None:
-            conn.close()
+            conn_data.close()
             break
 
 def _log(sender, app_data, user_data):
