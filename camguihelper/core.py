@@ -437,9 +437,7 @@ class FrameDeck(list):
                         (0.4980392156862745, 0.4980392156862745, 0.4980392156862745),
                         (0.7372549019607844, 0.7411764705882353, 0.13333333333333333),
                         (0.09019607843137255, 0.7450980392156863, 0.8117647058823529))
-        color_cycle = cycle(rgb_lst_tab10)
-        for _ in range(grp_id+1):
-            this_color = next(color_cycle)
+        this_color = rgb_lst_tab10[grp_id % 10]
         return [225*e for e in this_color]
     @staticmethod
     def ensure_minmax_order(
