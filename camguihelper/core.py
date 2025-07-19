@@ -182,7 +182,7 @@ class FrameDeck(list):
         with self.lock:
             fpath_stub = self._make_savename_stub()
             if self:
-                push_log('开始保存帧')
+                push_log('开始保存帧', is_warning=True)
                 for i, frame in enumerate(self):
                     fpath = fpath_stub + f"_{i}.tif"
                     try:
