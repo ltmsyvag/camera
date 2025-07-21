@@ -338,7 +338,7 @@ class FrameDeck(list):
                 [0,0,nhcols, nhcols], [0, nvrows, 0, nvrows], parent=yaxMaster)
             with dpg.theme() as scatterThm:
                 with dpg.theme_component(dpg.mvScatterSeries):
-                    dpg.add_theme_color(dpg.mvPlotCol_MarkerFill, (0,255,0,255), category=dpg.mvThemeCat_Plots)
+                    dpg.add_theme_color(dpg.mvPlotCol_MarkerFill, (0,255,0,0), category=dpg.mvThemeCat_Plots)
                     dpg.add_theme_color(dpg.mvPlotCol_MarkerOutline, (0,0,0,0), category=dpg.mvThemeCat_Plots)
             dpg.bind_item_theme(scatterSeries, scatterThm)
     def plot_avg_frame(self, yaxSlave= "frame yax", yaxMaster = 'rects yax'):
