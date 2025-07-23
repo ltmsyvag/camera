@@ -182,7 +182,7 @@ class FrameDeck(list):
         with self.lock:
             fpath_stub = self._make_savename_stub()
             if self:
-                push_log('开始保存帧')
+                push_log('开始保存帧', is_warning=True)
                 for i, frame in enumerate(self):
                     fpath = fpath_stub + f"_{i}.tif"
                     try:
@@ -338,7 +338,7 @@ class FrameDeck(list):
                 [0,0,nhcols, nhcols], [0, nvrows, 0, nvrows], parent=yaxMaster)
             with dpg.theme() as scatterThm:
                 with dpg.theme_component(dpg.mvScatterSeries):
-                    dpg.add_theme_color(dpg.mvPlotCol_MarkerFill, (0,255,0,255), category=dpg.mvThemeCat_Plots)
+                    dpg.add_theme_color(dpg.mvPlotCol_MarkerFill, (0,255,0,0), category=dpg.mvThemeCat_Plots)
                     dpg.add_theme_color(dpg.mvPlotCol_MarkerOutline, (0,0,0,0), category=dpg.mvThemeCat_Plots)
             dpg.bind_item_theme(scatterSeries, scatterThm)
     def plot_avg_frame(self, yaxSlave= "frame yax", yaxMaster = 'rects yax'):
@@ -437,9 +437,7 @@ class FrameDeck(list):
                         (0.4980392156862745, 0.4980392156862745, 0.4980392156862745),
                         (0.7372549019607844, 0.7411764705882353, 0.13333333333333333),
                         (0.09019607843137255, 0.7450980392156863, 0.8117647058823529))
-        color_cycle = cycle(rgb_lst_tab10)
-        for _ in range(grp_id+1):
-            this_color = next(color_cycle)
+        this_color = rgb_lst_tab10[grp_id % 10]
         return [225*e for e in this_color]
     @staticmethod
     def ensure_minmax_order(
