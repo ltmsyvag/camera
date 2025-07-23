@@ -811,100 +811,102 @@ repo: https://github.com/ltmsyvag/camera
             gen_dupemap_label = cycle(range(100)) # 假设不可能同时打开 100 个窗口, 因此新开的窗口 label 可以是 0-99 的循环, 足以保证 label uniqueness
             
             def _dupe_heatmap():
-                dupe_map = DupeMap(
-                    pltSlv = dpg.generate_uuid(),
-                    pltMstr = dpg.generate_uuid(),
-                    yAxSlv = dpg.generate_uuid(),
-                    yAxMstr = dpg.generate_uuid(),
-                    inputInt = dpg.generate_uuid(),
-                    radioBtn = dpg.generate_uuid(),
-                    cBox = dpg.generate_uuid())
-                def _on_close(sender, _, user_data):
-                    """
-                    window 的 on close callback 貌似不同于普通 callback, 只能在创建 window 时设置, 
-                    因此这里将这个 callback 定义在先
-                    """
-                    frame_deck.lst_dupe_maps.remove(dupe_map)
-                    dpg.delete_item(sender)
-                    dpg.delete_item(user_data['ihr'])
-                    for ddict in frame_deck.dict_dr.values():
-                        if ddict is not None:
-                            ddict['grp dr df'].drop(
-                                dupe_map.pltMstr,
-                                inplace=True)
-                with dpg.window(width=300, height=300, on_close=_on_close,
-                                label = f"#{next(gen_dupemap_label)}",
-                                no_saved_settings=True,
-                                user_data = {'ihr' : None} # early reminder for the user data (window item handler registry to be deleted after window close) to be added as user_data later
-                                ) as thisWin:
-                    frame_deck.lst_dupe_maps.append(dupe_map)
-                    with dpg.group(horizontal=True) as _grp:
-                        #==============================
-                        dpg.add_input_int(width=100, tag=dupe_map.inputInt, max_value=0, max_clamped=True, 
-                                        #   callback=_log
-                                        )
-                        def _cb_input_int(*args):
-                            frame_deck._update_dupe_map(dupe_map)
-                        dpg.set_item_callback(dupe_map.inputInt, _cb_input_int)
-                        #===============================
-                        dpg.add_radio_button(('倒数帧', '正数帧'), tag=dupe_map.radioBtn,
-                                            default_value = '倒数帧', horizontal=True,)
-                        def _cb_radio(_, app_data, __):
-                            """
-                            这个 radio button 的 callback 必须放在 enclosing 的 _dupe_heatmap callback 定义中,
-                            因为它需要操纵的 item 是 enclosing callback 创造的对象, 需要利用 enclosing scope 中的变量 inputInt
-                            """
-                            input_id = dpg.get_value(dupe_map.inputInt)
-                            empty_deck = True if not frame_deck.cid else False
-                            if empty_deck:
-                                dpg.set_value(dupe_map.inputInt, 0)
-                            else:
-                                if app_data == '倒数帧': # convert forward id to backward id
-                                    converted_id = input_id - len(frame_deck) + 1
-                                else: # convert backward id to forward id
-                                    converted_id = input_id + len(frame_deck) - 1 
-                                dpg.set_value(dupe_map.inputInt, converted_id)
-                            if app_data == '倒数帧': # unlim low bound, lim high bound to 0
-                                dpg.configure_item(dupe_map.inputInt, min_clamped = False)
-                                dpg.configure_item(dupe_map.inputInt, max_value = 0, max_clamped = True)
-                            else: # unlim high bound, lim low bound to 0
-                                dpg.configure_item(dupe_map.inputInt, max_clamped = False)
-                                dpg.configure_item(dupe_map.inputInt, min_value = 0, min_clamped = True)
-                        dpg.set_item_callback(dupe_map.radioBtn, _cb_radio)
-                    with dpg.child_window(**doubleplots_container_window_kwargs):
-                        def apply_common_plt_children_setups_slv_mstr(yAx: int):
-                            xax = dpg.add_plot_axis(dpg.mvXAxis, **heatmap_xkwargs, **heatmap_xyaxkwargs)
-                            dpg.add_plot_axis(dpg.mvYAxis, tag=yAx, **heatmap_ykwargs, **heatmap_xyaxkwargs)
-                            xaxlims_orig, yaxlims_orig = dpg.get_axis_limits("frame xax"), dpg.get_axis_limits("frame yax")
-                            dpg.set_axis_limits(xax, *xaxlims_orig)
-                            dpg.set_axis_limits(yAx, *yaxlims_orig)
-                            dpg.split_frame()
-                            dpg.set_axis_limits_auto(xax)
-                            dpg.set_axis_limits_auto(yAx)
-                            return xax
-                        lst_axes = []
-                        with dpg.plot(tag = dupe_map.pltSlv, **heatmap_pltkwargs): # slave plot
-                            dpg.bind_colormap(dpg.last_item(), myCmap)
-                            xAxSlv = apply_common_plt_children_setups_slv_mstr(dupe_map.yAxSlv)
-                            lst_axes.append(xAxSlv)
-                            lst_axes.append(dupe_map.yAxSlv)
-                        with dpg.plot(tag = dupe_map.pltMstr, **heatmap_pltkwargs): # master plot
-                            xAxMstr = apply_common_plt_children_setups_slv_mstr(dupe_map.yAxMstr)
-                            lst_axes.append(xAxMstr)
-                            lst_axes.append(dupe_map.yAxMstr)
-                        dpg.bind_item_theme(dupe_map.pltMstr, thmTranspBGforMaster)
-                        thisIhr = factory_ihr_master_plot(*lst_axes)
-                        dpg.bind_item_handler_registry(dupe_map.pltMstr, thisIhr)
-                        thisWinDict = dpg.get_item_user_data(thisWin)
-                        thisWinDict['ihr'] = thisIhr
-                        #======================
-                        dpg.add_checkbox(pos = (0,0), tag = dupe_map.cBox) # 要画在 plot 上, 所以在 plot 后添加
-                        @toggle_checkbox_and_disable(_grp)
-                        def _toggle_id_and_avg_map_(sender, *args):
-                            frame_deck._update_dupe_map(dupe_map)
-                        dpg.set_item_callback(dupe_map.cBox, _toggle_id_and_avg_map_)
-                        with dpg.tooltip(dupe_map.cBox, **ttpkwargs):
-                            dpg.add_text("切换单帧/平均帧")
+                with frame_deck.lock:
+                    dupe_map = DupeMap(
+                        pltSlv = dpg.generate_uuid(),
+                        pltMstr = dpg.generate_uuid(),
+                        yAxSlv = dpg.generate_uuid(),
+                        yAxMstr = dpg.generate_uuid(),
+                        inputInt = dpg.generate_uuid(),
+                        radioBtn = dpg.generate_uuid(),
+                        cBox = dpg.generate_uuid())
+                    def _on_close(sender, _, user_data):
+                        """
+                        window 的 on close callback 貌似不同于普通 callback, 只能在创建 window 时设置, 
+                        因此这里将这个 callback 定义在先
+                        """
+                        with frame_deck.lock:
+                            frame_deck.lst_dupe_maps.remove(dupe_map)
+                            dpg.delete_item(sender)
+                            dpg.delete_item(user_data['ihr'])
+                            for ddict in frame_deck.dict_dr.values():
+                                if ddict is not None:
+                                    ddict['grp dr df'].drop(
+                                        dupe_map.pltMstr,
+                                        inplace=True)
+                    with dpg.window(width=300, height=300, on_close=_on_close,
+                                    label = f"#{next(gen_dupemap_label)}",
+                                    no_saved_settings=True,
+                                    user_data = {'ihr' : None} # early reminder for the user data (window item handler registry to be deleted after window close) to be added as user_data later
+                                    ) as thisWin:
+                        frame_deck.lst_dupe_maps.append(dupe_map)
+                        with dpg.group(horizontal=True) as _grp:
+                            #==============================
+                            dpg.add_input_int(width=100, tag=dupe_map.inputInt, max_value=0, max_clamped=True, 
+                                            #   callback=_log
+                                            )
+                            def _cb_input_int(*args):
+                                frame_deck._update_dupe_map(dupe_map)
+                            dpg.set_item_callback(dupe_map.inputInt, _cb_input_int)
+                            #===============================
+                            dpg.add_radio_button(('倒数帧', '正数帧'), tag=dupe_map.radioBtn,
+                                                default_value = '倒数帧', horizontal=True,)
+                            def _cb_radio(_, app_data, __):
+                                """
+                                这个 radio button 的 callback 必须放在 enclosing 的 _dupe_heatmap callback 定义中,
+                                因为它需要操纵的 item 是 enclosing callback 创造的对象, 需要利用 enclosing scope 中的变量 inputInt
+                                """
+                                input_id = dpg.get_value(dupe_map.inputInt)
+                                empty_deck = True if not frame_deck.cid else False
+                                if empty_deck:
+                                    dpg.set_value(dupe_map.inputInt, 0)
+                                else:
+                                    if app_data == '倒数帧': # convert forward id to backward id
+                                        converted_id = input_id - len(frame_deck) + 1
+                                    else: # convert backward id to forward id
+                                        converted_id = input_id + len(frame_deck) - 1 
+                                    dpg.set_value(dupe_map.inputInt, converted_id)
+                                if app_data == '倒数帧': # unlim low bound, lim high bound to 0
+                                    dpg.configure_item(dupe_map.inputInt, min_clamped = False)
+                                    dpg.configure_item(dupe_map.inputInt, max_value = 0, max_clamped = True)
+                                else: # unlim high bound, lim low bound to 0
+                                    dpg.configure_item(dupe_map.inputInt, max_clamped = False)
+                                    dpg.configure_item(dupe_map.inputInt, min_value = 0, min_clamped = True)
+                            dpg.set_item_callback(dupe_map.radioBtn, _cb_radio)
+                        with dpg.child_window(**doubleplots_container_window_kwargs):
+                            def apply_common_plt_children_setups_slv_mstr(yAx: int):
+                                xax = dpg.add_plot_axis(dpg.mvXAxis, **heatmap_xkwargs, **heatmap_xyaxkwargs)
+                                dpg.add_plot_axis(dpg.mvYAxis, tag=yAx, **heatmap_ykwargs, **heatmap_xyaxkwargs)
+                                xaxlims_orig, yaxlims_orig = dpg.get_axis_limits("frame xax"), dpg.get_axis_limits("frame yax")
+                                dpg.set_axis_limits(xax, *xaxlims_orig)
+                                dpg.set_axis_limits(yAx, *yaxlims_orig)
+                                dpg.split_frame()
+                                dpg.set_axis_limits_auto(xax)
+                                dpg.set_axis_limits_auto(yAx)
+                                return xax
+                            lst_axes = []
+                            with dpg.plot(tag = dupe_map.pltSlv, **heatmap_pltkwargs): # slave plot
+                                dpg.bind_colormap(dpg.last_item(), myCmap)
+                                xAxSlv = apply_common_plt_children_setups_slv_mstr(dupe_map.yAxSlv)
+                                lst_axes.append(xAxSlv)
+                                lst_axes.append(dupe_map.yAxSlv)
+                            with dpg.plot(tag = dupe_map.pltMstr, **heatmap_pltkwargs): # master plot
+                                xAxMstr = apply_common_plt_children_setups_slv_mstr(dupe_map.yAxMstr)
+                                lst_axes.append(xAxMstr)
+                                lst_axes.append(dupe_map.yAxMstr)
+                            dpg.bind_item_theme(dupe_map.pltMstr, thmTranspBGforMaster)
+                            thisIhr = factory_ihr_master_plot(*lst_axes)
+                            dpg.bind_item_handler_registry(dupe_map.pltMstr, thisIhr)
+                            thisWinDict = dpg.get_item_user_data(thisWin)
+                            thisWinDict['ihr'] = thisIhr
+                            #======================
+                            dpg.add_checkbox(pos = (0,0), tag = dupe_map.cBox) # 要画在 plot 上, 所以在 plot 后添加
+                            @toggle_checkbox_and_disable(_grp)
+                            def _toggle_id_and_avg_map_(sender, *args):
+                                frame_deck._update_dupe_map(dupe_map)
+                            dpg.set_item_callback(dupe_map.cBox, _toggle_id_and_avg_map_)
+                            with dpg.tooltip(dupe_map.cBox, **ttpkwargs):
+                                dpg.add_text("切换单帧/平均帧")
                 #=== 在创建好 dupe map 后, 载入热图和 dr
                 frame_deck.plot_cid_frame(dupe_map.yAxSlv, dupe_map.yAxMstr)
                 # 下面的部分为 frame_deck.dict_dr['grp dr df'] 添加行, 而函数 frame_deck.add_dr_to_all 添加列
