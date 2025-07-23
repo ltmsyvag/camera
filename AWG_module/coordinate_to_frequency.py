@@ -58,6 +58,6 @@ start_site_on_row = 0
 start_site_on_col = 0
 end_site_on_row = 9
 end_site_on_col = 9 #size of the array, now is 10*10
-a=[[(1, 0, 1, 1)]]
+a=[[(4, 2, 0, 2)]]
 a,b,c,d = convert_coordinate_to_frequency(start_frequency_on_row, start_frequency_on_col, end_frequency_on_row, end_frequency_on_col, start_site_on_row, start_site_on_col, end_site_on_row, end_site_on_col, a)
-print(c)
+print(d)

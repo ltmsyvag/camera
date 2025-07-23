@@ -40,7 +40,7 @@ import uuid
 # system = platform.system()
 # if (system == "Windows") and (hex(uuid.getnode()) != '0xf4ce2305b4c7'): # code is A402 computer
 import spcm
-from AWG_module.no_with_func import DDSRampController
+from AWG_module.no_with_func_test import DDSRampController
 from AWG_module.unified import feed_AWG
 
 class FrameDeck(list):

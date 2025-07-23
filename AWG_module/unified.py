@@ -2,7 +2,7 @@
 from .image_to_atom_array import image_process
 from .rearrangement_method_no_reservior_zyl_v3 import main
 from .coordinate_to_frequency import convert_coordinate_to_frequency
-from .no_with_func import rearrange
+from .no_with_func_test import rearrange_test
 import numpy as np
 # import spcm
 # import tifffile
@@ -73,4 +73,4 @@ def feed_AWG(frame, controller, awg_params: tuple)->None:
     # move_time = 20e-4#floor, 频率ramp的速度，也就是单个光镊移动的速度
     # percentage_total_power_for_list = 0.5#floor, 送入aod每个轴的最大功率，是一个百分数，代表最终上升到awg设定最大电平的多少
     # ramp_type = '5th-order' #string,决定了扫频的曲线形式
-    rearrange(controller, num_segments,tuple_of_4,power_ramp_time,move_time,percentage_total_power_for_list,ramp_type)
+    rearrange_test(controller, num_segments,tuple_of_4,power_ramp_time,move_time,percentage_total_power_for_list,ramp_type)
