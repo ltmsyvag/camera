@@ -421,8 +421,9 @@ class FrameDeck(list):
                 self.seslabel_deck.append('未保存!')
         else:
             self.seslabel_deck.append('未保存!')
-        self.plot_frame_dwim()
-        self.update_hist_sheet()
+        with self.lock:
+            self.plot_frame_dwim()
+            self.update_hist_sheet()
         end = time.time()
         push_log(f"绘图和存储耗时{(end-beg)*1e3:.3f} ms")
     @staticmethod
