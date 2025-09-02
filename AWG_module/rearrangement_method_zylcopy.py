@@ -261,7 +261,7 @@ class ArbitraryMultipleTweezersMoveCalc():
         filtered_moves = list(filter(lambda x: x[0] != x[2] or x[1] != x[3], moves))
         return filtered_moves
 
-    def generate_moves(self, reconfig_round=1, threshold=2):
+    def generate_moves(self, reconfig_round=1, threshold=1):
         self.complete_move_set = []
         counter = None
         if reconfig_round == 1:
@@ -660,13 +660,13 @@ def main(state: np.ndarray):
     #                          [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
     #                          [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]])
 
-    target_array = np.array([[0,1,1,0],
+    target_array = np.array([[0,0,0,0],
                              [0,1,1,0],
                              [0,0,0,0],
                              [0,0,0,0]])
 
     # print(target_array)
-    amt = ArbitraryMultipleTweezersMoveCalc(target_array.shape[0], target_array.shape[1], 0, 1, target_array,
+    amt = ArbitraryMultipleTweezersMoveCalc(target_array.shape[0], target_array.shape[1], 1, 2, target_array,
                                             capture_time, move_time, 1)
     # state = np.array([[0,0,0],
     #                          [0,0,1],
@@ -702,6 +702,6 @@ if __name__ == "__main__":
     moves = main(state_array)
     for i in range(len(moves)):
         for j in range(len(moves[i])):
-                state_array[moves[i][j][1]-1,moves[i][j][0]-1] = 0
-                state_array[moves[i][j][3]-1,moves[i][j][2]-1] = 1
+                state_array[moves[i][j][0],moves[i][j][1]] = 0
+                state_array[moves[i][j][2],moves[i][j][3]] = 1
     print(state_array)

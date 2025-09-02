@@ -8,8 +8,8 @@ def Rearrangement_method__no_reservior_zyl_v3(target_array : np.array ,state_arr
 
     complete_moves_no_pack = []
     complete_moves = []
-    nrows = 40
-    ncols = 40
+    nrows = 32
+    ncols = 32
     target_col_min = 0  # 0 indexed
     target_row_min = 0
     for i in range(ncols):

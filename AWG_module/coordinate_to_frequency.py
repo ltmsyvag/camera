@@ -50,14 +50,14 @@ def convert_coordinate_to_frequency(start_frequency_on_row, start_frequency_on_c
     return row_or_col_list, single_frequency_list, start_frequency_table, end_frequency_table
 
 
-start_frequency_on_row = 90.75e6
-start_frequency_on_col = 111.25e6
-end_frequency_on_row = 111.25e6
-end_frequency_on_col = 90.75e6
-start_site_on_row = 0
-start_site_on_col = 0
-end_site_on_row = 9
-end_site_on_col = 9 #size of the array, now is 10*10
-a=[[(4, 2, 0, 2)]]
-a,b,c,d = convert_coordinate_to_frequency(start_frequency_on_row, start_frequency_on_col, end_frequency_on_row, end_frequency_on_col, start_site_on_row, start_site_on_col, end_site_on_row, end_site_on_col, a)
-print(d)
+# start_frequency_on_row = 90.75e6
+# start_frequency_on_col = 111.25e6
+# end_frequency_on_row = 111.25e6
+# end_frequency_on_col = 90.75e6
+# start_site_on_row = 0
+# start_site_on_col = 0
+# end_site_on_row = 9
+# end_site_on_col = 9 #size of the array, now is 10*10
+# a=[[(4, 2, 9, 2)]]
+# a,b,c,d = convert_coordinate_to_frequency(start_frequency_on_row, start_frequency_on_col, end_frequency_on_row, end_frequency_on_col, start_site_on_row, start_site_on_col, end_site_on_row, end_site_on_col, a)
+# print(d)
