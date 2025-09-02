@@ -35,7 +35,7 @@ import colorsys
 import tifffile
 from .utils import MyPath, UserInterrupt, camgui_params_root, _mk_save_tree_from_root_to_day, find_latest_sesframes_folder, find_newest_daypath_in_save_tree
 import dearpygui.dearpygui as dpg
-import platform
+# import platform
 import uuid
 # system = platform.system()
 # if (system == "Windows") and (hex(uuid.getnode()) != '0xf4ce2305b4c7'): # code is A402 computer
@@ -871,11 +871,13 @@ def return_time_consumption(func: callable):
 
 feed_AWG = return_time_consumption(feed_AWG)
 
+def make_rearr_predicates_cycle():
+    return cycle([int(e) for e in dpg.get_value('rearr_predicates_seq')])
 def st_workerf_flagged_do_all(
     cam: DCAM.DCAM.DCAMCamera,
     flag: threading.Event,
     frame_deck: FrameDeck,
-    controller: DDSRampController, # type is DDSRampController, not hinted because it acts funny on macOS
+    controller: DDSRampController,
     )-> None:
     """
     single-thread approach worker function which is flagged and does everythig:
@@ -888,6 +890,7 @@ def st_workerf_flagged_do_all(
     cam.start_acquisition(mode="sequence", nframes=100)
     awg_is_on = dpg.get_item_user_data("AWG toggle")["is on"] 
     awg_params = collect_awg_params()
+    reaar_predicates_gen = make_rearr_predicates_cycle()
     while flag.is_set():
         try:
             cam.wait_for_frame(timeout=0.2)
@@ -895,10 +898,11 @@ def st_workerf_flagged_do_all(
             continue
         this_frame :npt.NDArray[np.uint16] = cam.read_oldest_image()
         if awg_is_on:
-            # beg = time.time()
-            time_consumption = feed_AWG(this_frame, controller, awg_params) # feed original uint16 format to AWG
-            # end = time.time()
-            push_log(f"重排前序计算耗时 {time_consumption:.3f} ms")
+            if next(reaar_predicates_gen):
+                time_consumption = feed_AWG(this_frame, controller, awg_params) # feed original uint16 format to AWG
+                push_log(f"重排前序计算耗时 {time_consumption:.3f} ms")
+            else:
+                push_log('跳过重排')
         frame_deck._append_save_plot(this_frame)
     cam.stop_acquisition()
     cam.set_trigger_mode("int")
@@ -986,6 +990,7 @@ def mt_producerf_polling_do_snag_rearrange_deposit(
     cam.start_acquisition(mode="sequence", nframes=100)
     awg_is_on = dpg.get_item_user_data("AWG toggle")["is on"] 
     awg_params = collect_awg_params()
+    rearr_predicates_gen = make_rearr_predicates_cycle()
     while flag.is_set():
         try:
             cam.wait_for_frame(timeout=0.2)
@@ -993,8 +998,11 @@ def mt_producerf_polling_do_snag_rearrange_deposit(
             continue
         this_frame: npt.NDArray[np.uint16] = cam.read_oldest_image()
         if awg_is_on:
-            time_consumption = feed_AWG(this_frame, controller, awg_params)
-            push_log(f"重排前序计算耗时 {time_consumption:.3f} ms")
+            if next(rearr_predicates_gen):
+                time_consumption = feed_AWG(this_frame, controller, awg_params)
+                push_log(f"重排前序计算耗时 {time_consumption:.3f} ms")
+            else:
+                push_log('跳过重排')
         local_buffer.put(this_frame)
     cam.stop_acquisition()
     cam.set_trigger_mode("int")
@@ -1254,6 +1262,7 @@ def save_camgui_json_to_savetree():
             'percentage_total_power_for_list' : None,
             'ramp_type' : None,
             'target array binary text input' : None,
+            'rearr_predicate_seq' : None,
             })
     for key in panel_params.并发方式:
         panel_params.并发方式[key] = dpg.get_value(key)
