@@ -498,12 +498,21 @@ repo: https://github.com/ltmsyvag/camera
                     dpg.add_spacer(height=_spcheight)
                     dpg.add_text("percentage_total_power_for_list")
                     with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("送入aod每个轴的最大功率，是一个百分数，代表最终上升到awg设定最大电平的多少") #type:ignore
-                    dpg.add_input_float(tag = "percentage_total_power_for_list", step=0, width=_width/2, default_value=0.5) #type:ignore
+                    dpg.add_input_float(tag = "percentage_total_power_for_list", step=0, width=_width/2, default_value=0.5)
                     dpg.add_input_text(label = "ramp_type", tag = "ramp_type", width=_width, default_value="5th-order")
-                    with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("决定了扫频的曲线形式") #type:ignore
+                    with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text("决定了扫频的曲线形式")
                     dpg.add_spacer(height=_spcheight)
                     dpg.add_button(label="设置目标阵列", callback = factory_show_and_focus_win(winTgtArr))
-
+                    dpg.add_input_text(label = '重排执行序列', tag='rearr_predicates_seq',width = _width, default_value = '1')
+                    with dpg.tooltip(dpg.last_item(), **ttpkwargs): dpg.add_text('只能输入 1 和 0 的序列， 1/0 表示是/否执行重排，序列遍历结束后从头开始循环') 
+                    with dpg.item_handler_registry() as _ihrUpdateRearrSeqOnLeave:
+                        def _update_rearr_seq_on_leave(*cbargs):
+                            s = dpg.get_value('rearr_predicates_seq')
+                            if not set(s)<={'0','1'}:
+                                push_log('重排执行序列只能包含 0 和 1（已强制改为 "1"）', is_error=True)
+                                dpg.set_value('rearr_predicates_seq', '1')
+                        dpg.add_item_deactivated_after_edit_handler(callback=_update_rearr_seq_on_leave)
+                    dpg.bind_item_handler_registry('rearr_predicates_seq', _ihrUpdateRearrSeqOnLeave)
     with dpg.window(label = "设置目标阵列", tag = winTgtArr,
                     pos = (200,200), width = 430, height=430):
         dpg.set_frame_callback(1,lambda: dpg.configure_item(winTgtArr, show=False)) # hide win on 1st frame, not during context creation, otherwise this hidden-by-default window's size won't be remembered by init file
