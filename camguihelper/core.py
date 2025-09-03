@@ -411,7 +411,7 @@ class FrameDeck(list):
         在单线程无并发时, 本函数是重排(如果 awg 开启)后的全套任务
         在双线程/双进程并发中, 本函数是 consumer 取得 frame 后的全套任务
         """
-        beg = time.time()
+        # beg = time.time()
         self.append(this_frame)
         if dpg.get_value("autosave"):
             try:
@@ -424,8 +424,8 @@ class FrameDeck(list):
         with self.lock:
             self.plot_frame_dwim()
             self.update_hist_sheet()
-        end = time.time()
-        push_log(f"绘图和存储耗时{(end-beg)*1e3:.3f} ms")
+        # end = time.time()
+        # push_log(f"绘图和存储耗时{(end-beg)*1e3:.3f} ms")
     @staticmethod
     def get_dr_color_in_group(grp_id):
         rgb_lst_tab10 = ((0.12156862745098039, 0.4666666666666667, 0.7058823529411765), # 本来用 plt.get_cmap('tab10').colors, 改为直接用颜色数值,少 import一个包
