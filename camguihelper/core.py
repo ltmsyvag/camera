@@ -1262,7 +1262,7 @@ def save_camgui_json_to_savetree():
             'percentage_total_power_for_list' : None,
             'ramp_type' : None,
             'target array binary text input' : None,
-            'rearr_predicate_seq' : None,
+            'rearr_predicates_seq' : None,
             })
     for key in panel_params.并发方式:
         panel_params.并发方式[key] = dpg.get_value(key)
