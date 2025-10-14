@@ -78,7 +78,7 @@ def _mk_save_tree_from_root_to_day(root_dir : MyPath) -> MyPath:
         dpath_day = root_dir / year_str / month_str / day_str
         return dpath_day
     else: 
-        UserInterrupt
+        raise UserInterrupt
 
 def find_newest_daypath_in_save_tree(root_dir : MyPath)-> MyPath:
     """
