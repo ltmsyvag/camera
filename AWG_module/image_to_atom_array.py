@@ -42,7 +42,7 @@ def image_process(image, nx, ny, x0, y0, x1, y1, x2, y2, x3, y3, rec_x, rec_y, c
             mask[y-1:y_end-1, x-1:x_end-1] = 1
 
             # 原子存在判断
-            cell = (image[y:y_end, x:x_end] -215)/0.9*0.1# 220为背景噪声,光子数转换效率是/0.9*0.1
+            cell = (image[y:y_end, x:x_end] - 800)/0.9*0.1# 220为背景噪声,光子数转换效率是/0.9*0.1
             if np.sum(cell) > count_threshold: #
                 
                 atom_array[j, i] = 1  # 注意坐标对应关系           

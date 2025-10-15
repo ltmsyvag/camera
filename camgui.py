@@ -508,7 +508,7 @@ repo: https://github.com/ltmsyvag/camera
                     with dpg.item_handler_registry() as _ihrUpdateRearrSeqOnLeave:
                         def _update_rearr_seq_on_leave(*cbargs):
                             s = dpg.get_value('rearr_predicates_seq')
-                            if not set(s)<={'0','1'}:
+                            if (not set(s)<={'0','1'}) or s=='': # 序列只能包含 0 和 1， 且序列不能为空
                                 push_log('重排执行序列只能包含 0 和 1（已强制改为 "1"）', is_error=True)
                                 dpg.set_value('rearr_predicates_seq', '1')
                         dpg.add_item_deactivated_after_edit_handler(callback=_update_rearr_seq_on_leave)

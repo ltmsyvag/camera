@@ -31,7 +31,7 @@ class DDSRampController:
         self.card.card_mode(spcm.SPC_REP_STD_DDS)
         self.channels = spcm.Channels(self.card)
         self.channels.enable(True)
-        self.channels.amp(0.2 * units.V)
+        self.channels.amp(0.25 * units.V)
         self.card.write_setup()
 
 
@@ -100,6 +100,8 @@ class DDSRampController:
 
     def ramp_slope_generate(self, num_segments, start_frequency_list, end_frequency_list, move_time, ramp_type):
         slopes = np.zeros((len(start_frequency_list), num_segments))
+        x_axis_AOD_power_correction_coefficient_list = np.zeros((len(start_frequency_list), num_segments+1))
+        x_axis_power_slopes = np.zeros((len(start_frequency_list), num_segments))
         t = np.linspace(0, 1, num_segments + 1, endpoint=True)
         for i in range(len(start_frequency_list)):
             parameters = {
@@ -112,20 +114,23 @@ class DDSRampController:
             t_s = t * parameters["time_s"]
             sl_core = self.calculate_slope(t_s, y)
             slopes[i, :] = sl_core
-            # plt.plot(t_s, y, 'ok')
-            # t_fine_s = np.linspace(t_s[0], t_s[1], 2, endpoint=True)
-            # for j, sl in enumerate(sl_core):
-            #     plt.plot(t_s[j] + t_fine_s, y[j] + sl * (t_fine_s), '--')
-            # plt.show(block=False)
+            x_axis_AOD_fre_list = (y/10**6-101.4)/10.39
+            x_axis_AOD_power_correction_coefficient = (0.8560/(0.0080*x_axis_AOD_fre_list**6-0.0028*x_axis_AOD_fre_list**5-0.0767*x_axis_AOD_fre_list**4+0.0200*x_axis_AOD_fre_list**3+0.1707*x_axis_AOD_fre_list**2-0.0466*x_axis_AOD_fre_list**1+0.7926))**1.1 #the power correction coefficient for the AOD on x-axis
+            x_axis_AOD_power_correction_coefficient_list[i,:]=x_axis_AOD_power_correction_coefficient
+            x_axis_power_sl = self.calculate_slope(t_s, x_axis_AOD_power_correction_coefficient)
+            x_axis_power_slopes[i, :] = x_axis_power_sl
         self.slopes = slopes
+        self.x_axis_power_slopes = x_axis_power_slopes
+        self.x_axis_AOD_power_correction_coefficient_list = x_axis_AOD_power_correction_coefficient_list
+        
 
     def execute_ramp(self, num_segments, single_frequency ,start_frequency_list, end_frequency_list, power_ramp_time ,move_time, percentage_total_power_for_list):
         number_of_frequencies = len(start_frequency_list)
         random_phase_list = [random.randint(0,360)for i in range(number_of_frequencies)] #generate the random phase list for different dds core
         period_s = move_time/num_segments
         power_ramp_period_s = power_ramp_time
-        self.dds.freq_ramp_stepsize(1000)  #important note: don't set this in dds_config, otherwise the frequency slope will be so faster than expected
-        self.dds.amp_ramp_stepsize(1000)
+        self.dds.freq_ramp_stepsize(4096)  #important note: don't set this in dds_config, otherwise the frequency slope will be so faster than expected
+        self.dds.amp_ramp_stepsize(4096)
         self.dds.trg_timer(1e-6)
         self.dds.write_to_card()
         # self.dds.exec_now()
@@ -138,10 +143,10 @@ class DDSRampController:
 
         """step 1 generate waveform data and ramp the power"""
         for i in range(number_of_frequencies):
-            self.dds[i].amplitude_slope(percentage_total_power_for_list/number_of_frequencies/power_ramp_period_s) #start power ramp
+            self.dds[i].amplitude_slope(self.x_axis_AOD_power_correction_coefficient_list[i,0]*percentage_total_power_for_list/5/power_ramp_period_s) #start power ramp, note the power is corrected by the AOD power correction coefficient
             self.dds[i].freq(start_frequency_list[i])
             self.dds[i].phase(random_phase_list[i])
-        self.dds[20].amp(percentage_total_power_for_list)
+        self.dds[20].amp(0.4)
         self.dds[20].freq(single_frequency)
         self.dds.trg_timer(power_ramp_period_s)
         self.dds.exec_at_trg()
@@ -149,7 +154,7 @@ class DDSRampController:
         #stop power ramp
         for i in range(number_of_frequencies):
             self.dds[i].amplitude_slope(0)
-            self.dds[i].amp(percentage_total_power_for_list/number_of_frequencies)
+            self.dds[i].amp(self.x_axis_AOD_power_correction_coefficient_list[i,0]*percentage_total_power_for_list/5)
         self.dds.trg_timer(10e-6) #wait for 100us to stablize the aod tweezer
         self.dds.exec_at_trg()
         self.dds.write_to_card()
@@ -159,19 +164,22 @@ class DDSRampController:
         for j in range(num_segments):
             for i in range(number_of_frequencies):
                 self.dds[i].frequency_slope(self.slopes[i][j]) # Hz/s
+                self.dds[i].amp(self.x_axis_AOD_power_correction_coefficient_list[i][j+1]*percentage_total_power_for_list/5)  # V/s
             self.dds.exec_at_trg()
 
         """step 3 stop frequency ramp"""
         for i in range(number_of_frequencies):
             self.dds[i].frequency_slope(0)
+            #self.dds[i].amplitude_slope(0)  # stop frequency ramp
             self.dds[i].freq(end_frequency_list[i])
+            self.dds[i].amp(self.x_axis_AOD_power_correction_coefficient_list[i,num_segments]*percentage_total_power_for_list/5)
         self.dds.trg_timer(1e-6)
         self.dds.exec_at_trg()
         self.dds.write_to_card()
 
         """step 4 stop output"""
         for i in range(number_of_frequencies):
-            self.dds[i].amplitude_slope(-percentage_total_power_for_list / number_of_frequencies / power_ramp_period_s)  # start power ramp down
+            self.dds[i].amplitude_slope(self.x_axis_AOD_power_correction_coefficient_list[i,num_segments]*(-percentage_total_power_for_list) / 5 / power_ramp_period_s)  # start power ramp down
         self.dds.trg_timer(power_ramp_period_s)
         self.dds.exec_at_trg()
         for i in range(number_of_frequencies):
