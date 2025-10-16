@@ -55,7 +55,7 @@ if __name__ == '__main__':
 
     dpg.create_viewport(title='camera', 
                         width=1460, height=1020, x_pos=0, y_pos=0, clear_color=(0,0,0,0),
-                        vsync=False) # important option to dismiss input lab, see https://github.com/hoffstadt/DearPyGui/issues/1571
+                        vsync=True) # important option to dismiss input lag, see https://github.com/hoffstadt/DearPyGui/issues/1571
 
     with dpg.viewport_menu_bar():
         with dpg.menu(label='Windows'):
