@@ -69,7 +69,7 @@ if __name__ == '__main__':
             dpg.add_menu_item(label='显示预览帧窗口', callback=factory_show_and_focus_win(winFramePreview))
             #=============================
             dpg.add_menu_item(label='显示直方图阵列窗口', callback=factory_show_and_focus_win(winHistArr))
-        with dpg.menu(label='并发方式') as menuConcurrency:
+        with dpg.menu(label='并发方式', enabled=False) as menuConcurrency:
             def _set_exclusive_True(sender, *args):
                 if type(sender) is str:
                     sender = dpg.get_alias_id(sender)
