@@ -108,9 +108,9 @@ camgui {camgui_ver} for A105
 repo: https://github.com/ltmsyvag/camera
                                         """, 
                                         win_label='info', just_close=True))
-    dummy_acq = False # 假采集代码的总开关
-    if dummy_acq:
-        _mp_dummy_remote_buffer = multiprocessing.Queue() # mp dummy remote buffer 必须在主脚本中创建, 才能确保 mp dummy buffer feeder 和 mp producer 所用的 Queue 对象是同一个
+    # dummy_acq = False # 假采集代码的总开关
+    # if dummy_acq:
+    #     _mp_dummy_remote_buffer = multiprocessing.Queue() # mp dummy remote buffer 必须在主脚本中创建, 才能确保 mp dummy buffer feeder 和 mp producer 所用的 Queue 对象是同一个
     with dpg.window(label= '控制面板', tag = winCtrlPanels):
         with dpg.menu_bar():
             mItemLoadJson = dpg.add_menu_item(label = '载入 json', callback= lambda: dpg.show_item(jsonDialog))
@@ -146,14 +146,14 @@ repo: https://github.com/ltmsyvag/camera
                     else:
                         cam.close()
                         # cam = None # commented, because I actually want to retain a closed cam object after toggling off the cam, for cam checks that might be useful
-                @toggle_state_and_enable("expo and roi fields", "acquisition toggle")
-                def _dummy_cam_toggle_cb_(_, __, user_data):
-                    state = user_data["is on"]
-                    next_state = not state # state after toggle
-                    if next_state:
-                        time.sleep(0.5)
-                    else:
-                        time.sleep(0.5)
+                # @toggle_state_and_enable("expo and roi fields", "acquisition toggle")
+                # def _dummy_cam_toggle_cb_(_, __, user_data):
+                #     state = user_data["is on"]
+                #     next_state = not state # state after toggle
+                #     if next_state:
+                #         time.sleep(0.5)
+                #     else:
+                #         time.sleep(0.5)
 
                 dpg.set_item_callback(togCam,_cam_toggle_cb_)
                 #===============================================================
@@ -257,93 +257,93 @@ repo: https://github.com/ltmsyvag/camera
                             do_cam_open_sequence()
                             if dpg.get_item_user_data("AWG toggle")["is on"]:
                                 raw_card, controller = gui_open_awg()
-                @toggle_state_and_enable(
-                        "expo and roi fields", togCam, mItemLoadJson,
-                        "awg panel",
-                        "target array binary text input", menuConcurrency,
-                        on_and_enable= False)
-                def _dummy_toggle_acq_cb(sender, _ , user_data):
-                    from camguihelper.core import (
-                        _dummy_st_workerf_flagged_do_all,
-                        _dummy_mt_producerf_polling_do_snag_rearrange_deposit,
-                        _dummy_mp_producerf_polling_do_snag_rearrange_send,
-                        )
-                    state = user_data["is on"]
-                    next_state = not state
-                    flag = user_data["acq thread flag"]
-                    if next_state:
-                        str_json_saved = save_camgui_json_to_savetree()
-                        str_json_displayed =  str_json_saved[:-5] + '已保存'
-                        dpg.set_value(labelJson, str_json_displayed)
-                    else:
-                        str_json_displayed = dpg.get_value(labelJson)
-                        json_num = int(str_json_displayed[2:][:-3])
-                        str_json_displayed = 'CA' + str(json_num+1)
-                        dpg.set_value(labelJson, str_json_displayed)
-                    if dpg.get_value(mItemSingleThread):
-                        if next_state:
-                            t = threading.Thread(
-                                target=_dummy_st_workerf_flagged_do_all, args=(flag, frame_deck))
-                            user_data["thread1"] = t
-                            flag.set()
-                            t.start()
-                        else:
-                            t = user_data["thread1"]
-                            flag.clear()
-                            t.join()
-                            user_data["thread1"] = None
-                    elif dpg.get_value(mItemDualThreads):
-                        if next_state:
-                            t_producer = threading.Thread(target=_dummy_mt_producerf_polling_do_snag_rearrange_deposit, args=(flag,))
-                            t_consumer = threading.Thread(target=consumerf_local_buffer, args=(frame_deck,))
-                            user_data["thread1"] = t_producer
-                            user_data["thread2"] = t_consumer
-                            flag.set()
-                            t_producer.start()
-                            t_consumer.start()
-                        else:
-                            t_producer = user_data["thread1"]
-                            t_consumer = user_data["thread2"]
-                            flag.clear()
-                            t_producer.join()
-                            t_consumer.join()
-                            user_data["thread1"] = None
-                            user_data["thread2"] = None
-                    else: # dual processes
-                        if next_state:
-                            conn_sig_main, conn_sig_child = multiprocessing.Pipe()
-                            conn_data_main, conn_data_child = multiprocessing.Pipe()
-                            conn_debug_main, conn_debug_child = multiprocessing.Pipe()
-                            p_producer = multiprocessing.Process(
-                                target=_dummy_mp_producerf_polling_do_snag_rearrange_send,
-                                args=(conn_sig_child, 
-                                      conn_data_child,
-                                      conn_debug_child,
-                                      _mp_dummy_remote_buffer)
-                                )
-                            t_passer = threading.Thread(
-                                target=mp_passerf,
-                                args= (conn_data_main,))
-                            t_consumer = threading.Thread(
-                                target=consumerf_local_buffer,
-                                args=(frame_deck,))
-                            user_data["signal connection"] = conn_sig_main # 投毒通道
-                            user_data["process1"] = p_producer
-                            user_data["thread1"] = t_passer
-                            user_data["thread2"] = t_consumer
-                            p_producer.start()
-                            t_passer.start()
-                            t_consumer.start()
-                        else:
-                            conn_sig_main = user_data["signal connection"] # 投毒通道
-                            p_producer = user_data["process1"]
-                            t_passer = user_data["thread1"]
-                            t_consumer = user_data["thread2"]
-                            conn_sig_main.send(None) # 投毒
-                            conn_sig_main.close()
-                            p_producer.join()
-                            t_passer.join()
-                            t_consumer.join()
+                # @toggle_state_and_enable(
+                #         "expo and roi fields", togCam, mItemLoadJson,
+                #         "awg panel",
+                #         "target array binary text input", menuConcurrency,
+                #         on_and_enable= False)
+                # def _dummy_toggle_acq_cb(sender, _ , user_data):
+                #     from camguihelper.core import (
+                #         _dummy_st_workerf_flagged_do_all,
+                #         _dummy_mt_producerf_polling_do_snag_rearrange_deposit,
+                #         _dummy_mp_producerf_polling_do_snag_rearrange_send,
+                #         )
+                #     state = user_data["is on"]
+                #     next_state = not state
+                #     flag = user_data["acq thread flag"]
+                #     if next_state:
+                #         str_json_saved = save_camgui_json_to_savetree()
+                #         str_json_displayed =  str_json_saved[:-5] + '已保存'
+                #         dpg.set_value(labelJson, str_json_displayed)
+                #     else:
+                #         str_json_displayed = dpg.get_value(labelJson)
+                #         json_num = int(str_json_displayed[2:][:-3])
+                #         str_json_displayed = 'CA' + str(json_num+1)
+                #         dpg.set_value(labelJson, str_json_displayed)
+                #     if dpg.get_value(mItemSingleThread):
+                #         if next_state:
+                #             t = threading.Thread(
+                #                 target=_dummy_st_workerf_flagged_do_all, args=(flag, frame_deck))
+                #             user_data["thread1"] = t
+                #             flag.set()
+                #             t.start()
+                #         else:
+                #             t = user_data["thread1"]
+                #             flag.clear()
+                #             t.join()
+                #             user_data["thread1"] = None
+                #     elif dpg.get_value(mItemDualThreads):
+                #         if next_state:
+                #             t_producer = threading.Thread(target=_dummy_mt_producerf_polling_do_snag_rearrange_deposit, args=(flag,))
+                #             t_consumer = threading.Thread(target=consumerf_local_buffer, args=(frame_deck,))
+                #             user_data["thread1"] = t_producer
+                #             user_data["thread2"] = t_consumer
+                #             flag.set()
+                #             t_producer.start()
+                #             t_consumer.start()
+                #         else:
+                #             t_producer = user_data["thread1"]
+                #             t_consumer = user_data["thread2"]
+                #             flag.clear()
+                #             t_producer.join()
+                #             t_consumer.join()
+                #             user_data["thread1"] = None
+                #             user_data["thread2"] = None
+                #     else: # dual processes
+                #         if next_state:
+                #             conn_sig_main, conn_sig_child = multiprocessing.Pipe()
+                #             conn_data_main, conn_data_child = multiprocessing.Pipe()
+                #             conn_debug_main, conn_debug_child = multiprocessing.Pipe()
+                #             p_producer = multiprocessing.Process(
+                #                 target=_dummy_mp_producerf_polling_do_snag_rearrange_send,
+                #                 args=(conn_sig_child, 
+                #                       conn_data_child,
+                #                       conn_debug_child,
+                #                       _mp_dummy_remote_buffer)
+                #                 )
+                #             t_passer = threading.Thread(
+                #                 target=mp_passerf,
+                #                 args= (conn_data_main,))
+                #             t_consumer = threading.Thread(
+                #                 target=consumerf_local_buffer,
+                #                 args=(frame_deck,))
+                #             user_data["signal connection"] = conn_sig_main # 投毒通道
+                #             user_data["process1"] = p_producer
+                #             user_data["thread1"] = t_passer
+                #             user_data["thread2"] = t_consumer
+                #             p_producer.start()
+                #             t_passer.start()
+                #             t_consumer.start()
+                #         else:
+                #             conn_sig_main = user_data["signal connection"] # 投毒通道
+                #             p_producer = user_data["process1"]
+                #             t_passer = user_data["thread1"]
+                #             t_consumer = user_data["thread2"]
+                #             conn_sig_main.send(None) # 投毒
+                #             conn_sig_main.close()
+                #             p_producer.join()
+                #             t_passer.join()
+                #             t_consumer.join()
 
                 dpg.bind_item_font(togAcq, large_font)
                 dpg.set_item_callback(togAcq, _toggle_acq_cb_)
@@ -1243,16 +1243,16 @@ repo: https://github.com/ltmsyvag/camera
 
                     dpg.set_item_callback(yesBtn1, make_1d_dr_arr_and_query_for_2d)
         dpg.set_item_callback(_kph, make_dr_arr)
-    if dummy_acq: #True is dummy acquisition
-        dpg.set_item_callback(togCam,_dummy_cam_toggle_cb_)
-        dpg.set_item_callback(togAcq, _dummy_toggle_acq_cb)
-        cam = None # probably needed for dummy acquisition, the same reason as needing controller = None
-        dpg.add_checkbox(tag = "假触发", label = "假触发", parent=grpPaging, callback=_log)
-        from camguihelper.core import _workerf_dummy_remote_buffer_feeder, _mp_workerf_dummy_remote_buffer_feeder
-        t_mt_remote_buffer_feeder = threading.Thread(target = _workerf_dummy_remote_buffer_feeder)
-        t_mt_remote_buffer_feeder.start()
-        t_mp_remote_buffer_feeder = threading.Thread(target = _mp_workerf_dummy_remote_buffer_feeder, args=(_mp_dummy_remote_buffer,))
-        t_mp_remote_buffer_feeder.start()
+    # if dummy_acq: #True is dummy acquisition
+    #     dpg.set_item_callback(togCam,_dummy_cam_toggle_cb_)
+    #     dpg.set_item_callback(togAcq, _dummy_toggle_acq_cb)
+    #     cam = None # probably needed for dummy acquisition, the same reason as needing controller = None
+    #     dpg.add_checkbox(tag = "假触发", label = "假触发", parent=grpPaging, callback=_log)
+    #     from camguihelper.core import _workerf_dummy_remote_buffer_feeder, _mp_workerf_dummy_remote_buffer_feeder
+    #     t_mt_remote_buffer_feeder = threading.Thread(target = _workerf_dummy_remote_buffer_feeder)
+    #     t_mt_remote_buffer_feeder.start()
+    #     t_mp_remote_buffer_feeder = threading.Thread(target = _mp_workerf_dummy_remote_buffer_feeder, args=(_mp_dummy_remote_buffer,))
+    #     t_mp_remote_buffer_feeder.start()
     # dpg.show_style_editor()
     # dpg.show_debug()
     # dpg.show_item_registry()
